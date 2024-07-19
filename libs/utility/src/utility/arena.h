@@ -23,6 +23,7 @@
 #ifndef __UTILITY_ARENA_H__
 #define __UTILITY_ARENA_H__
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -63,7 +64,7 @@ enum
     ARENA_ERROR_ALLOC_FAILED
 };
 
-typedef struct
+typedef struct Arena
 {
     uint8_t* begin;
     uint8_t* end;
@@ -95,7 +96,7 @@ typedef struct
  @param type The type that the space will hold.
  @param flags See flags above.
  */
-#define ARENA_MAKE_STRUCT(arena, type, size, flags)                                                \
+#define ARENA_MAKE_STRUCT(arena, type, flags)                                                      \
     (type*)arena_alloc(arena, sizeof(type), _Alignof(type), 1, flags)
 
 /**
@@ -112,7 +113,7 @@ typedef struct
  @param [in,out] new_arena The arena object to initialise.
  @returns an error code. If not ARENA_SUCCESS, initialisation was unsuccessful.
  */
-int arena_new(ptrdiff_t capacity, arena_t* new_arena);
+int arena_new(uint64_t capacity, arena_t* new_arena);
 
 /**
  Allocate a new space within the arena. If the required allocation exceeds the reserved arena memory
@@ -151,37 +152,42 @@ void arena_release(arena_t* arena);
 /* ====================== Dynamic array allocator ========================== */
 
 #define MAKE_DYN_ARRAY(type, arena, size, new_dyn_array)                                           \
-    dyn_array_init(arena, sizeof(type), _Alignof(type), size, new_dyn_array)
-#define DYN_ARRAY_APPEND(type, arena, dyn_array, item)                                             \
-    dyn_array_append(arena, dyn_array, sizeof(type), _Alignof(type), (type*)item)
-#define DYN_ARRAY_GET(type, dyn_array, idx) *(type*)dyn_array_get(dyn_array, idx, sizeof(type))
+    dyn_array_init(arena, size, sizeof(type), _Alignof(type), new_dyn_array)
 
-/* Convenience macros for appending items of different types to a dynamic arena array */
-#define DYN_ARRAY_APPEND_INT(arena, dyn_array, item)                                               \
-    dyn_array_append(arena, dyn_array, sizeof(int), _Alignof(int), (int*)item)
-#define DYN_ARRAY_APPEND_UINT(arena, dyn_array, item)                                              \
-    dyn_array_append(arena, dyn_array, sizeof(uint32_t), _Alignof(uint32_t), (uint32_t*)item)
-#define DYN_ARRAY_APPEND_FLOAT(arena, dyn_array, item)                                             \
-    dyn_array_append(arena, dyn_array, sizeof(float), _Alignof(float), (float*)item)
+#define DYN_ARRAY_APPEND(dyn_array, item)                                                          \
+    ({                                                                                             \
+        __auto_type _item = (item);                                                                \
+        assert((dyn_array)->type_size == sizeof(*_item));                                          \
+        dyn_array_append(dyn_array, item);                                                         \
+    })
 
-#define DYN_ARRAY_APPEND_CHAR(arena, dyn_array, item)                                              \
-    {                                                                                              \
+#define DYN_ARRAY_GET(type, dyn_array, idx) *(type*)dyn_array_get(dyn_array, idx)
+
+#define DYN_ARRAY_GET_PTR(type, dyn_array, idx) (type*)dyn_array_get(dyn_array, idx)
+
+#define DYN_ARRAY_APPEND_CHAR(dyn_array, item)                                                     \
+    ({                                                                                             \
         const char* str = (const char*)item;                                                       \
-        dyn_array_append(arena, dyn_array, sizeof(char*), _Alignof(char*), &(str));                \
-    }
+        (const char*)dyn_array_append(dyn_array, &(str));                                          \
+    })
+
+#define DYN_ARRAY_REMOVE(dyn_array, idx) dyn_array_remove(dyn_array, idx)
+
+#define DYN_ARRAY_SWAP(dyn_array_dst, dyn_array_src) dyn_array_swap(dyn_array_dst, dyn_array_src);
 
 typedef struct DynArray
 {
     uint32_t size;
-    uint32_t capacity;
+    uint64_t capacity;
+    uint32_t type_size;
+    size_t align_size;
+    arena_t* arena;
     void* data;
 } arena_dyn_array_t;
 
 /**
  Create a dynamic array using a arena allocator.
  @param arena The arena which  the dynamic array will obtain the memory space from.
- @param type_size The size of the type the dynamic array will hold.
- @param align The alignment size of the type.
  @param capcity The number of elements to initially allocate space for. If the capacity is exceeded,
  a new arena allocation occurs.
  @param new_dyn_array A pointer to the dynamic array object to initialise.
@@ -189,40 +195,48 @@ typedef struct DynArray
  */
 int dyn_array_init(
     arena_t* arena,
-    ptrdiff_t type_size,
-    ptrdiff_t align,
     uint32_t capcity,
+    uint32_t type_size,
+    size_t align,
     arena_dyn_array_t* new_dyn_array);
 
 /**
  Checks whether a dynamic array needs a re-allocation.
  @param dyn_array A pointer to a dynamic array object.
- @param type_size The size of the type the dynamic array holds.
- @param align The alignment size of the type.
- @param arena A pointer to an arena object.
  */
-void dyn_array_grow(
-    arena_dyn_array_t* dyn_array, ptrdiff_t type_size, ptrdiff_t align, arena_t* arena);
+void dyn_array_grow(arena_dyn_array_t* dyn_array);
 
 /**
  Append an item to the dynamic array.
- @param arena A pointer to an arena allocator object.
  @param dyn_array A pointer to the dynamic array which the item will be pushed to.
- @param type_size The size of the item type in bytes.
- @param align The alignment of the item type.
  @param item A void pointer to the item to push onto the array.
+ @returns a pointer to where the item was placed in memory.
  */
-void dyn_array_append(
-    arena_t* arena, arena_dyn_array_t* dyn_array, ptrdiff_t type_size, ptrdiff_t align, void* item);
+void* dyn_array_append(arena_dyn_array_t* dyn_array, void* item);
 
 /**
  Get an item from a dynamic array.
  @param dyn_array A pointer to the dynamic array which the item will be retrieved from.
  @param idx The index of the item to retrieve.
- @param type_size The size of the item in bytes.
  @returns a void pointer to the retrieved item.
  */
-void* dyn_array_get(arena_dyn_array_t* dyn_array, uint32_t idx, ptrdiff_t type_size);
+void* dyn_array_get(arena_dyn_array_t* dyn_array, uint32_t idx);
+
+/**
+ Remove an item from the array.
+ @param dyn_array A pointer to the dynamic array.
+ @param idx The index of the item to remove.
+ */
+void dyn_array_remove(arena_dyn_array_t* dyn_array, uint32_t idx);
+
+/**
+
+ @param dyn_array_dst
+ @param dyn_array_src
+ */
+void dyn_array_swap(arena_dyn_array_t* dyn_array_dst, arena_dyn_array_t* dyn_array_src);
+
+void dyn_array_clear(arena_dyn_array_t* dyn_array);
 
 /* ====================== Pool allocator ========================== */
 

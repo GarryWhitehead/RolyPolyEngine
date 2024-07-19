@@ -20,28 +20,32 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <app/app.h>
+#include "utility.h"
 
-int main()
+#include <utility/array_utility.h>
+
+bool vkapi_util_is_depth(VkFormat format)
 {
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+    VkFormat depth_formats[] = {
+        VK_FORMAT_D16_UNORM,
+        VK_FORMAT_X8_D24_UNORM_PACK32,
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT};
+    uint32_t idx =
+        ARRAY_UTIL_FIND(VkFormat, format, ARRAY_UTIL_COUNT_OF(depth_formats), depth_formats);
+    return idx != UINT32_MAX;
+}
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
-    {
-        exit(1);
-    }
-
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
-
-    rpe_app_run(&app);
-
-    exit(0);
+bool vkapi_util_is_stencil(VkFormat format)
+{
+    VkFormat stencil_formats[] = {
+        VK_FORMAT_S8_UINT,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT};
+    uint32_t idx =
+        ARRAY_UTIL_FIND(VkFormat, format, ARRAY_UTIL_COUNT_OF(stencil_formats), stencil_formats);
+    return idx != UINT32_MAX;
 }

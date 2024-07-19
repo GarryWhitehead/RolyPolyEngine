@@ -24,7 +24,8 @@
 
 #include "vulkan-api/driver.h"
 
-typedef struct Engine* rpe_engine_t;
+typedef struct Engine rpe_engine_t;
+typedef struct SwapchainHandle swapchain_handle_t;
 
 /**
  Create a new engine instance.
@@ -32,12 +33,24 @@ typedef struct Engine* rpe_engine_t;
  function.
  @return An initialised engine opaque pointer.
  */
-rpe_engine_t rpe_engine_create(vkapi_driver_t* driver);
+rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver);
 
 /**
  Close down all resources used by the specified engine.
  @param engine A engine instance.
  */
-void rpe_engine_shutdown(rpe_engine_t engine);
+void rpe_engine_shutdown(rpe_engine_t* engine);
+
+/**
+ Create a new swapchain - required for rendering to a window.
+ @param engine A pointer to the engine.
+ @param surface A Vulkan surface opaque pointer, this is unique to the window which this swapchain
+ will be associated with.
+ @param width The width of the window in pixels.
+ @param height The height of the window in pixels.
+ @return A handle to the swapchain.
+ */
+swapchain_handle_t* rpe_engine_create_swapchain(
+    rpe_engine_t* engine, VkSurfaceKHR surface, uint32_t width, uint32_t height);
 
 #endif

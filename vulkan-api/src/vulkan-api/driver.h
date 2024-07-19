@@ -23,8 +23,10 @@
 #ifndef __VKAPI_DRIVER_H__
 #define __VKAPI_DRIVER_H__
 
+#include "commands.h"
 #include "common.h"
 #include "context.h"
+#include "staging_pool.h"
 
 #define VKAPI_SCRATCH_ARENA_SIZE 80000
 #define VKAPI_PERM_ARENA_SIZE 20000
@@ -43,6 +45,10 @@ typedef struct VkApiDriver
     /// Small scratch arena for limited lifetime allocations. Should be passed as a copy to
     /// functions for scoping only for the lifetime of that function.
     arena_t _scratch_arena;
+
+    vkapi_staging_pool_t staging_pool;
+
+    vkapi_commands_t commands;
 
 } vkapi_driver_t;
 

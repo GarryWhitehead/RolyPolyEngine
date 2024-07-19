@@ -11,7 +11,7 @@ TEST_SETUP(ArenaGroup) {}
 
 TEST_TEAR_DOWN(ArenaGroup) {}
 
-TEST(ArenaGroup, GenericTests)
+TEST(ArenaGroup, ArenaTests_GeneralTests)
 {
     arena_t arena;
     int err = arena_new(1 << 30, &arena);
@@ -43,7 +43,7 @@ TEST(ArenaGroup, GenericTests)
     TEST_ASSERT(arena.end == NULL);
 }
 
-TEST(ArenaGroup, ArenaDynamicArray)
+TEST(ArenaGroup, ArenaTests_DynamicArray)
 {
     arena_t arena;
     int err = arena_new(1 << 30, &arena);
@@ -54,16 +54,37 @@ TEST(ArenaGroup, ArenaDynamicArray)
     TEST_ASSERT_EQUAL(ARENA_SUCCESS, err);
 
     int vals[] = {1, 2, 3, 4, 5};
-    DYN_ARRAY_APPEND(int, &arena, &array, &vals[0]);
+    DYN_ARRAY_APPEND(&array, &vals[0]);
     TEST_ASSERT_EQUAL_INT(DYN_ARRAY_GET(int, &array, 0), vals[0]);
 
-    DYN_ARRAY_APPEND(int, &arena, &array, &vals[1]);
-    DYN_ARRAY_APPEND(int, &arena, &array, &vals[2]);
-    DYN_ARRAY_APPEND(int, &arena, &array, &vals[3]);
-    DYN_ARRAY_APPEND(int, &arena, &array, &vals[4]);
+    DYN_ARRAY_APPEND(&array, &vals[1]);
+    DYN_ARRAY_APPEND(&array, &vals[2]);
+    DYN_ARRAY_APPEND(&array, &vals[3]);
+    DYN_ARRAY_APPEND(&array, &vals[4]);
     TEST_ASSERT_EQUAL_INT(DYN_ARRAY_GET(int, &array, 4), vals[4]);
     TEST_ASSERT_EQUAL_INT(array.size, 5);
     TEST_ASSERT_EQUAL_INT(array.capacity, 6);
 
     arena_release(&arena);
+}
+
+TEST(ArenaGroup, ArenaTests_DynamicArrayWithChar)
+{
+    arena_t arena;
+    int err = arena_new(1 << 30, &arena);
+    TEST_ASSERT_EQUAL(ARENA_SUCCESS, err);
+
+    arena_dyn_array_t array;
+    err = MAKE_DYN_ARRAY(char[100], &arena, 10, &array);
+    TEST_ASSERT_EQUAL(ARENA_SUCCESS, err);
+
+#define str1 "Hello from index 1.";
+    const char* str2 = "Hello again.";
+    DYN_ARRAY_APPEND_CHAR(&array, str1);
+    DYN_ARRAY_APPEND_CHAR(&array, str2);
+
+    const char* res1 = *DYN_ARRAY_GET_PTR(char*, &array, 0);
+    TEST_ASSERT(strcmp(res1, "Hello from index 1.") == 0);
+    const char* res2 = *DYN_ARRAY_GET_PTR(char*, &array, 1);
+    TEST_ASSERT(strcmp(res2, str2) == 0);
 }

@@ -20,28 +20,15 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <app/app.h>
+#ifndef __VKAPI_UTILITY_H__
+#define __VKAPI_UTILITY_H__
 
-int main()
-{
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+#include "common.h"
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
-    {
-        exit(1);
-    }
+#include <stdbool.h>
 
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
+bool vkapi_util_is_depth(VkFormat format);
 
-    rpe_app_run(&app);
+bool vkapi_util_is_stencil(VkFormat format);
 
-    exit(0);
-}
+#endif

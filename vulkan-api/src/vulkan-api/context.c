@@ -178,7 +178,7 @@ int vkapi_context_prep_extensions(
         {
             return VKAPI_ERROR_MISSING_GFLW_EXT;
         }
-        DYN_ARRAY_APPEND_CHAR(arena, ext_array, glfw_exts[i]);
+        DYN_ARRAY_APPEND_CHAR(ext_array, glfw_exts[i]);
     }
 
     if (vkapi_find_ext_props(
@@ -186,8 +186,7 @@ int vkapi_context_prep_extensions(
             dev_ext_props,
             dev_ext_prop_count))
     {
-        DYN_ARRAY_APPEND_CHAR(
-            arena, ext_array, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+        DYN_ARRAY_APPEND_CHAR(ext_array, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
         context->extensions.has_physical_dev_props2 = true;
 
         if (vkapi_find_ext_props(
@@ -199,21 +198,19 @@ int vkapi_context_prep_extensions(
                 dev_ext_props,
                 dev_ext_prop_count))
         {
-            DYN_ARRAY_APPEND_CHAR(
-                arena, ext_array, VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
-            DYN_ARRAY_APPEND_CHAR(
-                arena, ext_array, VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
+            DYN_ARRAY_APPEND_CHAR(ext_array, VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+            DYN_ARRAY_APPEND_CHAR(ext_array, VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
             context->extensions.has_external_capabilities = true;
         }
     }
     if (vkapi_find_ext_props(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
     {
-        DYN_ARRAY_APPEND_CHAR(arena, ext_array, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         context->extensions.has_debug_utils = true;
     }
     if (vkapi_find_ext_props(VK_KHR_MULTIVIEW_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
     {
-        DYN_ARRAY_APPEND_CHAR(arena, ext_array, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         context->extensions.has_multi_view = true;
     }
 
@@ -222,7 +219,7 @@ int vkapi_context_prep_extensions(
     if (!context->extensions.has_debug_utils &&
         vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
     {
-        DYN_ARRAY_APPEND_CHAR(arena, ext_array, VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
     }
 #endif
     return VKAPI_SUCCESS;
@@ -250,8 +247,8 @@ int vkapi_context_create_instance(
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "RolyPolyEngine";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
+    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "RolyPolyEngine";
     appInfo.apiVersion = VK_API_VERSION_1_2;
 
@@ -283,7 +280,7 @@ int vkapi_context_create_instance(
     if (vkapi_find_layer_ext("VK_LAYER_KHRONOS_validation", layer_prop_arr, layer_count))
     {
         arena_dyn_array_t* req_layers_ptr = &context->req_layers;
-        DYN_ARRAY_APPEND_CHAR(arena, req_layers_ptr, "VK_LAYER_KHRONOS_validation");
+        DYN_ARRAY_APPEND_CHAR(req_layers_ptr, "VK_LAYER_KHRONOS_validation");
     }
     else
     {

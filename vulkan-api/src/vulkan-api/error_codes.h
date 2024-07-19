@@ -33,7 +33,8 @@ enum
     VKAPI_ERROR_NO_GRAPHIC_QUEUE,
     VKAPI_ERROR_PRESENT_QUEUE_NOT_SUPPORTED,
     VKAPI_ERROR_SWAPCHAIN_NOT_FOUND,
-    VKAPI_ERROR_INVALID_ARENA
+    VKAPI_ERROR_INVALID_ARENA,
+    VKAPI_ERROR_NO_SWAPCHAIN
 };
 
 static const char* get_error_str(int code)
@@ -52,6 +53,8 @@ static const char* get_error_str(int code)
             return "Physical device does not support a presentation queue.";
         case VKAPI_ERROR_SWAPCHAIN_NOT_FOUND:
             return "Swap chain extension not found.";
+        case VKAPI_ERROR_NO_SWAPCHAIN:
+            return "Unable to locate suitable swap chains on device.";
         default:
             return "Unknown error code.";
     }
