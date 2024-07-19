@@ -20,28 +20,18 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <app/app.h>
+#ifndef __UTILITY_ARRAY_UTILITY_H__
+#define __UTILITY_ARRAY_UTILITY_H__
 
-int main()
-{
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+#include <stdbool.h>
+#include <stdint.h>
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
-    {
-        exit(1);
-    }
+#define ARRAY_UTIL_COUNT_OF(x)                                                                     \
+    ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
 
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
+#define ARRAY_UTIL_FIND(type, val, size, data)                                                     \
+    array_util_find((type*)val, (type*)data, size, sizeof(type));
 
-    rpe_app_run(&app);
+uint32_t array_util_find(void* val, void* data, uint32_t size, uint32_t type_size);
 
-    exit(0);
-}
+#endif

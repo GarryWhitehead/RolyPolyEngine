@@ -30,7 +30,7 @@
 typedef struct Application
 {
     app_window_t window;
-    rpe_engine_t engine;
+    rpe_engine_t* engine;
     vkapi_driver_t driver;
 
     bool should_close;

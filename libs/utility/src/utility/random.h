@@ -20,28 +20,42 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <app/app.h>
+#ifndef __UTILITY_RANDOM_H__
+#define __UTILITY_RANDOM_H__
 
-int main()
+#include <stdint.h>
+
+/**
+ Xoroshiro128+ generator - adapted from: https://prng.di.unimi.it/xoroshiro128plus.c
+ */
+typedef struct XoroRand
 {
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+    uint64_t state[2];
+} xoro_rand_t;
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
-    {
-        exit(1);
-    }
-
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
-
-    rpe_app_run(&app);
-
-    exit(0);
+static xoro_rand_t xoro_rand_init(uint64_t s0, uint64_t s1)
+{
+    xoro_rand_t r;
+    r.state[0] = s0;
+    r.state[1] = s1;
+    return r;
 }
+
+static uint64_t xoro_rand_rotl(uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
+
+static void xoro_rand_incr(xoro_rand_t* r)
+{
+    uint64_t s0 = r->state[0];
+    uint64_t s1 = r->state[1] ^ s0;
+    r->state[0] = xoro_rand_rotl(s0, 55) ^ s1 ^ (s1 << 14);
+    r->state[1] = xoro_rand_rotl(s1, 36);
+}
+
+static uint64_t xoro_rand_next(xoro_rand_t* r)
+{
+    uint64_t res = r->state[0] + r->state[1];
+    xoro_rand_incr(r);
+    return res;
+}
+
+#endif

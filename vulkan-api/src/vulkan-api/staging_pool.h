@@ -20,28 +20,48 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <app/app.h>
+#ifndef __VKAPI_STAGING_POOL_H__
+#define __VKAPI_STAGING_POOL_H__
 
-int main()
+#include "common.h"
+
+#include <utility/arena.h>
+
+// Forward declarations.
+typedef struct VkApiContext vkapi_context_t;
+
+typedef struct StageInstance
 {
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+    VkBuffer buffer;
+    VkDeviceSize size;
+    VmaAllocation mem;
+    VmaAllocationInfo alloc_info;
+    uint64_t frame_last_used;
+} vkapi_staging_instance_t;
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
-    {
-        exit(1);
-    }
+/**
+ A simplistic staging pool for CPU-only stages. Used when copying to and from
+ GPU only memory.
+ */
+typedef struct StagingPool
+{
+    // a list of free stages and their size
+    arena_dyn_array_t stages;
+    arena_dyn_array_t in_use_stages;
 
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
+} vkapi_staging_pool_t;
 
-    rpe_app_run(&app);
+vkapi_staging_pool_t vkapi_staging_init(arena_t* perm_arena);
 
-    exit(0);
-}
+void vkapi_staging_destroy(vkapi_staging_pool_t* staging_pool, VmaAllocator* vma_alloc);
+
+vkapi_staging_instance_t* vkapi_staging_get(
+    vkapi_staging_pool_t* staging_pool, VmaAllocator* vma_alloc, VkDeviceSize req_size);
+
+void vkapi_staging_gc(
+    vkapi_context_t* context,
+    vkapi_staging_pool_t* staging_pool,
+    VmaAllocator* vma_alloc,
+    uint64_t current_frame);
+
+#endif

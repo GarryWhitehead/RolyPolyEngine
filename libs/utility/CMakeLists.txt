@@ -10,7 +10,7 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(UtilityLib PUBLIC log.c::log.c)
+target_link_libraries(UtilityLib PUBLIC log.c::log.c -lm)
 
 set_target_properties(UtilityLib PROPERTIES LINKER_LANGUAGE C)
 
@@ -25,6 +25,17 @@ target_sources(
     src/utility/vector.c
     src/utility/arena.c
     src/utility/arena.h
+    src/utility/maths.h
+    src/utility/array_utility.c
+    src/utility/array_utility.h
+    src/utility/hash_set.c
+    src/utility/hash_set.h
+    src/utility/job_queue.c
+    src/utility/job_queue.h
+    src/utility/random.h
+    src/utility/work_stealing_queue.c
+    src/utility/work_stealing_queue.h
+    src/utility/hash.h
 )
 
 # add common compiler flags
@@ -42,6 +53,9 @@ if (BUILD_TESTS)
         test/test_array.c
         test/test_vector.c
         test/test_arena.c
+        test/test_hash_set.c
+        test/test_job_queue.c
+        test/test_work_stealing_queue.c
         test/test_main.c
     )
 

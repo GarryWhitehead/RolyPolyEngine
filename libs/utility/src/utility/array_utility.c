@@ -20,28 +20,28 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <app/app.h>
+#include "array_utility.h"
 
-int main()
+#include "assert.h"
+#include "string.h"
+
+uint8_t* _pointer_offset(uint8_t* data, uint32_t size, uint32_t type_size)
 {
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+    assert(data);
+    assert(type_size > 0);
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
+    return data + size * type_size;
+}
+
+uint32_t array_util_find(void* val, void* data, uint32_t size, uint32_t type_size)
+{
+    for (uint32_t i = 0; i < size; ++i)
     {
-        exit(1);
+        uint8_t* ptr = _pointer_offset(data, i, type_size);
+        if (memcmp(ptr, val, type_size) == 0)
+        {
+            return i;
+        }
     }
-
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
-
-    rpe_app_run(&app);
-
-    exit(0);
+    return UINT32_MAX;
 }

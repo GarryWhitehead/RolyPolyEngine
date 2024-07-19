@@ -47,11 +47,21 @@ target_sources(
     src/vulkan-api/driver.c
     src/vulkan-api/context.c
     src/vulkan-api/common.c
+    src/vulkan-api/swapchain.c
+    src/vulkan-api/texture.c
+    src/vulkan-api/staging_pool.c
+    src/vulkan-api/commands.c
+    src/vulkan-api/utility.c
 
     src/vulkan-api/driver.h
     src/vulkan-api/context.h
     src/vulkan-api/common.h
     src/vulkan-api/error_codes.h
+    src/vulkan-api/swapchain.h
+    src/vulkan-api/texture.h
+    src/vulkan-api/staging_pool.h
+    src/vulkan-api/commands.h
+    src/vulkan-api/utility.h
 )
 
 #target_sources(

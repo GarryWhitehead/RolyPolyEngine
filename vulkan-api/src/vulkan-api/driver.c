@@ -68,11 +68,14 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     VK_CHECK_RESULT(vkCreateSemaphore(
         driver->context.device, &sp_create_info, VK_NULL_HANDLE, &driver->image_ready_signal))
 
+    driver->commands = vkapi_commands_init(&driver->context);
+
     return VKAPI_SUCCESS;
 }
 
 void vkapi_driver_shutdown(vkapi_driver_t* driver)
 {
+    vkapi_commands_destroy(&driver->context, &driver->commands);
     vkDestroySemaphore(driver->context.device, driver->image_ready_signal, VK_NULL_HANDLE);
     vmaDestroyAllocator(driver->vma_allocator);
 
