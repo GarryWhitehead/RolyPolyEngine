@@ -1,12 +1,22 @@
 #include <unity_fixture.h>
 
-TEST_GROUP_RUNNER(ArrayGroup) {RUN_TEST_CASE(ArrayGroup, GenericTests)}
+// clang-format off
+TEST_GROUP_RUNNER(ArrayGroup)
+{
+    RUN_TEST_CASE(ArrayGroup, GenericTests)
+}
 
-TEST_GROUP_RUNNER(VectorGroup) {RUN_TEST_CASE(VectorGroup, GenericTests)}
+TEST_GROUP_RUNNER(VectorGroup)
+{
+    RUN_TEST_CASE(VectorGroup, GenericTests)
+}
 
-TEST_GROUP_RUNNER(ArenaGroup) {RUN_TEST_CASE(ArenaGroup, ArenaTests_GeneralTests)
-                                   RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArray)
-                                       RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArrayWithChar)}
+TEST_GROUP_RUNNER(ArenaGroup)
+{
+    RUN_TEST_CASE(ArenaGroup, ArenaTests_GeneralTests)
+    RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArray)
+    RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArrayWithChar)
+}
 
 TEST_GROUP_RUNNER(HashSetGroup)
 {
@@ -14,12 +24,29 @@ TEST_GROUP_RUNNER(HashSetGroup)
     RUN_TEST_CASE(HashSetGroup, HashSet_ResizeTests)
 }
 
-TEST_GROUP_RUNNER(JobQueueGroup) {RUN_TEST_CASE(JobQueueGroup, JobQueue_GeneralTests)
-                                      RUN_TEST_CASE(JobQueueGroup, JobQueue_JobWithChildrenTests)}
+TEST_GROUP_RUNNER(JobQueueGroup)
+{
+    RUN_TEST_CASE(JobQueueGroup, JobQueue_GeneralTests)
+    RUN_TEST_CASE(JobQueueGroup, JobQueue_JobWithChildrenTests)
+}
 
 TEST_GROUP_RUNNER(WorkStealingQueueGroup)
 {
     RUN_TEST_CASE(WorkStealingQueueGroup, WorkStealingQueue_GeneralTests)
+}
+
+TEST_GROUP_RUNNER(MathGroup)
+{
+    RUN_TEST_CASE(MathGroup, MathTests_Vector2)
+    RUN_TEST_CASE(MathGroup, MathTests_Vector3)
+    RUN_TEST_CASE(MathGroup, MathTests_Vector4)
+    RUN_TEST_CASE(MathGroup, MathTests_Mat3)
+    RUN_TEST_CASE(MathGroup, MathTests_Mat4)
+}
+
+TEST_GROUP_RUNNER(StringGroup)
+{
+    RUN_TEST_CASE(StringGroup, StringTests_General)
 }
 
 static void run_all_tests()
@@ -30,6 +57,9 @@ static void run_all_tests()
     RUN_TEST_GROUP(HashSetGroup);
     RUN_TEST_GROUP(JobQueueGroup)
     RUN_TEST_GROUP(WorkStealingQueueGroup)
+    RUN_TEST_GROUP(MathGroup)
+    RUN_TEST_GROUP(StringGroup)
 }
+// clang-format on
 
 int main(int argc, const char* argv[]) { return UnityMain(argc, argv, run_all_tests); }

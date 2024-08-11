@@ -36,6 +36,8 @@ target_sources(
     src/utility/work_stealing_queue.c
     src/utility/work_stealing_queue.h
     src/utility/hash.h
+    src/utility/string.c
+    src/utility/string.h
 )
 
 # add common compiler flags
@@ -56,13 +58,16 @@ if (BUILD_TESTS)
         test/test_hash_set.c
         test/test_job_queue.c
         test/test_work_stealing_queue.c
+        test/test_math.c
         test/test_main.c
+        test/test_string.c
     )
 
     add_executable(UtilityTest ${test_srcs})
     target_link_libraries(UtilityTest PRIVATE unity::unity UtilityLib)
     set_target_properties(UtilityTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
     set_target_properties(UtilityTest PROPERTIES LINKER_LANGUAGE C)
+    rpe_add_compiler_flags(TARGET UtilityTest)
 
     add_test(
             NAME UtilityTest
