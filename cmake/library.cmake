@@ -77,5 +77,18 @@ function(rpe_add_compiler_flags)
             ${build_type_${build_type_lowercase}}
         )
     endif()
+
+    # intrinsics flags - basic setup for now.
+    if (MSVC)
+        set(intrinsic_flags ${intrinsic_flags} /arch:SSE3)
+    else()
+        set(intrinsic_flags ${intrinsic_flags} -msse3)
+    endif()
+    target_compile_options(
+        ${COMPILE_FLAGS_TARGET} 
+        PUBLIC 
+        ${intrinsic_flags}
+    )
     
+
 endfunction()
