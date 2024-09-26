@@ -20,42 +20,4 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
-
-#include "common.h"
-#include "utility/arena.h"
-#include "utility/compiler.h"
-
-#define VKAPI_MAX_COMMAND_BUFFER_SIZE 10
-
-// forward declarations
-typedef struct VkApiContext vkapi_context_t;
-typedef struct Commands vkapi_commands_t;
-
-typedef struct CmdBuffer
-{
-    VkCommandBuffer instance;
-    VkFence fence;
-
-} vkapi_cmdbuffer_t;
-
-typedef struct ThreadedCmdBuffer
-{
-    VkCommandBuffer secondary;
-    VkCommandPool cmd_pool;
-    bool is_executed;
-
-} vkapi_threaded_cmdbuffer_t;
-
-vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena);
-
-void vkapi_commands_destroy(vkapi_context_t* context, vkapi_commands_t* commands);
-
-vkapi_cmdbuffer_t*
-vkapi_commands_get_cmdbuffer(vkapi_context_t* context, vkapi_commands_t* commands);
-
-void vkapi_commands_free_cmd_buffers(vkapi_context_t* context, vkapi_commands_t* commands);
-
-void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands);
-
-VkSemaphore vkapi_commands_get_finished_signal(vkapi_commands_t* commands);
+#include "renderpass.h"

@@ -20,42 +20,39 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef __VKAPI_RENDERPASS_H__
+#define __VKAPI_RENDERPASS_H__
 
 #include "common.h"
-#include "utility/arena.h"
-#include "utility/compiler.h"
 
-#define VKAPI_MAX_COMMAND_BUFFER_SIZE 10
+#include <utility/maths.h>
 
-// forward declarations
-typedef struct VkApiContext vkapi_context_t;
-typedef struct Commands vkapi_commands_t;
+#define VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT 6
+// Allow for depth and stencil info
+#define VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT 8
 
-typedef struct CmdBuffer
+#define VKAPI_RENDER_TARGET_DEPTH_INDEX 7
+#define VKAPI_RENDER_TARGET_STENCIL_INDEX 8
+
+// Forward declarations.
+typedef struct TextureHandle texture_handle_t;
+
+typedef struct AttachmentInfo
 {
-    VkCommandBuffer instance;
-    VkFence fence;
+    uint8_t layer;
+    uint8_t level;
+    texture_handle_t* handle;
+} vkapi_attach_info_t;
 
-} vkapi_cmdbuffer_t;
-
-typedef struct ThreadedCmdBuffer
+typedef struct RenderTarget
 {
-    VkCommandBuffer secondary;
-    VkCommandPool cmd_pool;
-    bool is_executed;
+    vkapi_attach_info_t depth;
+    vkapi_attach_info_t stencil;
+    vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT];
+    union Vec4 clear_colour;
+    uint8_t samples;
+    bool multiView;
 
-} vkapi_threaded_cmdbuffer_t;
+} vkapi_render_target_t;
 
-vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena);
-
-void vkapi_commands_destroy(vkapi_context_t* context, vkapi_commands_t* commands);
-
-vkapi_cmdbuffer_t*
-vkapi_commands_get_cmdbuffer(vkapi_context_t* context, vkapi_commands_t* commands);
-
-void vkapi_commands_free_cmd_buffers(vkapi_context_t* context, vkapi_commands_t* commands);
-
-void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands);
-
-VkSemaphore vkapi_commands_get_finished_signal(vkapi_commands_t* commands);
+#endif

@@ -78,9 +78,15 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
         }
         abort();
     }
-
     uint8_t* padded_ptr = offset_ptr + padding;
     arena->offset += padding + count * type_size;
+#if ENABLE_DEBUG_ARENA
+    log_info(
+        "[Arena Allocation Log] Alloc Size: %lu; Current Size: %lu; Available: %lu",
+        count * type_size,
+        arena->offset,
+        available);
+#endif
     return flags & ARENA_ZERO_MEMORY ? memset(padded_ptr, 0, count * type_size) : padded_ptr;
 }
 

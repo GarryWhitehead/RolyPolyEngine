@@ -40,7 +40,8 @@ set(RPE_TEST_DIRECTORY "${CMAKE_BINARY_DIR}/Tests")
 find_package(Vulkan REQUIRED)
 
 # required dependencies for all libraries
-find_package(shaderc REQUIRED)
+find_package(glslang REQUIRED)
+#find_package(shaderc)
 find_package(vulkan-memory-allocator REQUIRED)
 find_package(spirv-cross REQUIRED)
 find_package(vulkan-validationlayers REQUIRED)

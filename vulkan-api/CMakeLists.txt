@@ -19,14 +19,6 @@ elseif(WIN32)
     file(APPEND ${env_source_path} "$env:VK_LOADER_LAYERS_ENABLE=\"*api_dump,*validation\"\n")
 endif()
 
-# this is a bit of a hack to get the shaderc_util include headers which aren't
-# installed as part of the conan package for some reason
-set(shaderc_util_path 
-    "${shaderc_INCLUDE_DIRS}/../../../source/source_subfolder/libshaderc_util/include/libshaderc_util"
-)
-file(GLOB shaderc_util_headers "${shaderc_util_path}/*.h")
-file(COPY ${shaderc_util_headers} DESTINATION "${shaderc_INCLUDE_DIRS}/shaderc_util")
-
 # Create VMA as a c++ library and use the C interface to avoid linkage errors.
 add_library(VmaLib
     "${vulkan-memory-allocator_INCLUDE_DIRS}/vk_mem_alloc.h"
@@ -52,6 +44,13 @@ target_sources(
     src/vulkan-api/staging_pool.c
     src/vulkan-api/commands.c
     src/vulkan-api/utility.c
+    src/vulkan-api/program_manager.c
+    src/vulkan-api/shader.c
+    src/vulkan-api/pipeline_cache.c
+    src/vulkan-api/shader_util.c
+    src/vulkan-api/pipeline.c
+    src/vulkan-api/resource_cache.c
+    src/vulkan-api/renderpass.c
 
     src/vulkan-api/driver.h
     src/vulkan-api/context.h
@@ -62,17 +61,24 @@ target_sources(
     src/vulkan-api/staging_pool.h
     src/vulkan-api/commands.h
     src/vulkan-api/utility.h
+    src/vulkan-api/program_manager.h
+    src/vulkan-api/shader.h
+    src/vulkan-api/pipeline_cache.h
+    src/vulkan-api/shader_util.h
+    src/vulkan-api/pipeline.h
+    src/vulkan-api/resource_cache.h
+    src/vulkan-api/renderpass.h
 )
 
-#target_sources(
-#    VulkanApi
-#    PUBLIC
+target_sources(
+    VulkanApi
+    PUBLIC
 #    src/backend/convert_to_vk.cpp
-#    src/backend/enums.h
+    src/backend/enums.h
 #    src/backend/convert_to_vk.h
 #    src/backend/convert_to_yave.cpp
 #    src/backend/convert_to_yave.h
-#)
+)
 
 target_include_directories(
     VulkanApi
@@ -86,15 +92,16 @@ target_include_directories(
 target_compile_definitions(
     VulkanApi
     PRIVATE
-    YAVE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}"
+    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}"
     VULKAN_VALIDATION_DEBUG=${WITH_VALIDATION_LAYERS}
-    YAVE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
+    RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
 )
 
 target_link_libraries(
     VulkanApi
     PUBLIC
-    shaderc::shaderc
+    glslang::glslang
+    glslang::SPIRV
     log.c::log.c
     vulkan-validationlayers::vulkan-validationlayers
     spirv-cross::spirv-cross
@@ -102,6 +109,8 @@ target_link_libraries(
     Vulkan::Vulkan
     UtilityLib
 )
+
+#target_compile_options(VulkanApi PUBLIC -fno-stack-protector)
 
 # add common compiler flags
 rpe_add_compiler_flags(TARGET VulkanApi)
@@ -125,12 +134,16 @@ if (BUILD_TESTS)
 
     set (test_srcs
         test/test_main.c
+        test/test_shader_util.c
+        test/test_program_manager.c
+        test/test_shader.c
     )
 
     add_executable(VulkanApiTest ${test_srcs})
     target_link_libraries(VulkanApiTest PRIVATE unity::unity VulkanApi)
     set_target_properties(VulkanApiTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
     set_target_properties(VulkanApiTest PROPERTIES LINKER_LANGUAGE C)
+    target_compile_options(VulkanApiTest PUBLIC -fno-stack-protector)
 
     add_test(
             NAME VulkanApiTest

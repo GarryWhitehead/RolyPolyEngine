@@ -159,4 +159,6 @@ void* hash_set_erase(hash_set_t* set, void* key);
 
 uint32_t hash_set_default_hasher(void* key, uint32_t size);
 
+void hash_set_clear(hash_set_t* set);
+
 #endif

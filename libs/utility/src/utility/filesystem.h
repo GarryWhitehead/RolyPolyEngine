@@ -20,42 +20,26 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef __UTIL_FILESYSTEM_H__
+#define __UTIL_FILESYSTEM_H__
 
-#include "common.h"
-#include "utility/arena.h"
-#include "utility/compiler.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
-#define VKAPI_MAX_COMMAND_BUFFER_SIZE 10
+// Forward declarations.
+typedef struct Arena arena_t;
+typedef struct String string_t;
+typedef struct FsBuffer fs_buffer_t;
 
-// forward declarations
-typedef struct VkApiContext vkapi_context_t;
-typedef struct Commands vkapi_commands_t;
+size_t fs_get_file_size(FILE* fp);
 
-typedef struct CmdBuffer
-{
-    VkCommandBuffer instance;
-    VkFence fence;
+fs_buffer_t* fs_load_file_into_memory(const char* path, arena_t* arena);
 
-} vkapi_cmdbuffer_t;
+void fs_destroy_buffer(fs_buffer_t* b);
 
-typedef struct ThreadedCmdBuffer
-{
-    VkCommandBuffer secondary;
-    VkCommandPool cmd_pool;
-    bool is_executed;
+bool fs_get_extension(string_t* path, string_t* out_ext, arena_t* arena);
 
-} vkapi_threaded_cmdbuffer_t;
+char* fs_get_buffer(fs_buffer_t* fs);
 
-vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena);
-
-void vkapi_commands_destroy(vkapi_context_t* context, vkapi_commands_t* commands);
-
-vkapi_cmdbuffer_t*
-vkapi_commands_get_cmdbuffer(vkapi_context_t* context, vkapi_commands_t* commands);
-
-void vkapi_commands_free_cmd_buffers(vkapi_context_t* context, vkapi_commands_t* commands);
-
-void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands);
-
-VkSemaphore vkapi_commands_get_finished_signal(vkapi_commands_t* commands);
+#endif
