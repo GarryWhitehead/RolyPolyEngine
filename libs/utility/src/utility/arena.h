@@ -28,8 +28,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define ARENA_MEM_TYPE_STDLIB 0
-#define ARENA_MEM_TYPE_VMEM 1
+#define ARENA_MEM_TYPE_STDLIB 1
+#define ARENA_MEM_TYPE_VMEM 0
 
 #ifndef ARENA_ALLOCATOR_MEM_TYPE
 #define ARENA_ALLOCATOR_MEM_TYPE ARENA_MEM_TYPE_VMEM
@@ -69,6 +69,10 @@ typedef struct Arena
     uint8_t* begin;
     uint8_t* end;
     ptrdiff_t offset;
+#ifdef ENABLE_DEBUG_ARENA
+    /// Used for identifying the arena when debugging.
+    const char* id;
+#endif
 } arena_t;
 
 /**

@@ -29,6 +29,8 @@
 
 #include <stdbool.h>
 
+#define VKAPI_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
+
 /**
  The current state of this vulkan instance. Encapsulates all
  information extracted from the device and physical device.
@@ -84,38 +86,6 @@ typedef struct VkApiContext
 void vkapi_context_init(arena_t* perm_arena, vkapi_context_t* new_context);
 
 /**
- Find a specified extension property name from a list of properties.
- @param name The extension name to find.
- @param props The list of Vulkan extension properties obtained via the appropriate enumerate
- function.
- @param count The number of extension properties in @sa props.
- @returns a boolean stating whether the extension name was found.
- */
-bool vkapi_context_find_ext_props(
-    const char* name, const VkExtensionProperties* props, uint32_t count);
-
-/**
- Create a list of extension properties which will be used when creating a Vulkan instance.
- @param context A pointer to an initialised context struct.
- @param ext_array An array which will hold the required extension names.
- @param glfw_extensions A list of available extension names obtained from a GLFW window instance.
- @param glfw_ext_count The number of GLFW extensions.
- @param dev_ext_props A list of available Vulkan instance extension names obtained from the calling
- vkEnumerateInstanceExtensionProperties.
- @param ext_props_count The number of Vulkan instance extension names.
- @param arena A pointer to the arena the @sa ext_array was initialised with.
- @returns an VKAPI error code.
- */
-int vkapi_prep_extensions(
-    vkapi_context_t* context,
-    arena_dyn_array_t* ext_array,
-    const char** glfw_extensions,
-    uint32_t glfw_ext_count,
-    VkExtensionProperties* dev_ext_props,
-    uint32_t dev_ext_props_count,
-    arena_t* arena);
-
-/**
  Create a Vulkan instance. This must be called before creating the Vulkan device.
  @param context A pointer to an initialised context struct.
  @param glfw_ext A list of GLFW extension names.
@@ -132,17 +102,6 @@ int vkapi_context_create_instance(
     arena_t* scratch_arena);
 
 /**
- Create a Vulkan device - this includes the initialisation of the physical device and queues. A
- Vulkan instance must have been created before calling this function.
- @param context A pointer to an initialised context struct.
- @param win_surface Thw window surface this device will render to. If NULL, headless mode assumed.
- @param scratch_arena A pointer to a scratch arena.
- @returns a VKAPI error code.
- */
-int vkapi_context_prepare_device(
-    vkapi_context_t* context, VkSurfaceKHR win_surface, arena_t* scratch_arena);
-
-/**
 
  @param context
  @param flags
@@ -157,5 +116,10 @@ vkapi_context_select_mem_type(vkapi_context_t* context, uint32_t flags, VkMemory
  @param context A pointer to an initialised context struct.
  */
 void vkapi_context_shutdown(vkapi_context_t* context);
+
+/** Private functions **/
+
+int vkapi_context_prepare_device(
+    vkapi_context_t* context, VkSurfaceKHR win_surface, arena_t* scratch_arena);
 
 #endif

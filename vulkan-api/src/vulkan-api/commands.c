@@ -27,10 +27,31 @@
 
 #include <string.h>
 
-vkapi_commands_t vkapi_commands_init(vkapi_context_t* context)
+typedef struct Commands
 {
-    vkapi_commands_t instance;
-    memset(instance.cmd_buffers, 0, sizeof(vkapi_cmdbuffer_t) * VKAPI_MAX_COMMAND_BUFFER_SIZE);
+    /// the main command pool - only to be used on the main thread
+    VkCommandPool cmd_pool;
+
+    vkapi_cmdbuffer_t* curr_cmd_buffer;
+    VkSemaphore curr_signal;
+
+    // current semaphore that has been submitted to the queue
+    VkSemaphore submitted_signal;
+
+    // wait semaphore passed by the client
+    VkSemaphore ext_signal;
+
+    vkapi_cmdbuffer_t cmd_buffers[VKAPI_MAX_COMMAND_BUFFER_SIZE];
+    VkSemaphore signals[VKAPI_MAX_COMMAND_BUFFER_SIZE];
+
+    size_t available_cmd_buffers;
+} vkapi_commands_t;
+
+vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena)
+{
+    assert(context);
+
+    vkapi_commands_t* instance = ARENA_MAKE_STRUCT(arena, vkapi_commands_t, ARENA_ZERO_MEMORY);
 
     VkCommandPoolCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -38,7 +59,7 @@ vkapi_commands_t vkapi_commands_init(vkapi_context_t* context)
     create_info.flags =
         VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
     VK_CHECK_RESULT(
-        vkCreateCommandPool(context->device, &create_info, VK_NULL_HANDLE, &instance.cmd_pool));
+        vkCreateCommandPool(context->device, &create_info, VK_NULL_HANDLE, &instance->cmd_pool));
 
     // create the semaphore for signalling a new frame is ready now
     for (int i = 0; i < VKAPI_MAX_COMMAND_BUFFER_SIZE; ++i)
@@ -46,7 +67,7 @@ vkapi_commands_t vkapi_commands_init(vkapi_context_t* context)
         VkSemaphoreCreateInfo semaphore_create_info = {};
         semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         VK_CHECK_RESULT(vkCreateSemaphore(
-            context->device, &semaphore_create_info, VK_NULL_HANDLE, &instance.signals[i]));
+            context->device, &semaphore_create_info, VK_NULL_HANDLE, &instance->signals[i]));
     }
 
     return instance;
@@ -83,7 +104,7 @@ vkapi_commands_get_cmdbuffer(vkapi_context_t* context, vkapi_commands_t* command
         if (!cmd->instance)
         {
             commands->curr_cmd_buffer = cmd;
-            commands->curr_signal = &commands->signals[i];
+            commands->curr_signal = commands->signals[i];
             --commands->available_cmd_buffers;
             break;
         }
@@ -166,11 +187,11 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
 
     if (commands->submitted_signal)
     {
-        wait_signals[signal_idx++] = *commands->submitted_signal;
+        wait_signals[signal_idx++] = commands->submitted_signal;
     }
     if (commands->ext_signal)
     {
-        wait_signals[signal_idx++] = *commands->ext_signal;
+        wait_signals[signal_idx++] = commands->ext_signal;
     }
 
     VkPipelineStageFlags flags[2] = {
@@ -183,7 +204,7 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &commands->curr_cmd_buffer->instance;
     submit_info.waitSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = commands->curr_signal;
+    submit_info.pSignalSemaphores = &commands->curr_signal;
     VK_CHECK_RESULT(
         vkQueueSubmit(context->graphics_queue, 1, &submit_info, commands->curr_cmd_buffer->fence));
 
@@ -192,9 +213,9 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
     commands->submitted_signal = commands->curr_signal;
 }
 
-VkSemaphore* vkapi_commands_get_finished_signal(vkapi_commands_t* commands)
+VkSemaphore vkapi_commands_get_finished_signal(vkapi_commands_t* commands)
 {
-    VkSemaphore* output = commands->submitted_signal;
+    VkSemaphore output = commands->submitted_signal;
     commands->submitted_signal = NULL;
     return output;
 }

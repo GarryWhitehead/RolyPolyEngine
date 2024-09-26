@@ -142,7 +142,7 @@ void vkapi_context_init(arena_t* perm_arena, vkapi_context_t* new_context)
     new_context->physical = VK_NULL_HANDLE;
     new_context->device = VK_NULL_HANDLE;
 
-    MAKE_DYN_ARRAY(char*, perm_arena, 10, &new_context->req_layers);
+    MAKE_DYN_ARRAY(const char*, perm_arena, 30, &new_context->req_layers);
 }
 
 void vkapi_context_shutdown(vkapi_context_t* context)
@@ -169,8 +169,7 @@ int vkapi_context_prep_extensions(
     const char** glfw_exts,
     uint32_t glfw_ext_count,
     VkExtensionProperties* dev_ext_props,
-    uint32_t dev_ext_prop_count,
-    arena_t* arena)
+    uint32_t dev_ext_prop_count)
 {
     for (uint32_t i = 0; i < glfw_ext_count; ++i)
     {
@@ -254,7 +253,7 @@ int vkapi_context_create_instance(
 
     // glfw extensions
     arena_dyn_array_t ext_arr;
-    MAKE_DYN_ARRAY(char[VK_MAX_DESCRIPTION_SIZE], arena, 30, &ext_arr);
+    MAKE_DYN_ARRAY(const char*, scratch_arena, 30, &ext_arr);
 
     // extension properties
     uint32_t ext_count = 0;
@@ -264,7 +263,7 @@ int vkapi_context_create_instance(
     vkEnumerateInstanceExtensionProperties(VK_NULL_HANDLE, &ext_count, ext_prop_arr);
 
     int ret = vkapi_context_prep_extensions(
-        context, &ext_arr, glfw_ext, glfw_ext_count, ext_prop_arr, ext_count, arena);
+        context, &ext_arr, glfw_ext, glfw_ext_count, ext_prop_arr, ext_count);
     if (ret != VKAPI_SUCCESS)
     {
         return ret;
@@ -277,10 +276,9 @@ int vkapi_context_create_instance(
     vkEnumerateInstanceLayerProperties(&layer_count, layer_prop_arr);
 
 #ifdef VULKAN_VALIDATION_DEBUG
-    if (vkapi_find_layer_ext("VK_LAYER_KHRONOS_validation", layer_prop_arr, layer_count))
+    if (vkapi_find_layer_ext(VKAPI_VALIDATION_LAYER_NAME, layer_prop_arr, layer_count))
     {
-        arena_dyn_array_t* req_layers_ptr = &context->req_layers;
-        DYN_ARRAY_APPEND_CHAR(req_layers_ptr, "VK_LAYER_KHRONOS_validation");
+        DYN_ARRAY_APPEND_CHAR(&context->req_layers, VKAPI_VALIDATION_LAYER_NAME);
     }
     else
     {
@@ -290,10 +288,10 @@ int vkapi_context_create_instance(
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = context->req_layers.size;
-    createInfo.ppEnabledLayerNames = context->req_layers.data;
+    createInfo.enabledLayerCount = 0;//context->req_layers.size;
+    createInfo.ppEnabledLayerNames = NULL;//context->req_layers.data;
     createInfo.enabledExtensionCount = ext_arr.size;
-    createInfo.ppEnabledExtensionNames = (const char**)ext_arr.data;
+    createInfo.ppEnabledExtensionNames = ext_arr.data;
     VK_CHECK_RESULT(vkCreateInstance(&createInfo, VK_NULL_HANDLE, &context->instance));
 
 #ifdef VULKAN_VALIDATION_DEBUG
@@ -546,7 +544,7 @@ int vkapi_context_prepare_device(
     create_info.enabledLayerCount = context->req_layers.size;
     create_info.ppEnabledLayerNames = context->req_layers.data;
     create_info.enabledExtensionCount = req_ext_count;
-    create_info.ppEnabledExtensionNames = &req_extensions;
+    create_info.ppEnabledExtensionNames = !req_ext_count ? VK_NULL_HANDLE : &req_extensions;
     create_info.pEnabledFeatures = VK_NULL_HANDLE;
     create_info.pNext = (void*)&req_features2;
 

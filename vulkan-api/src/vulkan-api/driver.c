@@ -29,6 +29,8 @@
 
 int vkapi_driver_init(const char** instance_ext, uint32_t ext_count, vkapi_driver_t* driver)
 {
+    //memset(driver, 0, sizeof(struct VkApiDriver));
+
     // Allocate the arena space.
     int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &driver->_perm_arena);
     int scratch_err = arena_new(VKAPI_SCRATCH_ARENA_SIZE, &driver->_scratch_arena);
@@ -53,6 +55,8 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
         return ret;
     }
 
+    driver->commands = vkapi_commands_init(&driver->context, &driver->_perm_arena);
+
     // set up the memory allocator
     VmaAllocatorCreateInfo create_info = {};
     create_info.vulkanApiVersion = VK_API_VERSION_1_2;
@@ -68,14 +72,12 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     VK_CHECK_RESULT(vkCreateSemaphore(
         driver->context.device, &sp_create_info, VK_NULL_HANDLE, &driver->image_ready_signal))
 
-    driver->commands = vkapi_commands_init(&driver->context);
-
     return VKAPI_SUCCESS;
 }
 
 void vkapi_driver_shutdown(vkapi_driver_t* driver)
 {
-    vkapi_commands_destroy(&driver->context, &driver->commands);
+    vkapi_commands_destroy(&driver->context, driver->commands);
     vkDestroySemaphore(driver->context.device, driver->image_ready_signal, VK_NULL_HANDLE);
     vmaDestroyAllocator(driver->vma_allocator);
 

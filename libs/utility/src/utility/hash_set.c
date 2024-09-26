@@ -272,3 +272,11 @@ uint32_t hash_set_default_hasher(void* key, uint32_t size)
     }
     return (uint32_t)hash;
 }
+
+void hash_set_clear(hash_set_t* set)
+{
+    assert(set);
+    memset(set->nodes, 0, sizeof(struct HashNode) * set->size);
+    set->size = 0;
+    set->_curr_node = NULL;
+}

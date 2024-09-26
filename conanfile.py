@@ -46,7 +46,6 @@ class VkSceneEditor3dPackage(ConanFile):
         self.requires("vulkan-memory-allocator/3.0.1")
         self.requires("vulkan-validationlayers/1.3.236.0")
         self.requires("glfw/3.3.8")
-        self.requires("shaderc/2021.1")
         self.requires("glslang/1.3.236.0")
         self.requires("spirv-tools/1.3.236.0")
         self.requires("spirv-cross/1.3.236.0")

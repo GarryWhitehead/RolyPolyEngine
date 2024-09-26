@@ -33,19 +33,34 @@ typedef struct String
 {
     char* data;
     uint32_t len;
-    arena_t* arena;
 } string_t;
 
 string_t string_init(const char* str, arena_t* arena);
 
-string_t string_copy(string_t* other);
+string_t string_copy(string_t* other, arena_t* arena);
 
 bool string_cmp(string_t* a, string_t* b);
 
-string_t string_substring(string_t* s, uint32_t start, uint32_t end);
+string_t string_substring(string_t* s, uint32_t start, uint32_t end, arena_t* arena);
 
 char* string_contains(string_t* s, const char* sub);
 
-string_t** string_split(string_t* s, char literal, uint32_t* count);
+string_t** string_split(string_t* s, char literal, uint32_t* count, arena_t* arena);
+
+string_t string_append(string_t* a, const char* b, arena_t* arena);
+
+string_t string_append3(string_t* a, const char* b, const char* c, arena_t* arena);
+
+uint32_t string_find_first_of(string_t* str, char c);
+
+uint32_t string_find_last_of(string_t* str, char c);
+
+uint32_t string_count(string_t* str, const char* cs);
+
+string_t string_remove(string_t* str, uint32_t start_idx, uint32_t end_idx, arena_t* arena);
+
+string_t string_trim(string_t* str, char c, arena_t* arena);
+
+string_t string_replace(string_t* str, const char* orig, const char* rep, arena_t* arena);
 
 #endif

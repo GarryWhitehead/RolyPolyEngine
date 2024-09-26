@@ -39,21 +39,22 @@ typedef struct VkApiDriver
     VmaAllocator vma_allocator;
     /// Semaphore used to signal that the image is ready for presentation.
     VkSemaphore image_ready_signal;
+
+    vkapi_staging_pool_t staging_pool;
+
+    vkapi_commands_t* commands;
+
+    /** Private **/
     /// Permanent arena space for the lifetime of this driver.
-    /* Private */
     arena_t _perm_arena;
     /// Small scratch arena for limited lifetime allocations. Should be passed as a copy to
     /// functions for scoping only for the lifetime of that function.
     arena_t _scratch_arena;
 
-    vkapi_staging_pool_t staging_pool;
-
-    vkapi_commands_t commands;
-
 } vkapi_driver_t;
 
 /**
- initialise the vulkan driver - includes creating the abstract device,
+ initialise the Vulkan driver - includes creating the abstract device,
  physical device, queues, etc.
  @param driver A pointer to the driver instance.
  @param surface An opaque pointer to a window surface. If NULL, then headless mode is assumed..
@@ -62,7 +63,7 @@ typedef struct VkApiDriver
 int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface);
 
 /**
- Create a new driver instance - creates a vulkan instance for this device.
+ Create a new driver instance - creates a Vulkan instance for this device.
  @param driver A pointer to the driver instance.
  @param instance_ext Vulkan instance extensions parsed from GLFW.
  @param ext_count The instance extension count.

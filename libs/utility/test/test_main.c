@@ -49,16 +49,22 @@ TEST_GROUP_RUNNER(StringGroup)
     RUN_TEST_CASE(StringGroup, StringTests_General)
 }
 
+TEST_GROUP_RUNNER(FilesystemGroup)
+{
+    RUN_TEST_CASE(FilesystemGroup, Filesystem_Extension)
+}
+
 static void run_all_tests()
 {
-    RUN_TEST_GROUP(ArrayGroup);
-    RUN_TEST_GROUP(ArenaGroup);
-    RUN_TEST_GROUP(VectorGroup);
-    RUN_TEST_GROUP(HashSetGroup);
+    RUN_TEST_GROUP(ArrayGroup)
+    RUN_TEST_GROUP(ArenaGroup)
+    RUN_TEST_GROUP(VectorGroup)
+    RUN_TEST_GROUP(HashSetGroup)
     RUN_TEST_GROUP(JobQueueGroup)
     RUN_TEST_GROUP(WorkStealingQueueGroup)
     RUN_TEST_GROUP(MathGroup)
     RUN_TEST_GROUP(StringGroup)
+    RUN_TEST_GROUP(FilesystemGroup)
 }
 // clang-format on
 

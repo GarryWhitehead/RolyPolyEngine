@@ -14,6 +14,12 @@ target_link_libraries(UtilityLib PUBLIC log.c::log.c -lm)
 
 set_target_properties(UtilityLib PROPERTIES LINKER_LANGUAGE C)
 
+if (NOT RPE_DEBUG_ARENA)
+    set(RPE_DEBUG_ARENA 0)
+endif()
+
+target_compile_definitions(UtilityLib PUBLIC ENABLE_DEBUG_ARENA=${RPE_DEBUG_ARENA})
+
 target_sources(
     UtilityLib
     PUBLIC
@@ -38,6 +44,8 @@ target_sources(
     src/utility/hash.h
     src/utility/string.c
     src/utility/string.h
+    src/utility/filesystem.h
+    src/utility/filesystem.c
 )
 
 # add common compiler flags
@@ -61,6 +69,7 @@ if (BUILD_TESTS)
         test/test_math.c
         test/test_main.c
         test/test_string.c
+        test/test_filesystem.c
     )
 
     add_executable(UtilityTest ${test_srcs})
