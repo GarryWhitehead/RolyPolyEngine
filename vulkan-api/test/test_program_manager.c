@@ -57,11 +57,16 @@ TEST(ProgramManagerGroup, PM_ShaderProgram_Tests)
     r = shader_bundle_parse_mat_shader(bundle, mat_filename, &arena, &scratch_arena);
     TEST_ASSERT(r);
 
-    // The attributes are normally created outside of the vulkan api, but for testing purposes, doing it manually here.
-    string_t attr_block0 = string_init("layout(binding = 1, set = 3) uniform sampler2D ColourSampler;\n", &arena);
-    string_t attr_block1 = string_init("layout(binding = 2, set = 3) uniform sampler2D LuminanceAvgLut;\n", &arena);
-    string_t attr_block2 = string_init("layout(binding = 0) uniform Buffer\n{\n   float gamma;\n} material_ubo;\n", &arena);
-    shader_program_t* prog = shader_bundle_get_stage_program(bundle, RPE_BACKEND_SHADER_STAGE_FRAGMENT);
+    // The attributes are normally created outside of the vulkan api, but for testing purposes,
+    // doing it manually here.
+    string_t attr_block0 =
+        string_init("layout(binding = 1, set = 3) uniform sampler2D ColourSampler;\n", &arena);
+    string_t attr_block1 =
+        string_init("layout(binding = 2, set = 3) uniform sampler2D LuminanceAvgLut;\n", &arena);
+    string_t attr_block2 = string_init(
+        "layout(binding = 0) uniform Buffer\n{\n   float gamma;\n} material_ubo;\n", &arena);
+    shader_program_t* prog =
+        shader_bundle_get_stage_program(bundle, RPE_BACKEND_SHADER_STAGE_FRAGMENT);
     TEST_ASSERT(prog);
     shader_program_add_attr_block(prog, &attr_block0);
     shader_program_add_attr_block(prog, &attr_block1);

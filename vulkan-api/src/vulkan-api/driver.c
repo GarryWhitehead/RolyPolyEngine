@@ -29,7 +29,7 @@
 
 int vkapi_driver_init(const char** instance_ext, uint32_t ext_count, vkapi_driver_t* driver)
 {
-    //memset(driver, 0, sizeof(struct VkApiDriver));
+    // memset(driver, 0, sizeof(struct VkApiDriver));
 
     // Allocate the arena space.
     int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &driver->_perm_arena);

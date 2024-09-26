@@ -1,6 +1,5 @@
-#include <unity_fixture.h>
-
 #include <string.h>
+#include <unity_fixture.h>
 #include <utility/arena.h>
 #include <utility/string.h>
 #include <vulkan-api/program_manager.h>
@@ -228,37 +227,37 @@ TEST(ShaderUtilGroup, ShaderUtil_PreprocessShader_Single)
                              "}";
 
     const char* expected1 = "#version 410\n"
-                           "layout(location = 0) in vec2 inUv;\n"
-                           "void main()\n"
-                           "{\n"
-                           "    // albedo\n"
-                           "    vec4 baseColour = vec4(1.0);\n"
-                           "    float alphaMask = 1.0;\n"
-                           "\n"
-                           "    normal = peturbNormal(inUv);\n"
-                           "}";
+                            "layout(location = 0) in vec2 inUv;\n"
+                            "void main()\n"
+                            "{\n"
+                            "    // albedo\n"
+                            "    vec4 baseColour = vec4(1.0);\n"
+                            "    float alphaMask = 1.0;\n"
+                            "\n"
+                            "    normal = peturbNormal(inUv);\n"
+                            "}";
 
     const char* expected2 = "#version 410\n"
-                             "layout(location = 1) in vec3 inNormal;\n"
-                             "void main()\n"
-                             "{\n"
-                             "    // albedo\n"
-                             "    vec4 baseColour = vec4(1.0);\n"
-                             "    float alphaMask = 1.0;\n"
-                             "\n"
-                             "    alphaMask = material_ubo.alphaMask;\n"
-                             "    normal = normalize(inNormal);\n"
-                             "}";
+                            "layout(location = 1) in vec3 inNormal;\n"
+                            "void main()\n"
+                            "{\n"
+                            "    // albedo\n"
+                            "    vec4 baseColour = vec4(1.0);\n"
+                            "    float alphaMask = 1.0;\n"
+                            "\n"
+                            "    alphaMask = material_ubo.alphaMask;\n"
+                            "    normal = normalize(inNormal);\n"
+                            "}";
 
     const char* expected3 = "#version 410\n"
-                             "void main()\n"
-                             "{\n"
-                             "    // albedo\n"
-                             "    vec4 baseColour = vec4(1.0);\n"
-                             "    float alphaMask = 1.0;\n"
-                             "\n"
-                             "    normal = normalize(cross(dFdx(inPos), dFdy(inPos)));\n"
-                             "}";
+                            "void main()\n"
+                            "{\n"
+                            "    // albedo\n"
+                            "    vec4 baseColour = vec4(1.0);\n"
+                            "    float alphaMask = 1.0;\n"
+                            "\n"
+                            "    normal = normalize(cross(dFdx(inPos), dFdy(inPos)));\n"
+                            "}";
 
     variant_t variants_test1[2];
     variants_test1[0].definition = string_init("HAS_UV_ATTR_INPUT", &arena);
@@ -289,8 +288,8 @@ TEST(ShaderUtilGroup, ShaderUtil_PreprocessShader_Single)
 TEST(ShaderUtilGroup, ShaderUtil_IncludeAppend)
 {
     const char* shader_block = "#version 410\n"
-                            "layout(location = 0) in vec2 inUv;\n"
-                            "/n";
+                               "layout(location = 0) in vec2 inUv;\n"
+                               "/n";
 
     const char* expected = "#version 410\n"
                            "layout(location = 0) in vec2 inUv;\n"
@@ -315,5 +314,4 @@ TEST(ShaderUtilGroup, ShaderUtil_IncludeAppend)
     bool r = shader_util_append_include_file(&block_str, &inc_path, &arena);
     TEST_ASSERT(r == true);
     TEST_ASSERT_EQUAL_STRING(expected, block_str.data);
-
 }

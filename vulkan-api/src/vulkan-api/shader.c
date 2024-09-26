@@ -426,8 +426,8 @@ bool shader_compile(
     }
 
     // Compile into bytecode ready for wrapping.
-    spirv_binary_t bin =
-        shader_compiler_compile(shader_to_glslang_type(shader->stage), shader_code, filename, arena);
+    spirv_binary_t bin = shader_compiler_compile(
+        shader_to_glslang_type(shader->stage), shader_code, filename, arena);
     if (!bin.words)
     {
         return false;
@@ -482,7 +482,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_STAGE_INPUT, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        shader_attr_t* attr = &shader->resource_binding.stage_inputs[shader->resource_binding.stage_input_count++];
+        shader_attr_t* attr =
+            &shader->resource_binding.stage_inputs[shader->resource_binding.stage_input_count++];
         attr->location =
             spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationLocation);
         spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, list[i].base_type_id);
@@ -497,7 +498,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_STAGE_OUTPUT, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        shader_attr_t* attr = &shader->resource_binding.stage_outputs[shader->resource_binding.stage_output_count++];
+        shader_attr_t* attr =
+            &shader->resource_binding.stage_outputs[shader->resource_binding.stage_output_count++];
         attr->location =
             spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationLocation);
         spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, list[i].base_type_id);
@@ -512,7 +514,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        shader_desc_layout_t* layout = &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
+        shader_desc_layout_t* layout =
+            &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
         layout->binding =
             spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationBinding);
         layout->set =
@@ -528,7 +531,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_STORAGE_IMAGE, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        shader_desc_layout_t* layout = &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
+        shader_desc_layout_t* layout =
+            &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
         layout->binding =
             spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationBinding);
         layout->set =
@@ -544,7 +548,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        shader_desc_layout_t* layout = &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
+        shader_desc_layout_t* layout =
+            &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
         layout->binding =
             spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationBinding);
         layout->set =
@@ -568,7 +573,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        shader_desc_layout_t* layout = &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
+        shader_desc_layout_t* layout =
+            &shader->resource_binding.desc_layouts[shader->resource_binding.desc_layout_count++];
         layout->binding =
             spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationBinding);
         layout->set =
@@ -614,4 +620,3 @@ shader_binding_t* shader_get_resource_binding(shader_t* shader)
     assert(shader);
     return &shader->resource_binding;
 }
-

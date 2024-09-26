@@ -3,8 +3,8 @@
 #include "arena.h"
 
 #include <assert.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 string_t string_init(const char* str, arena_t* arena)
 {
@@ -160,7 +160,7 @@ uint32_t string_find_first_of(string_t* str, char c)
     uint32_t out = UINT32_MAX;
     for (uint32_t i = 0; i < str->len; ++i)
     {
-        if(str->data[i] == c)
+        if (str->data[i] == c)
         {
             out = i;
             break;
@@ -180,7 +180,7 @@ uint32_t string_find_last_of(string_t* str, char c)
 
     for (uint32_t i = str->len - 1; i > 0; --i)
     {
-        if(str->data[i] == c)
+        if (str->data[i] == c)
         {
             out = i;
             break;
@@ -249,9 +249,9 @@ string_t string_trim(string_t* str, char c, arena_t* arena)
     out.data = arena_alloc(arena, sizeof(char), _Alignof(char), str->len + 1, 0);
     out.len = 0;
 
-    for(uint32_t i = 0; i < str->len; ++i)
+    for (uint32_t i = 0; i < str->len; ++i)
     {
-        if(str->data[i] != c)
+        if (str->data[i] != c)
         {
             out.data[out.len++] = str->data[i];
         }
@@ -285,11 +285,11 @@ string_t string_replace(string_t* str, const char* orig, const char* rep, arena_
     assert(out.data);
 
     // A copy of the output pointer and length.
-    string_t curr_out = { .data = out.data, .len = out.len };
+    string_t curr_out = {.data = out.data, .len = out.len};
     // Copy the original string so the pointer is preserved.
-    string_t curr_orig = { .data = str->data, .len = str->len };
+    string_t curr_orig = {.data = str->data, .len = str->len};
 
-    for(;;)
+    for (;;)
     {
         uint32_t first_idx = string_find_first_of(&curr_orig, orig[0]);
         if (first_idx == UINT32_MAX || first_idx + orig_sz > curr_out.len)

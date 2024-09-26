@@ -1,8 +1,8 @@
 #include "unity.h"
 #include "unity_fixture.h"
+#include "utility/arena.h"
 #include "utility/filesystem.h"
 #include "utility/string.h"
-#include "utility/arena.h"
 
 #include <string.h>
 

@@ -242,8 +242,7 @@ bool shader_prog_parse_shader(
             // Keep going until the end of the file.
             while (fgets(line, LINE_BUFFER_SIZE, fp))
             {
-                prog->main_stage_block =
-                    string_append(&prog->main_stage_block, line, arena);
+                prog->main_stage_block = string_append(&prog->main_stage_block, line, arena);
             }
             break;
         }
@@ -292,10 +291,7 @@ bool shader_bundle_parse_mat_shader(
         if (string_contains(&line, "[[vertex]]"))
         {
             if (!shader_program_parse_mat_shader_block(
-                    bundle->programs[RPE_BACKEND_SHADER_STAGE_VERTEX],
-                    fp,
-                    buffer,
-                    arena))
+                    bundle->programs[RPE_BACKEND_SHADER_STAGE_VERTEX], fp, buffer, arena))
             {
                 log_error("Error whilst parsing material vertex block for shader: %s", shader_path);
                 return false;
@@ -304,10 +300,7 @@ bool shader_bundle_parse_mat_shader(
         else if (string_contains(&line, "[[fragment]]"))
         {
             if (!shader_program_parse_mat_shader_block(
-                    bundle->programs[RPE_BACKEND_SHADER_STAGE_FRAGMENT],
-                    fp,
-                    buffer,
-                    arena))
+                    bundle->programs[RPE_BACKEND_SHADER_STAGE_FRAGMENT], fp, buffer, arena))
             {
                 log_error(
                     "Error whilst parsing material fragment block for shader: %s", shader_path);
@@ -317,10 +310,7 @@ bool shader_bundle_parse_mat_shader(
         else if (string_contains(&line, "[[tesse-eval]]"))
         {
             if (!shader_program_parse_mat_shader_block(
-                    bundle->programs[RPE_BACKEND_SHADER_STAGE_TESSE_EVAL],
-                    fp,
-                    buffer,
-                    arena))
+                    bundle->programs[RPE_BACKEND_SHADER_STAGE_TESSE_EVAL], fp, buffer, arena))
             {
                 log_error(
                     "Error whilst parsing material tesse-eval block for shader: %s", shader_path);
@@ -330,10 +320,7 @@ bool shader_bundle_parse_mat_shader(
         else if (string_contains(&line, "[[tesse-control]]"))
         {
             if (!shader_program_parse_mat_shader_block(
-                    bundle->programs[RPE_BACKEND_SHADER_STAGE_TESSE_CON],
-                    fp,
-                    buffer,
-                    arena))
+                    bundle->programs[RPE_BACKEND_SHADER_STAGE_TESSE_CON], fp, buffer, arena))
             {
                 log_error(
                     "Error whilst parsing material tesse-con block for shader: %s", shader_path);
@@ -505,7 +492,8 @@ void shader_bundle_clear(shader_prog_bundle_t* bundle)
     }
 }
 
-shader_program_t* shader_bundle_get_stage_program(shader_prog_bundle_t* bundle, enum ShaderStage stage)
+shader_program_t*
+shader_bundle_get_stage_program(shader_prog_bundle_t* bundle, enum ShaderStage stage)
 {
     assert(bundle);
     return bundle->programs[stage];

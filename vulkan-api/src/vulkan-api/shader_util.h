@@ -33,7 +33,8 @@ typedef struct Variant variant_t;
 
 /**
  Laod and append a include file to a shader code block.
- @note glslang offers this functionality via a callback but is long-winded to setup and easier to use our own method.
+ @note glslang offers this functionality via a callback but is long-winded to setup and easier to
+ use our own method.
  @param block The shader code block which will be appended with the include file.
  @param path A path to the include file. Must be a relative path, inside the shader folder.
  @param arena An arena allocator.
@@ -60,7 +61,12 @@ string_t shader_program_process_preprocessor(
 /* Private functions */
 
 bool pp_parse_if(
-    string_t* line, variant_t* variants, uint32_t variant_count, arena_t* scratch_arena, uint32_t line_idx, bool* error);
+    string_t* line,
+    variant_t* variants,
+    uint32_t variant_count,
+    arena_t* scratch_arena,
+    uint32_t line_idx,
+    bool* error);
 
 string_t read_line(const char* shader_code, uint32_t* idx, uint32_t count, char* buffer);
 

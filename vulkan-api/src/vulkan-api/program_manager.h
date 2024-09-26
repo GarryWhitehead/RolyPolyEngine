@@ -156,7 +156,8 @@ bool shader_bundle_build_shader(
 bool shader_bundle_parse_mat_shader(
     shader_prog_bundle_t* bundle, const char* shader_path, arena_t* arena, arena_t* scratch_arena);
 
-shader_program_t* shader_bundle_get_stage_program(shader_prog_bundle_t* bundle, enum ShaderStage stage);
+shader_program_t*
+shader_bundle_get_stage_program(shader_prog_bundle_t* bundle, enum ShaderStage stage);
 
 /* Program manager functions */
 

@@ -104,9 +104,13 @@ TEST(StringGroup, StringTests_General)
     TEST_ASSERT_EQUAL_UINT(22, replace_str.len);
 
     // Test replacing with longer char runs between replacement strings.
-    string_t repeat_str2 = string_init("I am a great program && I am a great program && I am a even better program && Whatever", &arena);
+    string_t repeat_str2 = string_init(
+        "I am a great program && I am a great program && I am a even better program && Whatever",
+        &arena);
     replace_str = string_replace(&repeat_str2, "&&", "&", &arena);
-    TEST_ASSERT_EQUAL_STRING("I am a great program & I am a great program & I am a even better program & Whatever", replace_str.data);
+    TEST_ASSERT_EQUAL_STRING(
+        "I am a great program & I am a great program & I am a even better program & Whatever",
+        replace_str.data);
 
     string_t edit_str = string_remove(&invalid_str, 6, 14, &arena);
     TEST_ASSERT_EQUAL_STRING("I am astring", edit_str.data);
@@ -120,7 +124,10 @@ TEST(StringGroup, StringTests_General)
     edit_str = string_remove(&invalid_str, 5, 5, &arena);
     TEST_ASSERT_EQUAL_STRING("I am a invalid string", edit_str.data);
 
-    string_t test_line1 = string_init("#if (defined(TEST_DEF1) && defined(TEST_DEF2)) || (defined(TEST_DEP3) && defined(TEST_DEP4))", &arena);
+    string_t test_line1 = string_init(
+        "#if (defined(TEST_DEF1) && defined(TEST_DEF2)) || (defined(TEST_DEP3) && "
+        "defined(TEST_DEP4))",
+        &arena);
     string_t new_line = string_substring(
         &test_line1, string_find_first_of(&test_line1, ' ') + 1, test_line1.len - 1, &arena);
     trimmed = string_trim(&new_line, ' ', &arena);

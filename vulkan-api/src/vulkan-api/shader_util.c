@@ -24,11 +24,10 @@
 
 #include "program_manager.h"
 
-#include <utility/filesystem.h>
-
 #include <assert.h>
 #include <log.h>
 #include <string.h>
+#include <utility/filesystem.h>
 
 #define PP_MAX_TRUE_CONDITIONS 10
 #define PP_MAX_FALSE_CONDITIONS 10
@@ -68,7 +67,7 @@ string_t read_line(const char* shader_code, uint32_t* idx, uint32_t count, char*
 
 bool shader_util_append_include_file(string_t* block, string_t* path, arena_t* arena)
 {
-    // Check the path is actually to an include file.
+    // Check the path is an actual include file.
     string_t ext;
     if (!fs_get_extension(path, &ext, arena))
     {
@@ -82,13 +81,14 @@ bool shader_util_append_include_file(string_t* block, string_t* path, arena_t* a
     }
 
     string_t shader_dir = string_init(RPE_SHADER_DIRECTORY, arena);
-    string_t abs_path = string_append3(&shader_dir, string_init("/", arena).data, path->data, arena);
-    fs_buffer_t fs_buffer = fs_load_file_into_memory(abs_path.data, arena);
-    if (!fs_buffer.buffer)
+    string_t abs_path =
+        string_append3(&shader_dir, string_init("/", arena).data, path->data, arena);
+    fs_buffer_t* fs_buffer = fs_load_file_into_memory(abs_path.data, arena);
+    if (!fs_buffer)
     {
         return false;
     }
-    *block = string_append(block, fs_buffer.buffer, arena);
+    *block = string_append(block, fs_get_buffer(fs_buffer), arena);
 
     return true;
 }
@@ -126,7 +126,10 @@ string_t pp_extract_definition(string_t* line, arena_t* scratch_arena)
 {
     assert(line);
     return string_substring(
-        line, string_find_first_of(line, '(') + 1, string_find_first_of(line, ')') - 1, scratch_arena);
+        line,
+        string_find_first_of(line, '(') + 1,
+        string_find_first_of(line, ')') - 1,
+        scratch_arena);
 }
 
 bool pp_contains_variant(string_t* def, variant_t* variants, uint32_t variant_count)
@@ -191,14 +194,20 @@ bool pp_parse_defines(string_t* line, pp_info_t* info, arena_t* arena, size_t li
 }
 
 bool pp_parse_if(
-    string_t* line, variant_t* variants, uint32_t variant_count, arena_t* scratch_arena, uint32_t line_idx, bool* error)
+    string_t* line,
+    variant_t* variants,
+    uint32_t variant_count,
+    arena_t* scratch_arena,
+    uint32_t line_idx,
+    bool* error)
 {
     *error = false;
     // Tidy the line - remove the #elf part.
-    string_t new_line = string_substring(
-        line, string_find_first_of(line, ' ') + 1, line->len - 1, scratch_arena);
+    string_t new_line =
+        string_substring(line, string_find_first_of(line, ' ') + 1, line->len - 1, scratch_arena);
 
-    // The split function can only deal with single chars so replace the AND/OR operators with single chars.
+    // The split function can only deal with single chars so replace the AND/OR operators with
+    // single chars.
     new_line = string_replace(&new_line, "&&", "&", scratch_arena);
     new_line = string_replace(&new_line, "||", "|", scratch_arena);
 
@@ -235,19 +244,24 @@ bool pp_parse_if(
             define_flag = AND_DEFINE;
         }
 
-        for(uint32_t i = 0; i < group_count; ++i)
+        for (uint32_t i = 0; i < group_count; ++i)
         {
             // Check for correctly defined group - i.e. enclosed in brackets: (defined(FOO) ...)
             string_t* str = group_split[i];
-            if (str->len && str->data[0] == '(' &&  str->data[str->len - 1] == ')')
+            if (str->len && str->data[0] == '(' && str->data[str->len - 1] == ')')
             {
-                // Adjust so we don't use the group brackets as this will mess things up later downstream.
+                // Adjust so we don't use the group brackets as this will mess things up later
+                // downstream.
                 str->data += 1;
                 str->len -= 1;
             }
             else
             {
-                log_error("Invalid definition grouping at line: %s. Groups must be enclosed in brackets: %s", line_idx, str->data);
+                log_error(
+                    "Invalid definition grouping at line: %s. Groups must be enclosed in brackets: "
+                    "%s",
+                    line_idx,
+                    str->data);
                 *error = true;
                 return false;
             }
@@ -258,7 +272,9 @@ bool pp_parse_if(
         // No separate groups, so just treat as a single.
         group_split = ARENA_MAKE_STRUCT(scratch_arena, string_t*, 0);
         group_split[0] = &new_line;
-        define_flag = string_contains(&new_line, "&") ? AND_DEFINE : string_contains(&new_line, "|") ? OR_DEFINE : NONE;
+        define_flag = string_contains(&new_line, "&") ? AND_DEFINE
+            : string_contains(&new_line, "|")         ? OR_DEFINE
+                                                      : NONE;
     }
 
     bool final_res = group_flag == OR_GROUP ? false : true;
@@ -306,8 +322,9 @@ bool pp_edit_shader_block(
         return false;
     }
 
-    // If 'first' idx is valid, then deleting between other #else/#elif blocks. Will remove #endif statement with remove call as well.
-    // Otherwise, just need to remove the #endif statement at the end of the block.
+    // If 'first' idx is valid, then deleting between other #else/#elif blocks. Will remove #endif
+    // statement with remove call as well. Otherwise, just need to remove the #endif statement at
+    // the end of the block.
     assert(second != UINT64_MAX);
     size_t a = first != UINT64_MAX ? first : second + 1;
     size_t b = second + sec_line_sz;
@@ -317,7 +334,6 @@ bool pp_edit_shader_block(
     assert(begin_if_idx <= end_if_idx);
     *new_block = string_remove(&tmp, begin_if_idx, end_if_idx - 1, scratch_arena);
     *idx = *idx - (end_if_idx - begin_if_idx) - (b - a) - 1;
-    assert(*idx >= 0);
     return true;
 }
 
@@ -348,12 +364,7 @@ bool pp_parse_preprocessor_branch(
             {
                 string_t new_block;
                 if (!pp_edit_shader_block(
-                        block,
-                        &idx,
-                        buffer,
-                        if_start_idx,
-                        scratch_arena,
-                        &new_block))
+                        block, &idx, buffer, if_start_idx, scratch_arena, &new_block))
                 {
                     return false;
                 }
@@ -378,12 +389,7 @@ bool pp_parse_preprocessor_branch(
             {
                 string_t new_block;
                 if (!pp_edit_shader_block(
-                        block,
-                        &idx,
-                        buffer,
-                        if_start_idx,
-                        scratch_arena,
-                        &new_block))
+                        block, &idx, buffer, if_start_idx, scratch_arena, &new_block))
                 {
                     return false;
                 }
@@ -403,8 +409,7 @@ bool pp_parse_preprocessor_branch(
                 return false;
             }
             // Remove all text from the #if to #else statements.
-            string_t new_block =
-                string_remove(block, if_start_idx, idx - 1, scratch_arena);
+            string_t new_block = string_remove(block, if_start_idx, idx - 1, scratch_arena);
             idx -= idx - if_start_idx;
 
             // find #endif which denotes the end of the #else code block.
@@ -440,7 +445,8 @@ bool pp_parse_preprocessor_branch(
                 return false;
             }
 
-            // We hit this if we have a single definition that evaluates to false. So remove the whole block.
+            // We hit this if we have a single definition that evaluates to false. So remove the
+            // whole block.
             assert(if_start_idx < idx);
             string_t new_block = string_remove(block, if_start_idx, idx - 1, scratch_arena);
             block->data = new_block.data;
@@ -465,8 +471,7 @@ string_t shader_program_process_preprocessor(
 
     int idx = 0;
     char buffer[100];
-    if (!pp_parse_preprocessor_branch(
-            block, idx, buffer, variants, variant_count, scratch_arena))
+    if (!pp_parse_preprocessor_branch(block, idx, buffer, variants, variant_count, scratch_arena))
     {
         return out;
     }

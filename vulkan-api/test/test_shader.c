@@ -1,13 +1,11 @@
 
+#include <backend/enums.h>
+#include <string.h>
 #include <unity_fixture.h>
-
-#include <vulkan-api/shader.h>
 #include <vulkan-api/context.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
-#include <backend/enums.h>
-
-#include <string.h>
+#include <vulkan-api/shader.h>
 
 TEST_GROUP(ShaderGroup);
 
@@ -23,13 +21,13 @@ TEST(ShaderGroup, Shader_CompilerTests)
     TEST_ASSERT(ARENA_SUCCESS == res);
 
     const char* test_shader0 = "#version 460\n"
-                              "\n"
-                              "void main()\n"
-                              "{\n"
-                              "float val1 = 0;\n"
-                              "float val2 = 3;\n"
-                              "float val3 = val1 + val2;\n"
-                              "}\n";
+                               "\n"
+                               "void main()\n"
+                               "{\n"
+                               "float val1 = 0;\n"
+                               "float val2 = 3;\n"
+                               "float val3 = val1 + val2;\n"
+                               "}\n";
 
     vkapi_driver_t driver;
     int error_code = vkapi_driver_init(NULL, 0, &driver);
@@ -44,7 +42,7 @@ TEST(ShaderGroup, Shader_CompilerTests)
 
     // Test shader reflection works.
     const char* test_shader1 = "#version 460\n"
-                              "\n"
+                               "\n"
                                "layout(location = 0) in vec3 inPos;\n"
                                "layout(location = 1) in vec2 inUv;\n"
                                "layout(location = 0) out vec2 outUv;\n"
@@ -57,13 +55,13 @@ TEST(ShaderGroup, Shader_CompilerTests)
                                "    mat4 p;\n"
                                "} ubo;\n"
                                "layout(binding = 1, set = 3) uniform sampler2D texSampler;\n"
-                              "void main()\n"
-                              "{\n"
-                              "float val1 = 0;\n"
-                              "float val2 = 3;\n"
-                              "float val3 = val1 + val2;\n"
+                               "void main()\n"
+                               "{\n"
+                               "float val1 = 0;\n"
+                               "float val2 = 3;\n"
+                               "float val3 = val1 + val2;\n"
                                "outUv = inUv;"
-                              "}\n";
+                               "}\n";
 
     r = shader_compile(shader, &driver.context, test_shader1, "test_path", &arena);
     TEST_ASSERT(r == true);
@@ -97,7 +95,8 @@ TEST(ShaderGroup, Shader_CompilerTests)
     TEST_ASSERT_EQUAL_UINT(1, resource_binding->desc_layouts[0].binding);
     TEST_ASSERT_EQUAL_UINT(3, resource_binding->desc_layouts[0].set);
     TEST_ASSERT(resource_binding->desc_layouts[0].stage == VK_SHADER_STAGE_VERTEX_BIT);
-    TEST_ASSERT(resource_binding->desc_layouts[0].type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    TEST_ASSERT(
+        resource_binding->desc_layouts[0].type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     // UBO.
     TEST_ASSERT_EQUAL_UINT(0, resource_binding->desc_layouts[1].binding);
     TEST_ASSERT_EQUAL_UINT(0, resource_binding->desc_layouts[1].set);

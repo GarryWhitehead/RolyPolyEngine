@@ -288,8 +288,8 @@ int vkapi_context_create_instance(
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = 0;//context->req_layers.size;
-    createInfo.ppEnabledLayerNames = NULL;//context->req_layers.data;
+    createInfo.enabledLayerCount = 0; // context->req_layers.size;
+    createInfo.ppEnabledLayerNames = NULL; // context->req_layers.data;
     createInfo.enabledExtensionCount = ext_arr.size;
     createInfo.ppEnabledExtensionNames = ext_arr.data;
     VK_CHECK_RESULT(vkCreateInstance(&createInfo, VK_NULL_HANDLE, &context->instance));

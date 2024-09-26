@@ -27,9 +27,9 @@
 #include "program_manager.h"
 #include "renderpass.h"
 #include "shader.h"
-#include <utility/hash.h>
 
 #include <string.h>
+#include <utility/hash.h>
 
 /**
  All the data required to create a pipeline layout
@@ -69,7 +69,8 @@ typedef struct ComputePipeline
 vkapi_pl_layout_t* vkapi_pl_layout_init(arena_t* arena)
 {
     vkapi_pl_layout_t* out = ARENA_MAKE_STRUCT(arena, vkapi_pl_layout_t, ARENA_ZERO_MEMORY);
-    out->desc_bindings = HASH_SET_CREATE(uint32_t, VkDescriptorSetLayoutBinding*, arena, murmur_hash3);
+    out->desc_bindings =
+        HASH_SET_CREATE(uint32_t, VkDescriptorSetLayoutBinding*, arena, murmur_hash3);
     assert(out);
     return out;
 }
@@ -169,7 +170,11 @@ void vkapi_pl_layout_add_desc_layout(
     }
     else
     {
-        slb = ARENA_MAKE_ARRAY(arena, VkDescriptorSetLayoutBinding, VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT, 0);
+        slb = ARENA_MAKE_ARRAY(
+            arena,
+            VkDescriptorSetLayoutBinding,
+            VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT,
+            0);
         HASH_SET_INSERT(&layout->desc_bindings, &set, &slb);
     }
     assert(layout->desc_binding_counts[set] < VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT);

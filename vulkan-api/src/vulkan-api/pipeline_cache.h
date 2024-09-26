@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "common.h"
 #include "backend/enums.h"
+#include "common.h"
 
 #ifndef __VKAPI_PIPELINE_CACHE_H__
 #define __VKAPI_PIPELINE_CACHE_H__

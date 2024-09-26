@@ -25,8 +25,9 @@
 
 #include "backend/enums.h"
 #include "common.h"
-#include <utility/string.h>
+
 #include <utility/arena.h>
+#include <utility/string.h>
 
 #define VKAPI_SHADER_MAX_STAGE_INPUTS 15
 #define VKAPI_SHADER_MAX_STAGE_OUTPUTS 15
@@ -73,7 +74,7 @@ typedef struct ShaderBinding
 typedef struct SpirVBinary
 {
     /// SPIR-V words.
-    uint32_t *words;
+    uint32_t* words;
     // number of words in SPIR-V binary.
     size_t size;
 } spirv_binary_t;
