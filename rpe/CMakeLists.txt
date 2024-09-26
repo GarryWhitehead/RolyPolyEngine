@@ -20,10 +20,12 @@ set (public_headers
 
 set (src_files
     src/private_engine.c
+    src/render_graph/render_graph.c
 )
 
 set (hdr_files
     src/private_engine.h
+    src/render_graph/render_graph.h
 )
 
 target_sources(
