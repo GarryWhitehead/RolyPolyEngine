@@ -20,49 +20,27 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __VKAPI_RESOURCE_CACHE_H__
-#define __VKAPI_RESOURCE_CACHE_H__
+#ifndef __RPE_RG_RENDER_GRAPH_HANDLE_H__
+#define __RPE_RG_RENDER_GRAPH_HANDLE_H__
 
-#include <utility/arena.h>
-#include <vulkan-api/common.h>
+#include <stdint.h>
 #include <stdbool.h>
 
-// Forward declarations.
-typedef struct VkApiContext vkapi_context_t;
-
-typedef struct TextureHandle
+typedef struct RenderGraphHandle
 {
     uint32_t id;
-} texture_handle_t;
+} rg_handle_t;
 
-typedef struct BufferHandle
+static rg_handle_t rg_handle_init()
 {
-    uint32_t id;
-} buffer_handle_t;
+    rg_handle_t h = {.id = UINT32_MAX };
+    return h;
+}
 
-typedef struct VkApiResourceCache
+static bool rg_handle_is_valid(rg_handle_t handle)
 {
-    arena_dyn_array_t textures;
-    arena_dyn_array_t free_tex_slots;
+    return handle.id != UINT32_MAX;
+}
 
-    arena_dyn_array_t textures_gc;
-} vkapi_res_cache_t;
-
-bool vkapi_tex_handle_is_valid(texture_handle_t handle);
-
-vkapi_res_cache_t* vkapi_res_cache_init(arena_t* arena);
-
-texture_handle_t vkapi_res_cache_create_tex2d(
-    vkapi_res_cache_t* cache,
-    vkapi_context_t* context,
-    VkFormat format,
-    uint32_t width,
-    uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
-    VkImageUsageFlags usage_flags);
-
-void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t handle);
 
 #endif

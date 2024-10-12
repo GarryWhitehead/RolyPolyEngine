@@ -1,4 +1,4 @@
-/* Copyright (c) 2022 Garry Whitehead
+/* Copyright (c) 2024 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,151 +20,85 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef __RPE_RG_RENDER_GRAPH_H__
+#define __RPE_RG_RENDER_GRAPH_H__
 
-#include "backboard.h"
-#include "dependency_graph.h"
-#include "render_graph_builder.h"
 #include "render_graph_handle.h"
+#include "resources.h"
 #include "render_graph_pass.h"
-#include "utility/bitset_enum.h"
-#include "utility/cstring.h"
-#include "vulkan-api/driver.h"
-#include "vulkan-api/renderpass.h"
 
-#include <algorithm>
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <vector>
+#include <utility/arena.h>
+#include <vulkan-api/common.h>
+#include <vulkan-api/renderpass.h>
 
-namespace yave::rg
+// Forward declarations.
+typedef struct RenderGraph render_graph_t;
+typedef struct Resource rg_resource_t;
+typedef struct ResourceNode rg_resource_node_t;
+typedef struct DependencyGraph rg_dep_graph_t;
+typedef struct RenderPassNode rg_render_pass_node_t;
+typedef struct RenderGraphPass rg_pass_t;
+
+typedef void(setup_func)(render_graph_t*, rg_pass_node_t*, void*);
+
+typedef struct ResourceSlot
 {
+    size_t resource_idx;
+    size_t node_idx;
+} rg_resource_slot_t;
 
-// forward declerations
-class PassNodeBase;
-class PassNodeBase;
+render_graph_t* rg_init(arena_t* arena);
 
-class RenderGraph
-{
-public:
-    explicit RenderGraph(vkapi::VkDriver& driver);
-    ~RenderGraph();
+rg_render_pass_node_t* rg_create_pass_node(
+    render_graph_t* rg, const char* name, rg_pass_t* rg_pass);
 
-    // not copyable
-    RenderGraph(const RenderGraph&) = delete;
-    RenderGraph& operator=(const RenderGraph&) = delete;
+void rg_add_present_pass(
+    render_graph_t* rg, rg_handle_t handle, const char* name);
 
-    template <typename Data, typename SetupFunc, typename ExecuteFunc>
-    RenderGraphPass<Data, ExecuteFunc>&
-    addPass(const util::CString& name, SetupFunc setup, ExecuteFunc&& execute);
+rg_handle_t rg_add_resource(
+    render_graph_t* rg, rg_resource_t* r, arena_t* arena, rg_handle_t* parent);
 
-    // similar to addPass but only executes and is not culled
-    template <typename ExecuteFunc>
-    void addExecutorPass(const util::CString& name, ExecuteFunc&& execute);
+rg_handle_t rg_move_resource(
+    render_graph_t* rg, rg_handle_t from, rg_handle_t to);
 
-    void addPresentPass(const RenderGraphHandle& input);
-    void createPassNode(const util::CString& name, RenderGraphPassBase* rgPass);
+rg_resource_t* rg_get_resource(render_graph_t* rg, rg_handle_t handle);
 
-    /**
-     * @brief optimises the render graph if possible and fills in all the blanks
-     * - i.e. references, flags, etc.
-     */
-    RenderGraph& compile();
+rg_resource_node_t* rg_get_resource_node(render_graph_t* rg, rg_handle_t handle);
 
-    /**
-     * The execution of the render pass. You must build the pass and call
-     * **prepare** before this function
-     */
-    void execute();
+rg_handle_t rg_import_render_target(
+    render_graph_t* rg,
+    const char* name,
+    rg_import_rt_desc_t desc,
+    vkapi_rt_handle_t handle);
 
-    void reset();
+rg_handle_t rg_add_read(
+    render_graph_t* rg,
+    rg_handle_t handle,
+    rg_pass_node_t* pass_node,
+    VkImageUsageFlags usage);
 
-    RenderGraphHandle
-    addRead(const RenderGraphHandle& handle, PassNodeBase* passNode, vk::ImageUsageFlags usage);
+rg_handle_t rg_add_write(
+    render_graph_t* rg,
+    rg_handle_t handle,
+    rg_pass_node_t* pass_node,
+    VkImageUsageFlags usage);
 
-    RenderGraphHandle
-    addWrite(const RenderGraphHandle& handle, PassNodeBase* passNode, vk::ImageUsageFlags usage);
+render_graph_t* rg_compile(render_graph_t* rg);
 
-    RenderGraphHandle importRenderTarget(
-        const util::CString& name,
-        const ImportedRenderTarget::Descriptor& importedDesc,
-        const vkapi::RenderTargetHandle& handle);
+void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver);
 
-    ResourceNode* getResourceNode(const RenderGraphHandle& handle);
+rg_pass_t* rg_add_pass(
+    render_graph_t* rg,
+    const char* name,
+    setup_func setup,
+    execute_func execute,
+    size_t data_size);
 
-    RenderGraphHandle moveResource(const RenderGraphHandle& from, const RenderGraphHandle& to);
+void rg_add_executor_pass(
+    render_graph_t* rg, const char* name, execute_func execute);
 
-    std::vector<std::unique_ptr<ResourceBase>>& getResources();
+arena_t* rg_get_arena(render_graph_t* rg);
 
-    [[nodiscard]] ResourceBase* getResource(const RenderGraphHandle& handle) const;
+rg_dep_graph_t* rg_get_dep_graph(render_graph_t* rg);
 
-    RenderGraphHandle addResource(std::unique_ptr<ResourceBase> resource);
-
-    RenderGraphHandle
-    addSubResource(std::unique_ptr<ResourceBase> resource, const RenderGraphHandle& parent);
-
-    BlackBoard* getBlackboard() { return blackboard_.get(); }
-
-    // =================== getters ==================================
-
-    DependencyGraph& getDependencyGraph() { return dGraph_; }
-    [[nodiscard]] vkapi::VkDriver& driver() const { return driver_; }
-
-private:
-    DependencyGraph dGraph_;
-
-    vkapi::VkDriver& driver_;
-
-    /// a list of all the render passes
-    std::vector<std::unique_ptr<RenderGraphPassBase>> rGraphPasses_;
-
-    /// a virtual list of all the resources associated with this graph
-    std::vector<std::unique_ptr<ResourceBase>> resources_;
-
-    std::vector<std::unique_ptr<PassNodeBase>> rPassNodes_;
-    std::vector<std::unique_ptr<ResourceNode>> resourceNodes_;
-
-    std::vector<std::unique_ptr<PassNodeBase>>::iterator activeNodesEnd_;
-
-    struct ResourceSlot
-    {
-        size_t resourceIdx = 0;
-        size_t nodeIdx = 0;
-    };
-    std::vector<ResourceSlot> resourceSlots_;
-
-    std::unique_ptr<BlackBoard> blackboard_;
-};
-
-template <typename Data, typename SetupFunc, typename ExecuteFunc>
-RenderGraphPass<Data, ExecuteFunc>&
-RenderGraph::addPass(const util::CString& name, SetupFunc setup, ExecuteFunc&& execute)
-{
-    auto rPass =
-        std::make_unique<RenderGraphPass<Data, ExecuteFunc>>(std::forward<ExecuteFunc>(execute));
-    createPassNode(name, rPass.get());
-    RenderGraphBuilder builder {this, reinterpret_cast<PassNodeBase*>(rPassNodes_.back().get())};
-    setup(builder, const_cast<Data&>(rPass->getData()));
-    auto& output = *rPass.get();
-    rGraphPasses_.emplace_back(std::move(rPass));
-    return output;
-}
-
-template <typename ExecuteFunc>
-void RenderGraph::addExecutorPass(const util::CString& name, ExecuteFunc&& execute)
-{
-    struct Empty
-    {
-    };
-
-    addPass<Empty>(
-        name,
-        [](RenderGraphBuilder& builder, Empty&) { builder.addSideEffect(); },
-        [execute](
-            vkapi::VkDriver& driver, const Empty& data, const rg::RenderGraphResource& resources) {
-            execute(driver);
-        });
-}
-
-} // namespace yave::rg
+#endif

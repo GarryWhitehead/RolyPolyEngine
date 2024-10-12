@@ -41,7 +41,6 @@ find_package(Vulkan REQUIRED)
 
 # required dependencies for all libraries
 find_package(glslang REQUIRED)
-#find_package(shaderc)
 find_package(vulkan-memory-allocator REQUIRED)
 find_package(spirv-cross REQUIRED)
 find_package(vulkan-validationlayers REQUIRED)
@@ -51,6 +50,7 @@ find_package(jsmn REQUIRED)
 find_package(stb REQUIRED)
 find_package(log.c REQUIRED)
 find_package(Ktx REQUIRED)
+find_package(volk REQUIRED)
 
 if (BUILD_TESTS)
     find_package(unity REQUIRED)

@@ -20,49 +20,25 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __VKAPI_RESOURCE_CACHE_H__
-#define __VKAPI_RESOURCE_CACHE_H__
+#ifndef __RPE_RG_BACKBOARD_H__
+#define __RPE_RG_BACKBOARD_H__
 
-#include <utility/arena.h>
-#include <vulkan-api/common.h>
-#include <stdbool.h>
+#include "render_graph_handle.h"
+#include <utility/string.h>
+#include <utility/hash_set.h>
 
-// Forward declarations.
-typedef struct VkApiContext vkapi_context_t;
-
-typedef struct TextureHandle
+typedef struct BackBoard
 {
-    uint32_t id;
-} texture_handle_t;
+    hash_set_t backboard;
 
-typedef struct BufferHandle
-{
-    uint32_t id;
-} buffer_handle_t;
+} rg_backboard_t;
 
-typedef struct VkApiResourceCache
-{
-    arena_dyn_array_t textures;
-    arena_dyn_array_t free_tex_slots;
+void rg_backboard_add(rg_backboard_t* bb, string_t name, rg_handle_t handle);
 
-    arena_dyn_array_t textures_gc;
-} vkapi_res_cache_t;
+rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name);
 
-bool vkapi_tex_handle_is_valid(texture_handle_t handle);
+void rg_backboard_remove(rg_backboard_t* bb, string_t name);
 
-vkapi_res_cache_t* vkapi_res_cache_init(arena_t* arena);
-
-texture_handle_t vkapi_res_cache_create_tex2d(
-    vkapi_res_cache_t* cache,
-    vkapi_context_t* context,
-    VkFormat format,
-    uint32_t width,
-    uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
-    VkImageUsageFlags usage_flags);
-
-void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t handle);
+void rg_backboard_reset(rg_backboard_t* bb) ;
 
 #endif

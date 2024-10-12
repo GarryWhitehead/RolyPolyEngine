@@ -20,49 +20,34 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __VKAPI_RESOURCE_CACHE_H__
-#define __VKAPI_RESOURCE_CACHE_H__
+#include "backboard.h"
+#include <assert.h>
 
-#include <utility/arena.h>
-#include <vulkan-api/common.h>
-#include <stdbool.h>
 
-// Forward declarations.
-typedef struct VkApiContext vkapi_context_t;
-
-typedef struct TextureHandle
+void rg_backboard_add(rg_backboard_t* bb, string_t name, rg_handle_t handle)
 {
-    uint32_t id;
-} texture_handle_t;
+    assert(bb);
+    HASH_SET_INSERT(&bb->backboard, &name, &handle);
+}
 
-typedef struct BufferHandle
+rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name)
 {
-    uint32_t id;
-} buffer_handle_t;
+    assert(bb);
+    rg_handle_t* h = HASH_SET_GET(&bb->backboard, &name);
+    assert(h);
+    return *h;
+}
 
-typedef struct VkApiResourceCache
+void rg_backboard_remove(rg_backboard_t* bb, string_t name)
 {
-    arena_dyn_array_t textures;
-    arena_dyn_array_t free_tex_slots;
+    assert(bb);
+    rg_handle_t* h = HASH_SET_ERASE(&bb->backboard, &name);
+    assert(h);
+}
 
-    arena_dyn_array_t textures_gc;
-} vkapi_res_cache_t;
+void rg_backboard_reset(rg_backboard_t* bb)
+{
+    assert(bb);
+    hash_set_clear(&bb->backboard);
+}
 
-bool vkapi_tex_handle_is_valid(texture_handle_t handle);
-
-vkapi_res_cache_t* vkapi_res_cache_init(arena_t* arena);
-
-texture_handle_t vkapi_res_cache_create_tex2d(
-    vkapi_res_cache_t* cache,
-    vkapi_context_t* context,
-    VkFormat format,
-    uint32_t width,
-    uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
-    VkImageUsageFlags usage_flags);
-
-void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t handle);
-
-#endif

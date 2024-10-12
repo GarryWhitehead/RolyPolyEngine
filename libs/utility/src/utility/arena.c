@@ -258,4 +258,22 @@ void* dyn_array_get(arena_dyn_array_t* arr, uint32_t idx)
     return _offset_ptr(arr->data, idx, arr->type_size);
 }
 
+void* dyn_array_pop_back(arena_dyn_array_t* arr)
+{
+    void* out = NULL;
+    if (arr->size > 0)
+    {
+        out = dyn_array_get(arr, arr->size - 1);
+        --arr->size;
+    }
+    return out;
+}
+
+void dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item)
+{
+    assert(idx < arr->size);
+    void* ptr = _offset_ptr(arr->data, idx, arr->type_size);
+    memcpy(ptr, item, arr->type_size);
+}
+
 void dyn_array_clear(arena_dyn_array_t* dyn_array) { dyn_array->size = 0; }

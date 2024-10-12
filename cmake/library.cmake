@@ -82,7 +82,7 @@ function(rpe_add_compiler_flags)
     if (MSVC)
         set(intrinsic_flags ${intrinsic_flags} /arch:SSE3)
     else()
-        set(intrinsic_flags ${intrinsic_flags} -msse3)
+        set(intrinsic_flags ${intrinsic_flags} -march=haswell)
     endif()
     target_compile_options(
         ${COMPILE_FLAGS_TARGET} 

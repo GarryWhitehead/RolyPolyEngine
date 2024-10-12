@@ -26,11 +26,10 @@
 
 #include <assert.h>
 #include <string.h>
+#include <utility/maths.h>
 
 int vkapi_driver_init(const char** instance_ext, uint32_t ext_count, vkapi_driver_t* driver)
 {
-    // memset(driver, 0, sizeof(struct VkApiDriver));
-
     // Allocate the arena space.
     int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &driver->_perm_arena);
     int scratch_err = arena_new(VKAPI_SCRATCH_ARENA_SIZE, &driver->_scratch_arena);
@@ -39,11 +38,21 @@ int vkapi_driver_init(const char** instance_ext, uint32_t ext_count, vkapi_drive
         return VKAPI_ERROR_INVALID_ARENA;
     }
 
+    volkInitialize();
+
     vkapi_context_init(&driver->_perm_arena, &driver->context);
+    driver->res_cache = vkapi_res_cache_init(&driver->_perm_arena);
+    MAKE_DYN_ARRAY(vkapi_render_target_t , &driver->_perm_arena, 100, &driver->render_targets);
 
     // Create a new vulkan instance.
-    return vkapi_context_create_instance(
+     int err = vkapi_context_create_instance(
         &driver->context, instance_ext, ext_count, &driver->_perm_arena, &driver->_scratch_arena);
+     if (err != VKAPI_SUCCESS)
+     {
+        return err;
+     }
+     volkLoadInstance(driver->context.instance);
+     return VKAPI_SUCCESS;
 }
 
 int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
@@ -58,11 +67,17 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     driver->commands = vkapi_commands_init(&driver->context, &driver->_perm_arena);
 
     // set up the memory allocator
+    VmaVulkanFunctions vk_funcs = {};
+    vk_funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    vk_funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    //vkFuncs.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+
     VmaAllocatorCreateInfo create_info = {};
     create_info.vulkanApiVersion = VK_API_VERSION_1_2;
     create_info.physicalDevice = driver->context.physical;
     create_info.device = driver->context.device;
     create_info.instance = driver->context.instance;
+    create_info.pVulkanFunctions = &vk_funcs;
     VkResult result = vmaCreateAllocator(&create_info, &driver->vma_allocator);
     assert(result == VK_SUCCESS);
 
@@ -106,4 +121,56 @@ VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver)
         }
     }
     return output;
+}
+
+texture_handle_t vkapi_driver_create_tex2d(
+    vkapi_driver_t* driver,
+    VkFormat format,
+    uint32_t width,
+    uint32_t height,
+    uint8_t mip_levels,
+    uint8_t face_count,
+    uint8_t array_count,
+    VkImageUsageFlags usage_flags)
+{
+    return vkapi_res_cache_create_tex2d(
+        driver->res_cache,
+        &driver->context,
+        format,
+        width,
+        height,
+        mip_levels,
+        face_count,
+        array_count,
+        usage_flags);
+}
+
+void vkapi_driver_destroy_tex2d(vkapi_driver_t* driver, texture_handle_t handle)
+{
+    vkapi_res_cache_delete_tex2d(driver->res_cache, handle);
+}
+
+vkapi_rt_handle_t vkapi_driver_create_rt(
+    vkapi_driver_t* driver,
+    bool multiView,
+    math_vec4f clear_col,
+    vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT],
+    vkapi_attach_info_t depth,
+    vkapi_attach_info_t stencil)
+{
+    assert(driver);
+    vkapi_render_target_t rt = {
+        rt.depth = depth,
+        rt.stencil = stencil,
+        rt.clear_colour.r = clear_col.r,
+        rt.clear_colour.g = clear_col.g,
+        rt.clear_colour.b = clear_col.b,
+        rt.clear_colour.a = clear_col.a,
+        .samples = 1,
+        rt.multiView = multiView };
+    memcpy(rt.colours, colours, sizeof(vkapi_attach_info_t) * VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT);
+
+    vkapi_rt_handle_t handle = { .id = driver->render_targets.size };
+    DYN_ARRAY_APPEND(&driver->render_targets, &rt);
+    return handle;
 }

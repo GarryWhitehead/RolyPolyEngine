@@ -27,9 +27,14 @@
 #include "common.h"
 #include "context.h"
 #include "staging_pool.h"
+#include "resource_cache.h"
+#include "renderpass.h"
 
-#define VKAPI_SCRATCH_ARENA_SIZE 80000
-#define VKAPI_PERM_ARENA_SIZE 20000
+#define VKAPI_SCRATCH_ARENA_SIZE 1<<20
+#define VKAPI_PERM_ARENA_SIZE 1<<20
+
+// Forward declarations.
+typedef struct VkApiResourceCache vkapi_res_cache_t;
 
 typedef struct VkApiDriver
 {
@@ -50,6 +55,9 @@ typedef struct VkApiDriver
     /// Small scratch arena for limited lifetime allocations. Should be passed as a copy to
     /// functions for scoping only for the lifetime of that function.
     arena_t _scratch_arena;
+
+    vkapi_res_cache_t* res_cache;
+    arena_dyn_array_t render_targets;
 
 } vkapi_driver_t;
 
@@ -85,5 +93,25 @@ void vkapi_driver_shutdown(vkapi_driver_t* driver);
  @return The supported depth format.
  */
 VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver);
+
+texture_handle_t vkapi_driver_create_tex2d(
+    vkapi_driver_t* driver,
+    VkFormat format,
+    uint32_t width,
+    uint32_t height,
+    uint8_t mip_levels,
+    uint8_t face_count,
+    uint8_t array_count,
+    VkImageUsageFlags usage_flags);
+
+void vkapi_driver_destroy_tex2d(vkapi_driver_t* driver, texture_handle_t handle);
+
+vkapi_rt_handle_t vkapi_driver_create_rt(
+    vkapi_driver_t* driver,
+    bool multiView,
+    math_vec4f clear_col,
+    vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT],
+    vkapi_attach_info_t depth,
+    vkapi_attach_info_t stencil);
 
 #endif

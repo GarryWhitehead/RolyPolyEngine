@@ -22,256 +22,332 @@
 
 #include "render_graph.h"
 
+#include "dependency_graph.h"
 #include "render_graph_pass.h"
 #include "render_pass_node.h"
 #include "rendergraph_resource.h"
 #include "resource_node.h"
-#include "utility/assertion.h"
-#include "vulkan-api/driver.h"
-#include "vulkan-api/image.h"
-#include "vulkan-api/renderpass.h"
+#include "resources.h"
 
-#include <algorithm>
+#include <vulkan-api/driver.h>
+#include <vulkan-api/renderpass.h>
 
-
-namespace yave::rg
+typedef struct RenderGraph
 {
+    rg_dep_graph_t* dep_graph;
 
-RenderGraph::RenderGraph(vkapi::VkDriver& driver)
-    : driver_(driver), blackboard_(std::make_unique<BlackBoard>())
+    /// a list of all the render passes
+    arena_dyn_array_t rg_passes;
+
+    /// a virtual list of all the resources associated with this graph
+    arena_dyn_array_t resources;
+
+    arena_dyn_array_t pass_nodes;
+    arena_dyn_array_t resource_nodes;
+
+    arena_dyn_array_t resource_slots;
+
+    /// Arena for memory allocations (frame scope).
+    arena_t* arena;
+    /// Number of active (non-culled) pass nodes set after a call to @sa rg_compile.
+    size_t active_idx;
+
+} render_graph_t;
+
+render_graph_t* rg_init(arena_t* arena)
 {
+    render_graph_t* rg = ARENA_MAKE_STRUCT(arena, render_graph_t, ARENA_ZERO_MEMORY);
+    MAKE_DYN_ARRAY(rg_resource_slot_t, arena, 40, &rg->resource_slots);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 20, &rg->resources);
+    MAKE_DYN_ARRAY(rg_resource_node_t*, arena, 20, &rg->resource_nodes);
+    MAKE_DYN_ARRAY(rg_render_pass_node_t*, arena, 20, &rg->pass_nodes);
+    MAKE_DYN_ARRAY(rg_pass_t*, arena, 20, &rg->rg_passes);
+    rg->dep_graph = rg_dep_graph_init(arena);
+    rg->arena = arena;
+    return rg;
 }
 
-RenderGraph::~RenderGraph() = default;
-
-void RenderGraph::createPassNode(const util::CString& name, RenderGraphPassBase* rgPass)
+rg_render_pass_node_t* rg_create_pass_node(
+    render_graph_t* rg, const char* name, rg_pass_t* rg_pass)
 {
-    auto node = std::make_unique<RenderPassNode>(*this, rgPass, name);
-    ASSERT_LOG(node);
-    rgPass->setNode(node.get());
-    rPassNodes_.emplace_back(std::move(node));
+    assert(rg);
+    assert(rg_pass);
+    rg_pass->node = rg_render_pass_node_init(rg->dep_graph, name, rg_pass, rg->arena);
+    DYN_ARRAY_APPEND(&rg->pass_nodes, &rg_pass->node);
+    return rg_pass->node;
 }
 
-void RenderGraph::addPresentPass(const RenderGraphHandle& input)
+void rg_add_present_pass(
+    render_graph_t* rg, rg_handle_t handle, const char* name)
 {
-    auto node = std::make_unique<PresentPassNode>(*this);
-    ASSERT_LOG(node);
-    RenderGraphBuilder builder {this, node.get()};
-    addRead(input, node.get(), {});
-    builder.addSideEffect();
-    rPassNodes_.emplace_back(std::move(node));
+    assert(rg);
+    rg_present_pass_node_t* node = rg_present_pass_node_init(rg->dep_graph, name, rg->arena);
+    rg_add_read(rg, handle, (rg_pass_node_t*)node, 0);
+    rg_node_declare_side_effect((rg_node_t*)node);
+    DYN_ARRAY_APPEND(&rg->pass_nodes, &node);
 }
 
-RenderGraphHandle RenderGraph::addResource(std::unique_ptr<ResourceBase> resource)
+rg_handle_t rg_add_resource(
+    render_graph_t* rg, rg_resource_t* r, arena_t* arena, rg_handle_t* parent)
 {
-    return addSubResource(std::move(resource), {});
-}
-
-RenderGraphHandle
-RenderGraph::addSubResource(std::unique_ptr<ResourceBase> resource, const RenderGraphHandle& parent)
-{
-    RenderGraphHandle handle(static_cast<uint32_t>(resourceSlots_.size()));
-    resourceSlots_.push_back({resources_.size(), resourceNodes_.size()});
-    auto node = std::make_unique<ResourceNode>(*this, resource->getName(), handle, parent);
-    resources_.emplace_back(std::move(resource));
-    resourceNodes_.emplace_back(std::move(node));
+    assert(rg);
+    assert(r);
+    rg_handle_t handle = {.id = rg->resource_slots.size};
+    rg_resource_slot_t slot = {
+        .node_idx = rg->resource_nodes.size, .resource_idx = rg->resources.size};
+    DYN_ARRAY_APPEND(&rg->resource_slots, &slot);
+    rg_resource_node_t* r_node = rg_res_node_init(rg->dep_graph, r->name.data, arena, parent);
+    DYN_ARRAY_APPEND(&rg->resources, &r);
+    DYN_ARRAY_APPEND(&rg->resource_nodes, &r_node);
     return handle;
 }
 
-RenderGraphHandle
-RenderGraph::moveResource(const RenderGraphHandle& from, const RenderGraphHandle& to)
+rg_handle_t rg_move_resource(
+    render_graph_t* rg, rg_handle_t from, rg_handle_t to)
 {
-    ASSERT_LOG(from);
-    ASSERT_LOG(to);
+    assert(rg_handle_is_valid(from));
+    assert(rg_handle_is_valid(to));
 
-    auto& fromSlot = resourceSlots_[from.getKey()];
-    auto& toSlot = resourceSlots_[to.getKey()];
+    rg_resource_slot_t from_slot = DYN_ARRAY_GET(rg_resource_slot_t, &rg->resource_slots, from.id);
+    rg_resource_slot_t to_slot = DYN_ARRAY_GET(rg_resource_slot_t, &rg->resource_slots, to.id);
+    rg_resource_node_t* from_node = rg_get_resource_node(rg, from);
+    rg_resource_node_t* to_node = rg_get_resource_node(rg, to);
 
-    ResourceNode* fromNode = getResourceNode(from);
-    ResourceNode* toNode = getResourceNode(to);
-
-    // connect the replacement node to the forwarded node
-    fromNode->setAliasResourceEdge(toNode);
-    fromSlot.resourceIdx = toSlot.resourceIdx;
-
+    // Connect the replacement node to the forwarded node.
+    rg_res_node_set_alias_res_edge(rg->dep_graph, from_node, to_node, rg->arena);
+    from_slot.resource_idx = to_slot.resource_idx;
     return from;
 }
 
-ResourceNode* RenderGraph::getResourceNode(const RenderGraphHandle& handle)
+rg_resource_node_t* rg_get_resource_node(render_graph_t* rg, rg_handle_t handle)
 {
-    ASSERT_LOG(handle.getKey() < resourceSlots_.size());
-    ResourceSlot& slot = resourceSlots_[handle.getKey()];
-    return resourceNodes_[slot.nodeIdx].get();
+    assert(rg);
+    assert(handle.id < rg->resource_slots.size);
+    rg_resource_slot_t slot = DYN_ARRAY_GET(rg_resource_slot_t, &rg->resource_slots, handle.id);
+    return DYN_ARRAY_GET(rg_resource_node_t*, &rg->resource_nodes, slot.node_idx);
 }
 
-RenderGraphHandle RenderGraph::importRenderTarget(
-    const util::CString& name,
-    const ImportedRenderTarget::Descriptor& importedDesc,
-    const vkapi::RenderTargetHandle& handle)
+rg_handle_t rg_import_render_target(
+    render_graph_t* rg,
+    const char* name,
+    rg_import_rt_desc_t desc,
+    vkapi_rt_handle_t handle)
 {
-    TextureResource::Descriptor resDesc {importedDesc.width, importedDesc.height};
-    auto importedRT = std::make_unique<ImportedRenderTarget>(name, handle, resDesc, importedDesc);
-    return addResource(std::move(importedRT));
+    rg_texture_desc_t r_desc = {.width = desc.width, .height = desc.height};
+    rg_import_render_target_t* i = rg_tex_import_rt_init(name, 0, r_desc, desc, handle, rg->arena);
+    return rg_add_resource(rg, (rg_resource_t*)i, rg->arena, NULL);
 }
 
-RenderGraphHandle RenderGraph::addRead(
-    const RenderGraphHandle& handle, PassNodeBase* passNode, vk::ImageUsageFlags usage)
+rg_handle_t rg_add_read(
+    render_graph_t* rg,
+    rg_handle_t handle,
+    rg_pass_node_t* pass_node,
+    VkImageUsageFlags usage)
 {
-    ASSERT_LOG(handle.getKey() < resources_.size());
-    ResourceBase* resource = resources_[handle.getKey()].get();
+    assert(rg);
+    assert(rg_handle_is_valid(handle));
+    assert(pass_node);
 
-    ASSERT_LOG(handle.getKey() < resourceNodes_.size());
-    ResourceNode* node = resourceNodes_[handle.getKey()].get();
+    assert(handle.id < rg->resources.size);
+    rg_resource_t* r = DYN_ARRAY_GET(rg_resource_t*, &rg->resources, handle.id);
 
-    ResourceBase::connectReader(dGraph_, passNode, node, usage);
-    if (resource->isSubResource())
+    assert(handle.id < rg->resource_nodes.size);
+    rg_resource_node_t* node = DYN_ARRAY_GET(rg_resource_node_t*, &rg->resource_nodes, handle.id);
+
+    rg_resource_connect_reader(pass_node, rg->dep_graph, node, usage, rg->arena);
+    if (rg_resource_is_sub_resource(r))
     {
         // if this is a subresource, it has a write dependency
-        ResourceNode* parentNode = node->getParentNode();
-        node->setParentWriter(parentNode);
+        rg_resource_node_t* parent_node = rg_res_node_get_parent_node(node, rg);
+        rg_res_node_set_parent_writer(rg->dep_graph, node, parent_node, rg->arena);
     }
-
     return handle;
 }
 
-RenderGraphHandle RenderGraph::addWrite(
-    const RenderGraphHandle& handle, PassNodeBase* passNode, vk::ImageUsageFlags usage)
+rg_handle_t rg_add_write(
+    render_graph_t* rg,
+    rg_handle_t handle,
+    rg_pass_node_t* pass_node,
+    VkImageUsageFlags usage)
 {
-    ASSERT_LOG(handle.getKey() < resources_.size());
-    ResourceBase* resource = resources_[handle.getKey()].get();
+    assert(rg);
+    assert(rg_handle_is_valid(handle));
+    assert(pass_node);
 
-    ASSERT_LOG(handle.getKey() < resourceNodes_.size());
-    ResourceNode* node = resourceNodes_[handle.getKey()].get();
+    assert(handle.id < rg->resources.size);
+    rg_resource_t* r = DYN_ARRAY_GET(rg_resource_t*, &rg->resources, handle.id);
 
-    ResourceBase::connectWriter(dGraph_, passNode, node, usage);
+    assert(handle.id < rg->resource_nodes.size);
+    rg_resource_node_t* node = DYN_ARRAY_GET(rg_resource_node_t*, &rg->resource_nodes, handle.id);
 
-    // if its an imported resource, make sure its not culled
-    if (resource->isImported())
+    rg_resource_connect_writer(pass_node, rg->dep_graph, node, usage, rg->arena);
+
+    // If it's an imported resource, make sure it's not culled.
+    if (r->imported)
     {
-        passNode->declareSideEffect();
+        rg_node_declare_side_effect((rg_node_t*)pass_node);
     }
 
-    if (resource->isSubResource())
+    if (rg_resource_is_sub_resource(r))
     {
-        // if this is a subresource, it has a write dependency
-        ResourceNode* parentNode = node->getParentNode();
-        node->setParentWriter(parentNode);
+        // If this is a subresource, it has a write dependency.
+        rg_resource_node_t* parent = rg_res_node_get_parent_node(node, rg);
+        rg_res_node_set_parent_writer(rg->dep_graph, node, parent, rg->arena);
     }
-
     return handle;
 }
 
-void RenderGraph::reset()
+render_graph_t* rg_compile(render_graph_t* rg)
 {
-    dGraph_.clear();
-    blackboard_->reset();
-    rGraphPasses_.clear();
-    resources_.clear();
-    rPassNodes_.clear();
-    resourceNodes_.clear();
-    resourceSlots_.clear();
-}
+    assert(rg);
 
-RenderGraph& RenderGraph::compile()
-{
-    dGraph_.cull();
+    rg_dep_graph_cull(rg->dep_graph, rg->arena);
 
-    // partition the container so active nodes are at the
-    // front and culled nodes are at the back
-    activeNodesEnd_ = std::stable_partition(
-        rPassNodes_.begin(), rPassNodes_.end(), [](std::unique_ptr<PassNodeBase>& node) {
-            return !node->isCulled();
-        });
-
-    ASSERT_LOG(!rPassNodes_.empty());
-    size_t nodeIdx = 0;
-    auto lastNode = activeNodesEnd_;
-
-    while (nodeIdx < rPassNodes_.size() && rPassNodes_[nodeIdx].get() != lastNode->get())
+    size_t tmp_idx = 0;
+    rg->active_idx = 0;
+    rg_pass_node_t** tmp_buffer = ARENA_MAKE_ARRAY(rg->arena, rg_pass_node_t*, rg->pass_nodes.size, 0);
+    for (size_t i = 0; i < rg->pass_nodes.size; ++i)
     {
-        ASSERT_LOG(nodeIdx < rPassNodes_.size());
-        PassNodeBase* passNode = rPassNodes_[nodeIdx++].get();
-
-        const auto& readers = dGraph_.getReaderEdges(passNode);
-        for (const auto* edge : readers)
+        rg_pass_node_t* node = DYN_ARRAY_GET(rg_pass_node_t*, &rg->pass_nodes, i);
+        if (!rg_node_is_culled((rg_node_t*)node))
         {
-            auto* node = static_cast<ResourceNode*>(dGraph_.getNode(edge->fromId));
-            passNode->addResource(node->resourceHandle());
+            DYN_ARRAY_SET(&rg->pass_nodes, rg->active_idx++, &node);
+        }
+        else
+        {
+            tmp_buffer[tmp_idx++] = node;
+        }
+    }
+    assert(rg->active_idx + tmp_idx == rg->pass_nodes.size);
+    memcpy(
+        rg->pass_nodes.data + rg->active_idx * sizeof(rg_pass_node_t*), tmp_buffer, tmp_idx);
+
+    size_t node_idx = 0;
+
+    while (node_idx < rg->active_idx)
+    {
+        assert(node_idx < rg->pass_nodes.size);
+        rg_pass_node_t* pass_node = DYN_ARRAY_GET(rg_pass_node_t*, &rg->pass_nodes, node_idx);
+
+        arena_dyn_array_t readers = rg_dep_graph_get_reader_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
+        for (size_t i = 0; i < readers.size; ++i)
+        {
+            rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &readers, i);
+            rg_resource_node_t* r_node =
+                (rg_resource_node_t*)rg_dep_graph_get_node(rg->dep_graph, edge->from_id);
+            rg_pass_node_add_resource(pass_node, rg, r_node->resource);
         }
 
-        const auto& writers = dGraph_.getWriterEdges(passNode);
-        for (const auto* edge : writers)
+        arena_dyn_array_t writers = rg_dep_graph_get_writer_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
+        for (size_t i = 0; i < writers.size; ++i)
         {
-            auto* node = static_cast<ResourceNode*>(dGraph_.getNode(edge->toId));
-            passNode->addResource(node->resourceHandle());
+            rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &writers, i);
+            rg_resource_node_t* r_node =
+                (rg_resource_node_t*)rg_dep_graph_get_node(rg->dep_graph, edge->to_id);
+            rg_pass_node_add_resource(pass_node, rg, r_node->resource);
         }
-        passNode->build();
+
+        rg_render_pass_node_build(pass_node, rg, rg->arena);
     }
 
-    // bake the resources
-    for (auto& resource : resources_)
+    // Bake the resources.
+    for (size_t i = 0; i < rg->resources.size; ++i)
     {
-        if (resource->readCount())
+        rg_resource_t* r = DYN_ARRAY_GET_PTR(rg_resource_t, &rg->resources, i);
+        if (r->read_count > 0)
         {
-            PassNodeBase* firstNode = resource->getFirstPassNode();
-            PassNodeBase* lastNode = resource->getLastPassNode();
+            rg_pass_node_t* first = r->first_pass_node;
+            rg_pass_node_t* last = r->last_pass_node;
 
-            if (firstNode && lastNode)
+            if (first && last)
             {
-                firstNode->addToBakeList(resource.get());
-                lastNode->addToDestroyList(resource.get());
+                rg_pass_node_add_to_bake_list(first, r);
+                rg_pass_node_add_to_destroy_list(last, r);
             }
         }
     }
 
-    // update the usage flags for all resources
-    for (size_t i = 0; i < resources_.size(); ++i)
+    // Update the usage flags for all resources.
+    for (size_t i = 0; i < rg->resource_nodes.size; ++i)
     {
-        ResourceNode* node = resourceNodes_[i].get();
-        node->updateResourceUsage();
+        rg_resource_node_t* node = DYN_ARRAY_GET(rg_resource_node_t*, &rg->resource_nodes, i);
+        rg_res_node_update_res_usage(node, rg, rg->dep_graph);
     }
 
-    return *this;
+    return rg;
 }
 
-void RenderGraph::execute()
+void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver)
 {
-    size_t nodeIdx = 0;
-    auto lastNode = activeNodesEnd_;
+    assert(rg);
+    assert(driver);
+    size_t node_idx = 0;
 
-    while (nodeIdx < rPassNodes_.size() && rPassNodes_[nodeIdx].get() != lastNode->get())
+    while (node_idx < rg->active_idx)
     {
-        ASSERT_LOG(nodeIdx < rPassNodes_.size());
-        auto* passNode = static_cast<RenderPassNode*>(rPassNodes_[nodeIdx++].get());
+        assert(node_idx < rg->pass_nodes.size);
+        rg_render_pass_node_t* pass_node =
+            DYN_ARRAY_GET(rg_render_pass_node_t*, &rg->pass_nodes, node_idx++);
 
-        // create concrete vulkan resources - these are added to the
-        // node during the compile call
-        passNode->bakeResourceList(driver_);
-
-        RenderGraphResource resources(*this, passNode);
-        passNode->execute(driver_, resources);
+        // Create concrete vulkan resources - these are added to the
+        // node during the compile call.
+        rg_pass_node_bake_resource_list(pass_node, driver);
+        rg_render_graph_resource_t r = {.rg = rg, .pass_node = pass_node};
+        rg_render_pass_node_execute(pass_node, rg, pass, driver, &r);
 
         // Resources used by the render graph are added to the garbage
         // collector to delay their destruction for a few frames so
         // we can be certain that the cmd buffers in flight have finished
         // with them.
-        for (const auto& n : rPassNodes_)
+        for (size_t i = 0; rg->pass_nodes.size; ++i)
         {
-            n->destroyResourceList(driver_);
+            rg_pass_node_t* node = DYN_ARRAY_GET(rg_pass_node_t*, &rg->pass_nodes, i);
+            rg_pass_node_destroy_resource_list(node, driver);
         }
     }
 }
 
-std::vector<std::unique_ptr<ResourceBase>>& RenderGraph::getResources() { return resources_; }
-
-ResourceBase* RenderGraph::getResource(const RenderGraphHandle& handle) const
+rg_resource_t* rg_get_resource(render_graph_t* rg, rg_handle_t handle)
 {
-    ResourceSlot slot = resourceSlots_[handle.getKey()];
-    ASSERT_FATAL(
-        slot.resourceIdx < resources_.size(),
-        "Resource index (=%d) is out of limits.",
-        slot.resourceIdx);
-    return resources_[slot.resourceIdx].get();
+    assert(rg);
+    rg_resource_slot_t slot = DYN_ARRAY_GET(rg_resource_slot_t, &rg->resource_slots, handle.id);
+    assert(slot.resource_idx < rg->resources.size);
+    return DYN_ARRAY_GET(rg_resource_t*, &rg->resources, slot.resource_idx);
 }
 
-} // namespace yave::rg
+rg_pass_t* rg_add_pass(
+    render_graph_t* rg,
+    const char* name,
+    setup_func setup,
+    execute_func execute,
+    size_t data_size)
+{
+    rg_pass_t* pass = rg_pass_init(execute, data_size, rg->arena);
+    rg_render_pass_node_t* node = rg_create_pass_node(rg, name, pass);
+    setup(rg, (rg_pass_node_t*)node, pass->data);
+    DYN_ARRAY_APPEND(&rg->rg_passes, &pass);
+    return pass;
+}
+
+void _executor_setup(render_graph_t*, rg_pass_node_t* node, void*)
+{
+    rg_node_declare_side_effect((rg_node_t*)node);
+}
+
+void rg_add_executor_pass(
+    render_graph_t* rg, const char* name, execute_func execute)
+{
+    rg_add_pass(rg, name, _executor_setup, execute, 0);
+}
+
+arena_t* rg_get_arena(render_graph_t* rg)
+{
+    assert(rg);
+    return rg->arena;
+}
+
+rg_dep_graph_t* rg_get_dep_graph(render_graph_t* rg)
+{
+    assert(rg);
+    return rg->dep_graph;
+}

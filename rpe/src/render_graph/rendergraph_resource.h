@@ -20,49 +20,33 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __VKAPI_RESOURCE_CACHE_H__
-#define __VKAPI_RESOURCE_CACHE_H__
+#ifndef __RPE_RG_RESOURCE_H__
+#define __RPE_RG_RESOURCE_H__
 
-#include <utility/arena.h>
-#include <vulkan-api/common.h>
-#include <stdbool.h>
+#include "render_graph_handle.h"
+#include "vulkan-api/renderpass.h"
 
-// Forward declarations.
-typedef struct VkApiContext vkapi_context_t;
+// forward declarations
+typedef struct RenderPassNode rg_render_pass_node_t;
+typedef struct RenderGraph rg_render_graph_t;
+typedef struct Resource rg_resource_t;
 
-typedef struct TextureHandle
+typedef struct RenderGraphResourceInfo
 {
-    uint32_t id;
-} texture_handle_t;
+    vkapi_render_pass_data_t data;
+    vkapi_rt_handle_t handle;
+} rg_resource_info_t;
 
-typedef struct BufferHandle
+typedef struct RenderGraphResource
 {
-    uint32_t id;
-} buffer_handle_t;
+   rg_render_graph_t* rg;
+    rg_render_pass_node_t* pass_node;
+} rg_render_graph_resource_t;
 
-typedef struct VkApiResourceCache
-{
-    arena_dyn_array_t textures;
-    arena_dyn_array_t free_tex_slots;
+rg_resource_t* rg_res_get_resource(rg_render_graph_resource_t* r, rg_handle_t handle);
 
-    arena_dyn_array_t textures_gc;
-} vkapi_res_cache_t;
+rg_resource_info_t rg_res_get_render_pass_info(rg_render_graph_resource_t* r, rg_handle_t handle);
 
-bool vkapi_tex_handle_is_valid(texture_handle_t handle);
-
-vkapi_res_cache_t* vkapi_res_cache_init(arena_t* arena);
-
-texture_handle_t vkapi_res_cache_create_tex2d(
-    vkapi_res_cache_t* cache,
-    vkapi_context_t* context,
-    VkFormat format,
-    uint32_t width,
-    uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
-    VkImageUsageFlags usage_flags);
-
-void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t handle);
+texture_handle_t rg_res_get_tex_handle(rg_render_graph_resource_t* r, rg_handle_t handle);
 
 #endif
