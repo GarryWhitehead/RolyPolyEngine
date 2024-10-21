@@ -21,17 +21,18 @@
  */
 
 #include "work_stealing_queue.h"
-
 #include "arena.h"
 
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
+
 
 void* _item_queue_ptr_offset(work_stealing_queue_t* q, ptrdiff_t offset)
 {
-    return q->items + (offset * q->type_size);
+    return (uint8_t*)q->items + offset * q->type_size;
 }
 
 void _set_item(work_stealing_queue_t* queue, int idx, void* item)

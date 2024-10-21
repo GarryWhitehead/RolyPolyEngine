@@ -43,7 +43,7 @@ typedef struct ShaderProgramBundle shader_prog_bundle_t;
 typedef struct Variant
 {
     string_t definition;
-    uint value;
+    uint32_t value;
 } variant_t;
 
 typedef struct RasterState
@@ -53,21 +53,23 @@ typedef struct RasterState
     VkFrontFace front_face;
 } raster_state_t;
 
+typedef struct StencilState
+{
+    VkBool32 use_stencil;
+    VkStencilOp fail_op;
+    VkStencilOp pass_op;
+    VkStencilOp depth_fail_op;
+    VkStencilOp stencil_fail_op;
+    VkCompareOp compare_op;
+    uint32_t compare_mask;
+    uint32_t write_mask;
+    uint32_t reference;
+    VkBool32 front_equal_back;
+} stencil_state_t;
+
 typedef struct DepthStencilState
 {
-    struct StencilState
-    {
-        VkBool32 use_stencil;
-        VkStencilOp fail_op;
-        VkStencilOp pass_op;
-        VkStencilOp depth_fail_op;
-        VkStencilOp stencil_fail_op;
-        VkCompareOp compare_op;
-        uint32_t compare_mask;
-        uint32_t write_mask;
-        uint32_t reference;
-        VkBool32 front_equal_back;
-    };
+    stencil_state_t stencil_state;
 
     // Depth state.
     VkBool32 test_enable;
@@ -112,15 +114,16 @@ typedef struct DescriptorBindInfo
 #pragma clang diagnostic push
 #pragma clang diagnostic warning "-Wpadded"
 
+// clang-format off
 typedef struct CachedKey
 {
-    uint64_t variant_bits;
-    uint32_t shader_id;
-    uint32_t shader_stage;
-    uint32_t topology;
-    uint8_t padding[4];
+    uint64_t variant_bits;      // 8 bytes
+    uint32_t shader_id;         // 4 bytes
+    uint32_t shader_stage;      // 4 bytes
+    uint32_t topology;          // 4 bytes    
+    uint8_t padding[4];         // 4 bytes
 } shader_cache_key_t;
-
+// clang-format on
 #pragma clang diagnostic pop
 
 /* Shader program functions */

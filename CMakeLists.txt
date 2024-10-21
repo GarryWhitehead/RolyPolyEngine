@@ -6,7 +6,7 @@ project(RolyPolyEngine LANGUAGES C CXX)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # set c standard versions to use throughout project
-set(CMAKE_C_STANDARD                11)
+set(CMAKE_C_STANDARD                17)
 set(CMAKE_C_STANDARD_REQUIRED       ON)
 set(CMAKE_C_EXTENSIONS              OFF)
 
@@ -51,6 +51,10 @@ find_package(stb REQUIRED)
 find_package(log.c REQUIRED)
 find_package(Ktx REQUIRED)
 find_package(volk REQUIRED)
+
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
 
 if (BUILD_TESTS)
     find_package(unity REQUIRED)

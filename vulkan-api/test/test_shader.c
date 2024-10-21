@@ -29,15 +29,15 @@ TEST(ShaderGroup, Shader_CompilerTests)
                                "float val3 = val1 + val2;\n"
                                "}\n";
 
-    vkapi_driver_t driver;
-    int error_code = vkapi_driver_init(NULL, 0, &driver);
+    int error_code;
+    vkapi_driver_t* driver = vkapi_driver_init(NULL, 0, &error_code);
     TEST_ASSERT(error_code == VKAPI_SUCCESS);
-    error_code = vkapi_driver_create_device(&driver, NULL);
+    error_code = vkapi_driver_create_device(driver, NULL);
     TEST_ASSERT(error_code == VKAPI_SUCCESS);
 
     shader_t* shader = shader_init(RPE_BACKEND_SHADER_STAGE_VERTEX, &arena);
 
-    bool r = shader_compile(shader, &driver.context, test_shader0, "test_path", &arena);
+    bool r = shader_compile(shader, vakpi_driver_get_context(driver), test_shader0, "test_path", &arena);
     TEST_ASSERT(r == true);
 
     // Test shader reflection works.
@@ -63,7 +63,7 @@ TEST(ShaderGroup, Shader_CompilerTests)
                                "outUv = inUv;"
                                "}\n";
 
-    r = shader_compile(shader, &driver.context, test_shader1, "test_path", &arena);
+    r = shader_compile(shader, vakpi_driver_get_context(driver), test_shader1, "test_path", &arena);
     TEST_ASSERT(r == true);
 
     shader_binding_t* resource_binding = shader_get_resource_binding(shader);
@@ -104,5 +104,5 @@ TEST(ShaderGroup, Shader_CompilerTests)
     TEST_ASSERT(resource_binding->desc_layouts[1].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     TEST_ASSERT_EQUAL_UINT(64 * 3, resource_binding->desc_layouts[1].range);
 
-    vkapi_driver_shutdown(&driver);
+    vkapi_driver_shutdown(driver);
 }

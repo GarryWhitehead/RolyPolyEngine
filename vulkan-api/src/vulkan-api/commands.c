@@ -53,7 +53,7 @@ vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena)
 
     vkapi_commands_t* instance = ARENA_MAKE_STRUCT(arena, vkapi_commands_t, ARENA_ZERO_MEMORY);
 
-    VkCommandPoolCreateInfo create_info = {};
+    VkCommandPoolCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     create_info.queueFamilyIndex = context->queue_info.graphics;
     create_info.flags =
@@ -64,7 +64,7 @@ vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena)
     // create the semaphore for signalling a new frame is ready now
     for (int i = 0; i < VKAPI_MAX_COMMAND_BUFFER_SIZE; ++i)
     {
-        VkSemaphoreCreateInfo semaphore_create_info = {};
+        VkSemaphoreCreateInfo semaphore_create_info = {0};
         semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         VK_CHECK_RESULT(vkCreateSemaphore(
             context->device, &semaphore_create_info, VK_NULL_HANDLE, &instance->signals[i]));
@@ -112,7 +112,7 @@ vkapi_commands_get_cmdbuffer(vkapi_context_t* context, vkapi_commands_t* command
     assert(commands->curr_cmd_buffer);
     assert(commands->curr_signal);
 
-    VkCommandBufferAllocateInfo alloc_info = {};
+    VkCommandBufferAllocateInfo alloc_info = {0};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool = commands->cmd_pool;
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -120,13 +120,13 @@ vkapi_commands_get_cmdbuffer(vkapi_context_t* context, vkapi_commands_t* command
     VK_CHECK_RESULT(vkAllocateCommandBuffers(
         context->device, &alloc_info, &commands->curr_cmd_buffer->instance));
 
-    VkCommandBufferBeginInfo begin_info = {};
+    VkCommandBufferBeginInfo begin_info = {0};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     begin_info.pInheritanceInfo = VK_NULL_HANDLE;
     VK_CHECK_RESULT(vkBeginCommandBuffer(commands->curr_cmd_buffer->instance, &begin_info));
 
-    VkFenceCreateInfo fence_info = {};
+    VkFenceCreateInfo fence_info = {0};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = 0;
     VK_CHECK_RESULT(vkCreateFence(
@@ -175,7 +175,7 @@ void vkapi_commands_free_cmd_buffers(vkapi_context_t* context, vkapi_commands_t*
 void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
 {
     // nothing to flush if we have no commands
-    if (commands->curr_cmd_buffer)
+    if (!commands->curr_cmd_buffer)
     {
         return;
     }
@@ -196,7 +196,7 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
 
     VkPipelineStageFlags flags[2] = {
         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT};
-    VkSubmitInfo submit_info = {};
+    VkSubmitInfo submit_info = {0};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = signal_idx;
     submit_info.pWaitSemaphores = wait_signals;

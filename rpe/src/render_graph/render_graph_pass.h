@@ -64,7 +64,23 @@ typedef struct RenderGraphPass
     execute_func* func;
 } rg_pass_t;
 
-static rg_pass_t* rg_pass_init(execute_func func, size_t data_size, arena_t* arena)
+static inline rg_pass_desc_t rg_pass_desc_init()
+{ 
+    rg_pass_desc_t instance = {0}; 
+    instance.clear_col.a = 1.0f;
+    instance.ds_load_clear_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
+    instance.ds_load_clear_flags[1] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
+    instance.ds_store_clear_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE;
+    instance.ds_store_clear_flags[1] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE;
+
+    for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT; ++i)
+    {
+        instance.attachments.attach_array[i].id = RG_INVALID_HANDLE; 
+    }
+    return instance;
+}
+
+static inline rg_pass_t* rg_pass_init(execute_func func, size_t data_size, arena_t* arena)
 {
     rg_pass_t* i = ARENA_MAKE_STRUCT(arena, rg_pass_t, ARENA_ZERO_MEMORY);
     i->func = func;

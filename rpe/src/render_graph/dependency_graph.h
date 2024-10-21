@@ -41,7 +41,7 @@ typedef struct Edge
 
 typedef struct Node
 {
-    size_t ref_count;
+    int ref_count;
     string_t name;
     uint64_t id;
 } rg_node_t;

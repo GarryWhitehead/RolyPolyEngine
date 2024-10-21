@@ -26,6 +26,7 @@
 #include "render_graph_handle.h"
 #include "resources.h"
 #include "render_graph_pass.h"
+#include "backboard.h"
 
 #include <utility/arena.h>
 #include <vulkan-api/common.h>
@@ -56,7 +57,7 @@ void rg_add_present_pass(
     render_graph_t* rg, rg_handle_t handle, const char* name);
 
 rg_handle_t rg_add_resource(
-    render_graph_t* rg, rg_resource_t* r, arena_t* arena, rg_handle_t* parent);
+    render_graph_t* rg, rg_resource_t* r, rg_handle_t* parent);
 
 rg_handle_t rg_move_resource(
     render_graph_t* rg, rg_handle_t from, rg_handle_t to);
@@ -100,5 +101,7 @@ void rg_add_executor_pass(
 arena_t* rg_get_arena(render_graph_t* rg);
 
 rg_dep_graph_t* rg_get_dep_graph(render_graph_t* rg);
+
+rg_backboard_t* rg_get_backboard(render_graph_t* rg);
 
 #endif

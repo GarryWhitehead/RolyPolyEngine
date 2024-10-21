@@ -96,7 +96,7 @@ typedef struct Vector
  */
 #define VECTOR_FOR_EACH(type, item, vec)                                                           \
     for (int keep = 1, count = 0, size = (vec.size); keep && count != size; keep = !keep, count++) \
-        for (type item = (vec.data) + count * sizeof(type); keep; keep = !keep)
+        for (type item = ((uint8_t*)vec.data) + count * sizeof(type); keep; keep = !keep)
 
 /**
  Initialise a new vector instance.

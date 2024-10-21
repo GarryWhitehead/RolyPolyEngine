@@ -10,7 +10,7 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(UtilityLib PUBLIC log.c::log.c -lm)
+target_link_libraries(UtilityLib PUBLIC log.c::log.c -lm Threads::Threads)
 
 set_target_properties(UtilityLib PROPERTIES LINKER_LANGUAGE C)
 
@@ -20,9 +20,7 @@ endif()
 
 target_compile_definitions(UtilityLib PUBLIC ENABLE_DEBUG_ARENA=${RPE_DEBUG_ARENA})
 
-target_sources(
-    UtilityLib
-    PUBLIC
+set (util_files 
     src/utility/compiler.h
     src/utility/aligned_alloc.h
     src/utility/array.h
@@ -46,6 +44,25 @@ target_sources(
     src/utility/string.h
     src/utility/filesystem.h
     src/utility/filesystem.c
+    src/utility/thread.h
+)
+
+if (MSVC)
+    list(APPEND 
+        util_files
+        src/utility/thread_win.c
+    )
+elseif(UNIX)
+    list(APPEND 
+        util_files
+        src/utility/thread_unix.c
+    )
+endif()
+
+target_sources(
+    UtilityLib
+    PUBLIC
+    ${util_files}
 )
 
 # add common compiler flags
@@ -56,6 +73,10 @@ rpe_source_group(
     TARGET UtilityLib
     ROOT_DIR ${RPE_UTILITY_ROOT_PATH}
 )
+
+if (MSVC)
+    target_compile_definitions(UtilityLib PUBLIC __STDC_NO_THREADS__=1)
+endif()
 
 if (BUILD_TESTS)
 

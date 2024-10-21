@@ -54,6 +54,7 @@ typedef struct RenderPassInfo
 typedef struct PassNode
 {
     rg_node_t base;
+    bool imported;
     arena_dyn_array_t resources_to_bake;
     arena_dyn_array_t resources_to_destroy;
     arena_dyn_array_t resource_handles;
@@ -70,6 +71,8 @@ typedef struct PresentPassNode
 {
     rg_pass_node_t base;
 } rg_present_pass_node_t;
+
+rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena);
 
 rg_pass_node_t* rg_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena);
 
@@ -91,13 +94,11 @@ rg_handle_t rg_rpass_node_create_rt(
     rg_render_pass_node_t* node,
     render_graph_t* rg,
     const char* name,
-    rg_pass_desc_t desc,
-    arena_t* arena);
+    rg_pass_desc_t desc);
 
 void rg_render_pass_node_build(
     rg_render_pass_node_t* node,
-    render_graph_t* rg,
-    arena_t* arena);
+    render_graph_t* rg);
 
 void rg_render_pass_node_execute(
     rg_render_pass_node_t* node,

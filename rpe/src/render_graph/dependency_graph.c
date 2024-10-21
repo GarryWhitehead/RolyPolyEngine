@@ -121,10 +121,10 @@ arena_dyn_array_t rg_dep_graph_get_reader_edges(rg_dep_graph_t* dg, rg_node_t* n
     MAKE_DYN_ARRAY(rg_edge_t*, arena, 30, &out);
     for (size_t i = 0; i < dg->edges.size; ++i)
     {
-        rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &dg->edges, i);
+        rg_edge_t* edge = DYN_ARRAY_GET(rg_edge_t*, &dg->edges, i);
         if (edge->to_id == node->id)
         {
-            DYN_ARRAY_APPEND(&out, edge);
+            DYN_ARRAY_APPEND(&out, &edge);
         }
     }
     return out;
@@ -139,10 +139,10 @@ arena_dyn_array_t rg_dep_graph_get_writer_edges(rg_dep_graph_t* dg, rg_node_t* n
     MAKE_DYN_ARRAY(rg_edge_t*, arena, 30, &out);
     for (size_t i = 0; i < dg->edges.size; ++i)
     {
-        rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &dg->edges, i);
+        rg_edge_t* edge = DYN_ARRAY_GET(rg_edge_t*, &dg->edges, i);
         if (edge->from_id == node->id)
         {
-            DYN_ARRAY_APPEND(&out, edge);
+            DYN_ARRAY_APPEND(&out, &edge);
         }
     }
     return out;
@@ -172,10 +172,9 @@ void rg_dep_graph_cull(rg_dep_graph_t* dg, arena_t* scratch_arena)
         }
     }
 
-    int curr_idx = (int)nodes_to_cull.size - 1;
-    while (curr_idx >= 0)
+    while (nodes_to_cull.size > 0)
     {
-        rg_node_t* node = DYN_ARRAY_GET(rg_node_t*, &nodes_to_cull, curr_idx--);
+        rg_node_t* node = DYN_ARRAY_POP_BACK(rg_node_t*, &nodes_to_cull);
         arena_dyn_array_t reader_edges = rg_dep_graph_get_reader_edges(dg, node, scratch_arena);
         for (size_t i = 0; i < reader_edges.size; ++i)
         {
@@ -184,10 +183,10 @@ void rg_dep_graph_cull(rg_dep_graph_t* dg, arena_t* scratch_arena)
             // culling of the parent node.
             rg_node_t* child_node = rg_dep_graph_get_node(dg, edge->from_id);
             child_node->ref_count--;
+            assert(child_node->ref_count >= 0);
             if (!child_node->ref_count)
             {
-                DYN_ARRAY_APPEND(&nodes_to_cull, child_node);
-                curr_idx += 1;
+                DYN_ARRAY_APPEND(&nodes_to_cull, &child_node);
             }
         }
     }
@@ -264,7 +263,8 @@ string_t rg_node_get_graph_viz(rg_node_t* n, arena_t* arena)
 {
     assert(n);
     string_t out;
-    sprintf(out.data, "[label=\"node\\n name: %s id: %lu, refCount: %lu\",", n->name.data, n->id, n->ref_count);
+    out.data = ARENA_MAKE_ARRAY(arena, char, 1024, ARENA_ZERO_MEMORY);
+    sprintf(out.data, "[label=\"node\\n name: %s id: %i, refCount: %i\",", n->name.data, n->id, n->ref_count);
     out = string_append(&out, " style=filled, fillcolor=green]", arena);
     return out;
 }

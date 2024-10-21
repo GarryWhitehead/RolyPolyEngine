@@ -193,10 +193,9 @@ rg_imported_resource_t* rg_import_resource_init(
     arena_t* arena)
 {
     rg_imported_resource_t* i = ARENA_MAKE_STRUCT(arena, rg_imported_resource_t, ARENA_ZERO_MEMORY);
-    i->base = *rg_tex_resource_init(name, image_usage, desc, arena);
     i->base.base.name = string_init(name, arena);
     i->base.base.type = RG_RESOURCE_TYPE_IMPORTED;
-    i->base.base.parent = (rg_resource_t *)i;
+    i->base.base.parent = (rg_resource_t*)i;
     i->base.image_usage = image_usage;
     i->base.desc = desc;
     i->base.base.imported = true;
@@ -215,8 +214,13 @@ rg_import_render_target_t* rg_tex_import_rt_init(
     rg_import_render_target_t* i =
         ARENA_MAKE_STRUCT(arena, rg_import_render_target_t, ARENA_ZERO_MEMORY);
     texture_handle_t handle = {.id = UINT32_MAX};
-    i->base = *rg_import_resource_init(name, image_usage, tex_desc, handle, arena);
+    i->base.base.base.name = string_init(name, arena);
     i->base.base.base.type = RG_RESOURCE_TYPE_IMPORTED_RENDER_TARGET;
+    i->base.base.base.parent = (rg_resource_t*)i;
+    i->base.base.image_usage = image_usage;
+    i->base.base.desc = tex_desc;
+    i->base.base.base.imported = true;
+    i->base.base.handle = handle;
     i->desc = import_desc;
     i->rt_handle = rt_handle;
     return i;

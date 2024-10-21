@@ -28,35 +28,71 @@
 #include <string.h>
 #include <utility/maths.h>
 
-int vkapi_driver_init(const char** instance_ext, uint32_t ext_count, vkapi_driver_t* driver)
+typedef struct VkApiDriver
 {
-    // Allocate the arena space.
-    int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &driver->_perm_arena);
-    int scratch_err = arena_new(VKAPI_SCRATCH_ARENA_SIZE, &driver->_scratch_arena);
+    /// Current device context (instance, physical device, device).
+    vkapi_context_t context;
+    /// VMA instance.
+    VmaAllocator vma_allocator;
+    /// Semaphore used to signal that the image is ready for presentation.
+    VkSemaphore image_ready_signal;
+
+    vkapi_staging_pool_t staging_pool;
+
+    vkapi_commands_t* commands;
+
+    /** Private **/
+    /// Permanent arena space for the lifetime of this driver.
+    arena_t _perm_arena;
+    /// Small scratch arena for limited lifetime allocations. Should be passed as a copy to
+    /// functions for scoping only for the lifetime of that function.
+    arena_t _scratch_arena;
+
+    vkapi_res_cache_t* res_cache;
+    arena_dyn_array_t render_targets;
+
+} vkapi_driver_t;
+
+ vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* error_code)
+{ 
+     *error_code = VKAPI_SUCCESS;
+
+     // Allocate the arena space.
+    arena_t perm_arena, scratch_arena;
+    int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &perm_arena);
+    int scratch_err = arena_new(VKAPI_SCRATCH_ARENA_SIZE, &scratch_arena);
     if (perm_err != ARENA_SUCCESS || scratch_err != ARENA_SUCCESS)
     {
-        return VKAPI_ERROR_INVALID_ARENA;
+        *error_code = VKAPI_ERROR_INVALID_ARENA;
+        return NULL;
     }
 
-    volkInitialize();
+    vkapi_driver_t* driver = ARENA_MAKE_STRUCT(&perm_arena, vkapi_driver_t, ARENA_ZERO_MEMORY);
+    assert(driver);
+    driver->_perm_arena = perm_arena;
+    driver->_scratch_arena = scratch_arena;
+
+    VK_CHECK_RESULT(volkInitialize());
 
     vkapi_context_init(&driver->_perm_arena, &driver->context);
     driver->res_cache = vkapi_res_cache_init(&driver->_perm_arena);
     MAKE_DYN_ARRAY(vkapi_render_target_t , &driver->_perm_arena, 100, &driver->render_targets);
 
     // Create a new vulkan instance.
-     int err = vkapi_context_create_instance(
+     *error_code = vkapi_context_create_instance(
         &driver->context, instance_ext, ext_count, &driver->_perm_arena, &driver->_scratch_arena);
-     if (err != VKAPI_SUCCESS)
+     if (*error_code != VKAPI_SUCCESS)
      {
-        return err;
+        
+         return NULL;
      }
      volkLoadInstance(driver->context.instance);
-     return VKAPI_SUCCESS;
+     return driver;
 }
 
 int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
 {
+    assert(driver);
     // prepare the vulkan backend
     int ret = vkapi_context_prepare_device(&driver->context, surface, &driver->_scratch_arena);
     if (ret != VKAPI_SUCCESS)
@@ -67,12 +103,11 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     driver->commands = vkapi_commands_init(&driver->context, &driver->_perm_arena);
 
     // set up the memory allocator
-    VmaVulkanFunctions vk_funcs = {};
+    VmaVulkanFunctions vk_funcs = {0};
     vk_funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     vk_funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
-    //vkFuncs.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
 
-    VmaAllocatorCreateInfo create_info = {};
+    VmaAllocatorCreateInfo create_info = {0};
     create_info.vulkanApiVersion = VK_API_VERSION_1_2;
     create_info.physicalDevice = driver->context.physical;
     create_info.device = driver->context.device;
@@ -82,7 +117,7 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     assert(result == VK_SUCCESS);
 
     // create a semaphore for signaling that an image is ready for presentation
-    VkSemaphoreCreateInfo sp_create_info = {};
+    VkSemaphoreCreateInfo sp_create_info = {0};
     sp_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VK_CHECK_RESULT(vkCreateSemaphore(
         driver->context.device, &sp_create_info, VK_NULL_HANDLE, &driver->image_ready_signal))
@@ -112,7 +147,7 @@ VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver)
     VkFormat output = VK_FORMAT_UNDEFINED;
     for (int i = 0; i < 3; ++i)
     {
-        VkFormatProperties* props = VK_NULL_HANDLE;
+        VkFormatProperties* props;
         vkGetPhysicalDeviceFormatProperties(driver->context.physical, formats[i], props);
         if (format_feature == (props->optimalTilingFeatures & format_feature))
         {
@@ -173,4 +208,10 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_rt_handle_t handle = { .id = driver->render_targets.size };
     DYN_ARRAY_APPEND(&driver->render_targets, &rt);
     return handle;
+}
+
+vkapi_context_t* vakpi_driver_get_context(vkapi_driver_t* driver)
+{
+    assert(driver);
+    return &driver->context;
 }

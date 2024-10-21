@@ -3,8 +3,6 @@
 #include "utility/arena.h"
 #include "utility/work_stealing_queue.h"
 
-#include <unistd.h>
-
 TEST_GROUP(WorkStealingQueueGroup);
 
 TEST_SETUP(WorkStealingQueueGroup) {}

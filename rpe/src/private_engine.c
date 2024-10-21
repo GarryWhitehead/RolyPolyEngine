@@ -52,7 +52,7 @@ void rpe_engine_shutdown(rpe_engine_t* engine)
 
     for (uint32_t i = 0; i < engine->swap_chain_count; ++i)
     {
-        vkapi_swapchain_destroy(&engine->driver->context, &engine->swap_chains[i]);
+        vkapi_swapchain_destroy(vkapi_driver_get_context(engine->driver), &engine->swap_chains[i]);
     }
     arena_release(&engine->perm_arena);
     arena_release(&engine->scratch_arena);
@@ -71,7 +71,7 @@ swapchain_handle_t* rpe_engine_create_swapchain(
 
     engine->swap_chains[engine->swap_chain_count] = vkapi_swapchain_init();
     int err = vkapi_swapchain_create(
-        &engine->driver->context,
+        vkapi_driver_get_context(engine->driver),
         &engine->swap_chains[engine->swap_chain_count],
         surface,
         width,

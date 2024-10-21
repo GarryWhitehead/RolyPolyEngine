@@ -57,8 +57,14 @@
 #define YAVE_FORCE_INLINE inline
 #endif
 
-#if __has_attribute(packed)
-#define YAVE_PACKED __attribute__((packed))
+#ifdef __GNUC__
+#define RPE_PACKED __attribute__((packed))
 #else
 #define RPE_PACKED
+#endif
+
+#ifdef __GNUC__
+#define AUTO __auto_type
+#elif _WIN32
+#define AUTO auto
 #endif

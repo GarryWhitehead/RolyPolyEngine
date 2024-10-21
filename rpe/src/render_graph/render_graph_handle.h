@@ -26,6 +26,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define RG_INVALID_HANDLE UINT32_MAX
+
 typedef struct RenderGraphHandle
 {
     uint32_t id;
@@ -33,13 +35,13 @@ typedef struct RenderGraphHandle
 
 static rg_handle_t rg_handle_init()
 {
-    rg_handle_t h = {.id = UINT32_MAX };
+    rg_handle_t h = {.id = RG_INVALID_HANDLE };
     return h;
 }
 
 static bool rg_handle_is_valid(rg_handle_t handle)
 {
-    return handle.id != UINT32_MAX;
+    return handle.id != RG_INVALID_HANDLE;
 }
 
 

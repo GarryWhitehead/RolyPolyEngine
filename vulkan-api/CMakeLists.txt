@@ -106,12 +106,10 @@ target_link_libraries(
     vulkan-validationlayers::vulkan-validationlayers
     spirv-cross::spirv-cross
     Vma
-    #Vulkan::Vulkan
     volk::volk
+    Threads::Threads
     UtilityLib
 )
-
-#target_compile_options(VulkanApi PUBLIC -fno-stack-protector)
 
 # add common compiler flags
 rpe_add_compiler_flags(TARGET VulkanApi)
@@ -144,7 +142,7 @@ if (BUILD_TESTS)
     target_link_libraries(VulkanApiTest PRIVATE unity::unity VulkanApi)
     set_target_properties(VulkanApiTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
     set_target_properties(VulkanApiTest PROPERTIES LINKER_LANGUAGE C)
-    target_compile_options(VulkanApiTest PUBLIC -fno-stack-protector)
+    rpe_add_compiler_flags(TARGET VulkanApiTest)
 
     add_test(
             NAME VulkanApiTest

@@ -196,7 +196,7 @@ void vkapi_texture_create_image(
 {
     assert(texture->info.format != VK_FORMAT_UNDEFINED);
 
-    VkImageCreateInfo image_info = {};
+    VkImageCreateInfo image_info = {0};
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.imageType = VK_IMAGE_TYPE_2D; // TODO: support 3d images
     image_info.format = texture->info.format;
@@ -220,13 +220,13 @@ void vkapi_texture_create_image(
     VK_CHECK_RESULT(vkCreateImage(context->device, &image_info, VK_NULL_HANDLE, &texture->image));
 
     // allocate memory for the image....
-    VkMemoryRequirements mem_req = {};
+    VkMemoryRequirements mem_req = {0};
     vkGetImageMemoryRequirements(context->device, texture->image, &mem_req);
-    VkMemoryAllocateInfo alloc_info = {};
+    VkMemoryAllocateInfo alloc_info = {0};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mem_req.size;
     alloc_info.memoryTypeIndex = vkapi_context_select_mem_type(
-        &context, mem_req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        context, mem_req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VK_CHECK_RESULT(
         vkAllocateMemory(context->device, &alloc_info, VK_NULL_HANDLE, &texture->image_memory));
@@ -269,7 +269,7 @@ void vkapi_texture_create_image_view(
             aspect = VK_IMAGE_ASPECT_COLOR_BIT;
     }
 
-    VkImageViewCreateInfo create_info = {};
+    VkImageViewCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     create_info.image = texture->image;
     create_info.viewType = view_type;
@@ -351,7 +351,7 @@ void vkapi_texture_map(
     {
         for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
         {
-            VkBufferImageCopy image_copy = {};
+            VkBufferImageCopy image_copy = {0};
             image_copy.bufferOffset = offsets[face * texture->info.mip_levels + level];
             image_copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             image_copy.imageSubresource.mipLevel = level;
@@ -454,7 +454,7 @@ void vkapi_texture_image_transition(
             dstBarrier = 0;
     }
 
-    VkImageSubresourceRange subresourceRange = {};
+    VkImageSubresourceRange subresourceRange = {0};
     subresourceRange.aspectMask = mask;
     subresourceRange.levelCount = 0;
     subresourceRange.layerCount = texture->info.array_count * texture->info.face_count;
@@ -467,7 +467,7 @@ void vkapi_texture_image_transition(
         subresourceRange.levelCount = 1;
     }
 
-    VkImageMemoryBarrier mem_barrier = {};
+    VkImageMemoryBarrier mem_barrier = {0};
     mem_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
     mem_barrier.image = texture->image;
     mem_barrier.oldLayout = old_layout;
@@ -494,25 +494,25 @@ void vkapi_texture_blit(
     VkCommandBuffer cmds = vkapi_commands_get_cmdbuffer(context, commands)->instance;
     VkImageAspectFlags image_aspect = vkapi_texture_aspect_flags(src_texture->info.format);
 
-    VkImageSubresourceLayers src_subres = {};
+    VkImageSubresourceLayers src_subres = {0};
     src_subres.aspectMask = image_aspect;
     src_subres.mipLevel = 0;
     src_subres.baseArrayLayer = 0;
     src_subres.layerCount = 1;
 
-    VkOffset3D src_offset = {};
+    VkOffset3D src_offset = {0};
     src_offset.x = src_texture->info.width;
     src_offset.y = src_texture->info.height;
     src_offset.z = 1;
 
     // destination
-    VkImageSubresourceLayers dst_subres = {};
+    VkImageSubresourceLayers dst_subres = {0};
     dst_subres.aspectMask = image_aspect;
     dst_subres.mipLevel = 0;
     dst_subres.baseArrayLayer = 0;
     dst_subres.layerCount = 1;
 
-    VkOffset3D dst_offset = {};
+    VkOffset3D dst_offset = {0};
     dst_offset.x = dst_texture->info.width;
     dst_offset.y = dst_texture->info.height;
     dst_offset.z = 1;

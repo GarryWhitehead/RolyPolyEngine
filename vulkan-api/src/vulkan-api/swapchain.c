@@ -157,7 +157,7 @@ int vkapi_swapchain_create(
         sharing_mode = VK_SHARING_MODE_CONCURRENT;
     }
 
-    VkSwapchainCreateInfoKHR createInfo = {};
+    VkSwapchainCreateInfoKHR createInfo = {0};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     createInfo.surface = surface;
     createInfo.minImageCount = image_count;

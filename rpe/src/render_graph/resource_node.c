@@ -42,12 +42,21 @@ rg_resource_edge_t* rg_resource_edge_init(
 }
 
 rg_resource_node_t*
-rg_res_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena, rg_handle_t* parent)
+rg_res_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena, rg_handle_t res, rg_handle_t* parent)
 {
     assert(dg);
+    assert(rg_handle_is_valid(res));
+
     rg_resource_node_t* i = ARENA_MAKE_STRUCT(arena, rg_resource_node_t, ARENA_ZERO_MEMORY);
-    i->base = *rg_node_init(dg, name, arena);
+    
+     // Base node init.
+    i->base.name = string_init(name, arena);
+    i->base.id = rg_dep_graph_create_id(dg);
+    i->base.ref_count = 0;
+    rg_dep_graph_add_node(dg, (rg_node_t*)i);
+
     i->parent.id = parent == NULL ? UINT32_MAX : parent->id;
+    i->resource = res;
     MAKE_DYN_ARRAY(rg_resource_edge_t*, arena, 30, &i->reader_passes);
     MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &i->resources_to_bake);
     MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &i->resources_to_destroy);

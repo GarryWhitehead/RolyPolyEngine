@@ -31,13 +31,28 @@
 
 #include <utility/maths.h>
 
+rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena) 
+{ 
+    rg_pass_info_t i;
+    memset(&i, 0, sizeof(rg_pass_info_t));
+    i.name = string_init(name, arena);
+    return i;
+}
+
 rg_pass_node_t* rg_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena)
 {
     assert(dg);
     rg_pass_node_t* node = ARENA_MAKE_STRUCT(arena, rg_pass_node_t, ARENA_ZERO_MEMORY);
-    node->base = *rg_node_init(dg, name, arena);
+
+    // Base bode init.
+    node->base.name = string_init(name, arena);
+    node->base.id = rg_dep_graph_create_id(dg);
+    node->base.ref_count = 0;
+    rg_dep_graph_add_node(dg, (rg_node_t*)node);
+
     MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->resources_to_bake);
     MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->resources_to_destroy);
+    MAKE_DYN_ARRAY(rg_handle_t, arena, 30, &node->resource_handles);
     return node;
 }
 
@@ -46,7 +61,19 @@ rg_render_pass_node_init(rg_dep_graph_t* dg, const char* name, rg_pass_t* rg_pas
 {
     rg_render_pass_node_t* node =
         ARENA_MAKE_STRUCT(arena, rg_render_pass_node_t, ARENA_ZERO_MEMORY);
-    node->base = *rg_pass_node_init(dg, name, arena);
+
+    // Base node init.
+    node->base.base.name = string_init(name, arena);
+    node->base.base.id = rg_dep_graph_create_id(dg);
+    node->base.base.ref_count = 0;
+    node->base.imported = false;
+    rg_dep_graph_add_node(dg, (rg_node_t*)node);
+
+    // Pass node init.
+    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_bake);
+    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_destroy);
+    MAKE_DYN_ARRAY(rg_handle_t, arena, 30, &node->base.resource_handles);
+
     MAKE_DYN_ARRAY(rg_pass_info_t, arena, 30, &node->render_pass_targets);
     node->rg_pass = rg_pass;
     return node;
@@ -57,8 +84,19 @@ rg_present_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena)
 {
     rg_present_pass_node_t* node =
         ARENA_MAKE_STRUCT(arena, rg_present_pass_node_t, ARENA_ZERO_MEMORY);
-    node->base = *rg_pass_node_init(dg, name, arena);
-    return node;
+    
+    // Base bode init.
+    node->base.base.name = string_init(name, arena);
+    node->base.base.id = rg_dep_graph_create_id(dg);
+    node->base.base.ref_count = 0;
+    node->base.imported = true;
+    rg_dep_graph_add_node(dg, (rg_node_t*)node);
+
+    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_bake);
+    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_destroy);
+    MAKE_DYN_ARRAY(rg_handle_t, arena, 30, &node->base.resource_handles);
+      
+    return node;    
 }
 
 void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_driver_t* driver)
@@ -118,14 +156,14 @@ void rg_pass_node_add_to_bake_list(rg_pass_node_t* node, rg_resource_t* r)
 {
     assert(node);
     assert(r);
-    DYN_ARRAY_APPEND(&node->resources_to_bake, r);
+    DYN_ARRAY_APPEND(&node->resources_to_bake, &r);
 }
 
 void rg_pass_node_add_to_destroy_list(rg_pass_node_t* node, rg_resource_t* r)
 {
     assert(node);
     assert(r);
-    DYN_ARRAY_APPEND(&node->resources_to_destroy, r);
+    DYN_ARRAY_APPEND(&node->resources_to_destroy, &r);
 }
 
 void rg_pass_node_bake_resource_list(rg_pass_node_t* node, vkapi_driver_t* driver)
@@ -134,7 +172,7 @@ void rg_pass_node_bake_resource_list(rg_pass_node_t* node, vkapi_driver_t* drive
     assert(driver);
     for (size_t i = 0; i < node->resources_to_bake.size; ++i)
     {
-        rg_resource_t* r = DYN_ARRAY_GET_PTR(rg_resource_t, &node->resources_to_bake, i);
+        rg_resource_t* r = DYN_ARRAY_GET(rg_resource_t*, &node->resources_to_bake, i);
         rg_resource_bake(r, driver);
     }
 }
@@ -145,7 +183,7 @@ void rg_pass_node_destroy_resource_list(rg_pass_node_t* node, vkapi_driver_t* dr
     assert(driver);
     for (size_t i = 0; i < node->resources_to_destroy.size; ++i)
     {
-        rg_resource_t* r = DYN_ARRAY_GET_PTR(rg_resource_t, &node->resources_to_destroy, i);
+        rg_resource_t* r = DYN_ARRAY_GET(rg_resource_t*, &node->resources_to_destroy, i);
         rg_resource_destroy(r, driver);
     }
 }
@@ -161,23 +199,19 @@ void rg_pass_node_add_resource(rg_pass_node_t* node, render_graph_t* rg, rg_hand
     DYN_ARRAY_APPEND(&node->resource_handles, &handle);
 }
 
-
 rg_handle_t rg_rpass_node_create_rt(
     rg_render_pass_node_t* node,
     render_graph_t* rg,
     const char* name,
-    rg_pass_desc_t desc,
-    arena_t* arena)
+    rg_pass_desc_t desc)
 {
-    rg_pass_info_t info;
-    info.name = string_init(name, arena);
+    rg_pass_info_t info = rg_pass_info_init(name, rg_get_arena(rg));
 
-    arena_dyn_array_t writers = rg_dep_graph_get_writer_edges(rg_get_dep_graph(rg), (rg_node_t*)node, arena);
-    arena_dyn_array_t readers = rg_dep_graph_get_reader_edges(rg_get_dep_graph(rg), (rg_node_t*)node, arena);
+    arena_dyn_array_t writers =
+        rg_dep_graph_get_writer_edges(rg_get_dep_graph(rg), (rg_node_t*)node, rg_get_arena(rg));
+    arena_dyn_array_t readers =
+        rg_dep_graph_get_reader_edges(rg_get_dep_graph(rg), (rg_node_t*)node, rg_get_arena(rg));
 
-    assert(
-        rg_handle_is_valid(desc.attachments.attach.colour[0]) &&
-        "At least one colour attachment must be declared for a render target.");
     for (size_t i = 0; i < VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT; ++i)
     {
         if (rg_handle_is_valid(desc.attachments.attach_array[i]))
@@ -188,7 +222,7 @@ rg_handle_t rg_rpass_node_create_rt(
             rg_handle_t handle = desc.attachments.attach_array[i];
             for (size_t j = 0; j < readers.size; ++j)
             {
-                rg_edge_t* r_edge = DYN_ARRAY_GET_PTR(rg_edge_t, &readers, j);
+                rg_edge_t* r_edge = DYN_ARRAY_GET(rg_edge_t*, &readers, j);
                 rg_resource_node_t* r_node =
                     (rg_resource_node_t*)rg_dep_graph_get_node(rg_get_dep_graph(rg), r_edge->from_id);
                 assert(r_node);
@@ -210,7 +244,7 @@ rg_handle_t rg_rpass_node_create_rt(
 }
 
 void rg_render_pass_node_build(
-    rg_render_pass_node_t* node, render_graph_t* rg, arena_t* arena)
+    rg_render_pass_node_t* node, render_graph_t* rg)
 {
     uint32_t min_width = UINT32_MAX;
     uint32_t min_height = UINT32_MAX;
@@ -227,35 +261,37 @@ void rg_render_pass_node_build(
         {
             rg_handle_t attachment = info->desc.attachments.attach_array[j];
 
-            pass_data->load_clear_flags[i] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
-            pass_data->store_clear_flags[i] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
+            pass_data->load_clear_flags[j] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
+            pass_data->store_clear_flags[j] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
 
             if (rg_handle_is_valid(attachment))
             {
                 // for depth and stencil clear flags, use the manual settings
                 // from the pass setup
-                if (i == VKAPI_RENDER_TARGET_DEPTH_INDEX - 1)
+                if (j == VKAPI_RENDER_TARGET_DEPTH_INDEX - 1)
                 {
-                    pass_data->load_clear_flags[i] = info->desc.ds_load_clear_flags[0];
-                    pass_data->store_clear_flags[i] = info->desc.ds_store_clear_flags[0];
+                    pass_data->load_clear_flags[j] = info->desc.ds_load_clear_flags[0];
+                    pass_data->store_clear_flags[j] = info->desc.ds_store_clear_flags[0];
                 }
-                else if (i == VKAPI_RENDER_TARGET_STENCIL_INDEX - 1)
+                else if (j == VKAPI_RENDER_TARGET_STENCIL_INDEX - 1)
                 {
-                    pass_data->load_clear_flags[i] = info->desc.ds_load_clear_flags[1];
-                    pass_data->store_clear_flags[i] = info->desc.ds_store_clear_flags[1];
+                    pass_data->load_clear_flags[j] = info->desc.ds_load_clear_flags[1];
+                    pass_data->store_clear_flags[j] = info->desc.ds_store_clear_flags[1];
                 }
                 else
                 {
                     // if the pass has no readers then we can clear the store.
-                    if (info->writers[i] && !rg_res_node_has_readers(info->writers[i]))
+                    if (info->writers[j] && !rg_res_node_has_readers(info->writers[j]))
                     {
-                        pass_data->store_clear_flags[i] =
+                        pass_data->store_clear_flags[j] =
                             RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE;
                     }
                     // if the pass has no writers then we can clear the load op.
-                    if (!info->readers[i] || !rg_res_node_has_writers(info->readers[i], rg_get_dep_graph(rg), arena))
+                    if (!info->readers[j] ||
+                        !rg_res_node_has_writers(
+                            info->readers[j], rg_get_dep_graph(rg), rg_get_arena(rg)))
                     {
-                        pass_data->load_clear_flags[i] =
+                        pass_data->load_clear_flags[j] =
                             RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR;
                     }
                 }

@@ -62,7 +62,7 @@ target_link_libraries(
 target_compile_definitions(
     RPE
     PRIVATE
-    RPE_SHADER_DIRECTORY="${YAVE_SHADER_DIRECTORY}"
+    RPE_SHADER_DIRECTORY="$RPE_SHADER_DIRECTORY}"
     RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
     "$<$<PLATFORM_ID:Windows>:_USE_MATH_DEFINES;NOMINMAX;_CRT_SECURE_NO_WARNINGS>"  
 )
@@ -86,6 +86,7 @@ if (BUILD_TESTS)
     add_executable(RpeTest ${test_srcs})
     target_link_libraries(RpeTest PRIVATE unity::unity RPE VulkanApi)
     set_target_properties(RpeTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
+    rpe_add_compiler_flags(TARGET RpeTest)
 
     add_test(
             NAME RpeTest

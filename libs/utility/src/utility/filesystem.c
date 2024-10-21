@@ -65,10 +65,10 @@ fs_buffer_t* fs_load_file_into_memory(const char* path, arena_t* arena)
 
     b->buffer = arena_alloc(arena, sizeof(char), _Alignof(char), b->size + 1, 0);
     assert(b->buffer);
-
-    for (size_t i = 0; i < b->size; ++i)
+    if (!fread(b->buffer, 1, b->size, fp))
     {
-        b->buffer[i] = (char)fgetc(fp);
+        log_error("Error reading file: %s", path);
+        return NULL;
     }
     b->buffer[b->size] = '\0';
 

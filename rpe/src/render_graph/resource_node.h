@@ -75,8 +75,8 @@ typedef struct ResourceNode
 rg_resource_edge_t* rg_resource_edge_init(
     rg_dep_graph_t* dg, rg_node_t* from, rg_node_t* to, VkImageUsageFlags usage, arena_t* arena);
 
-rg_resource_node_t*
-rg_res_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena, rg_handle_t* parent);
+rg_resource_node_t* rg_res_node_init(
+    rg_dep_graph_t* dg, const char* name, arena_t* arena, rg_handle_t res, rg_handle_t* parent);
 
 rg_resource_edge_t* rg_res_node_get_writer_edge(rg_resource_node_t* rn, rg_pass_node_t* node);
 
