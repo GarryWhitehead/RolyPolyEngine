@@ -23,12 +23,12 @@
 #ifndef __UTILITY_ARENA_H__
 #define __UTILITY_ARENA_H__
 
+#include "compiler.h"
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-
-#include "compiler.h"
 
 #define ARENA_MEM_TYPE_STDLIB 1
 #define ARENA_MEM_TYPE_VMEM 0
@@ -162,18 +162,18 @@ void arena_release(arena_t* arena);
 
 #ifndef WIN32
 #define DYN_ARRAY_APPEND(dyn_array, item)                                                          \
-    {                                                                                             \
-        AUTO _item = (item);                                                                \
+    ({                                                                                             \
+        __auto_type _item = (item);                                                                \
         assert((dyn_array)->type_size == sizeof(*_item));                                          \
         dyn_array_append(dyn_array, _item);                                                        \
-    }
+    })
 
 #define DYN_ARRAY_SET(dyn_array, idx, item)                                                        \
-    {                                                                                              \
-        AUTO _item = (item);                                                                       \
+    ({                                                                                             \
+        __auto_type _item = (item);                                                                \
         assert((dyn_array)->type_size == sizeof(*_item));                                          \
         dyn_array_set(dyn_array, idx, _item);                                                      \
-    }
+    })
 #else
 #define DYN_ARRAY_APPEND(dyn_array, item) dyn_array_append(dyn_array, item);
 
@@ -187,10 +187,10 @@ void arena_release(arena_t* arena);
 #define DYN_ARRAY_POP_BACK(type, dyn_array) *(type*)dyn_array_pop_back(dyn_array)
 
 #define DYN_ARRAY_APPEND_CHAR(dyn_array, item)                                                     \
-    {                                                                                             \
+    ({                                                                                             \
         const char* str = (const char*)item;                                                       \
         (const char*)dyn_array_append(dyn_array, &(str));                                          \
-    }
+    })
 
 #define DYN_ARRAY_REMOVE(dyn_array, idx) dyn_array_remove(dyn_array, idx)
 

@@ -53,11 +53,11 @@ typedef struct VkApiDriver
 
 } vkapi_driver_t;
 
- vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* error_code)
-{ 
-     *error_code = VKAPI_SUCCESS;
+vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* error_code)
+{
+    *error_code = VKAPI_SUCCESS;
 
-     // Allocate the arena space.
+    // Allocate the arena space.
     arena_t perm_arena, scratch_arena;
     int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &perm_arena);
     int scratch_err = arena_new(VKAPI_SCRATCH_ARENA_SIZE, &scratch_arena);
@@ -76,18 +76,17 @@ typedef struct VkApiDriver
 
     vkapi_context_init(&driver->_perm_arena, &driver->context);
     driver->res_cache = vkapi_res_cache_init(&driver->_perm_arena);
-    MAKE_DYN_ARRAY(vkapi_render_target_t , &driver->_perm_arena, 100, &driver->render_targets);
+    MAKE_DYN_ARRAY(vkapi_render_target_t, &driver->_perm_arena, 100, &driver->render_targets);
 
     // Create a new vulkan instance.
-     *error_code = vkapi_context_create_instance(
+    *error_code = vkapi_context_create_instance(
         &driver->context, instance_ext, ext_count, &driver->_perm_arena, &driver->_scratch_arena);
-     if (*error_code != VKAPI_SUCCESS)
-     {
-        
-         return NULL;
-     }
-     volkLoadInstance(driver->context.instance);
-     return driver;
+    if (*error_code != VKAPI_SUCCESS)
+    {
+        return NULL;
+    }
+    volkLoadInstance(driver->context.instance);
+    return driver;
 }
 
 int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
@@ -202,10 +201,13 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
         rt.clear_colour.b = clear_col.b,
         rt.clear_colour.a = clear_col.a,
         .samples = 1,
-        rt.multiView = multiView };
-    memcpy(rt.colours, colours, sizeof(vkapi_attach_info_t) * VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT);
+        rt.multiView = multiView};
+    memcpy(
+        rt.colours,
+        colours,
+        sizeof(vkapi_attach_info_t) * VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT);
 
-    vkapi_rt_handle_t handle = { .id = driver->render_targets.size };
+    vkapi_rt_handle_t handle = {.id = driver->render_targets.size};
     DYN_ARRAY_APPEND(&driver->render_targets, &rt);
     return handle;
 }

@@ -23,8 +23,8 @@
 #ifndef __RPE_RG_RENDER_GRAPH_HANDLE_H__
 #define __RPE_RG_RENDER_GRAPH_HANDLE_H__
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #define RG_INVALID_HANDLE UINT32_MAX
 
@@ -35,14 +35,11 @@ typedef struct RenderGraphHandle
 
 static rg_handle_t rg_handle_init()
 {
-    rg_handle_t h = {.id = RG_INVALID_HANDLE };
+    rg_handle_t h = {.id = RG_INVALID_HANDLE};
     return h;
 }
 
-static bool rg_handle_is_valid(rg_handle_t handle)
-{
-    return handle.id != RG_INVALID_HANDLE;
-}
+static bool rg_handle_is_valid(rg_handle_t handle) { return handle.id != RG_INVALID_HANDLE; }
 
 
 #endif

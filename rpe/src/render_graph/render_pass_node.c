@@ -31,8 +31,8 @@
 
 #include <utility/maths.h>
 
-rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena) 
-{ 
+rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena)
+{
     rg_pass_info_t i;
     memset(&i, 0, sizeof(rg_pass_info_t));
     i.name = string_init(name, arena);
@@ -50,8 +50,8 @@ rg_pass_node_t* rg_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t*
     node->base.ref_count = 0;
     rg_dep_graph_add_node(dg, (rg_node_t*)node);
 
-    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->resources_to_bake);
-    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->resources_to_destroy);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &node->resources_to_bake);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &node->resources_to_destroy);
     MAKE_DYN_ARRAY(rg_handle_t, arena, 30, &node->resource_handles);
     return node;
 }
@@ -70,8 +70,8 @@ rg_render_pass_node_init(rg_dep_graph_t* dg, const char* name, rg_pass_t* rg_pas
     rg_dep_graph_add_node(dg, (rg_node_t*)node);
 
     // Pass node init.
-    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_bake);
-    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_destroy);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &node->base.resources_to_bake);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &node->base.resources_to_destroy);
     MAKE_DYN_ARRAY(rg_handle_t, arena, 30, &node->base.resource_handles);
 
     MAKE_DYN_ARRAY(rg_pass_info_t, arena, 30, &node->render_pass_targets);
@@ -84,7 +84,7 @@ rg_present_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena)
 {
     rg_present_pass_node_t* node =
         ARENA_MAKE_STRUCT(arena, rg_present_pass_node_t, ARENA_ZERO_MEMORY);
-    
+
     // Base bode init.
     node->base.base.name = string_init(name, arena);
     node->base.base.id = rg_dep_graph_create_id(dg);
@@ -92,11 +92,11 @@ rg_present_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena)
     node->base.imported = true;
     rg_dep_graph_add_node(dg, (rg_node_t*)node);
 
-    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_bake);
-    MAKE_DYN_ARRAY(rg_resource_t, arena, 30, &node->base.resources_to_destroy);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &node->base.resources_to_bake);
+    MAKE_DYN_ARRAY(rg_resource_t*, arena, 30, &node->base.resources_to_destroy);
     MAKE_DYN_ARRAY(rg_handle_t, arena, 30, &node->base.resource_handles);
-      
-    return node;    
+
+    return node;
 }
 
 void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_driver_t* driver)
@@ -200,10 +200,7 @@ void rg_pass_node_add_resource(rg_pass_node_t* node, render_graph_t* rg, rg_hand
 }
 
 rg_handle_t rg_rpass_node_create_rt(
-    rg_render_pass_node_t* node,
-    render_graph_t* rg,
-    const char* name,
-    rg_pass_desc_t desc)
+    rg_render_pass_node_t* node, render_graph_t* rg, const char* name, rg_pass_desc_t desc)
 {
     rg_pass_info_t info = rg_pass_info_init(name, rg_get_arena(rg));
 
@@ -223,8 +220,8 @@ rg_handle_t rg_rpass_node_create_rt(
             for (size_t j = 0; j < readers.size; ++j)
             {
                 rg_edge_t* r_edge = DYN_ARRAY_GET(rg_edge_t*, &readers, j);
-                rg_resource_node_t* r_node =
-                    (rg_resource_node_t*)rg_dep_graph_get_node(rg_get_dep_graph(rg), r_edge->from_id);
+                rg_resource_node_t* r_node = (rg_resource_node_t*)rg_dep_graph_get_node(
+                    rg_get_dep_graph(rg), r_edge->from_id);
                 assert(r_node);
                 if (r_node->resource.id == handle.id)
                 {
@@ -243,8 +240,7 @@ rg_handle_t rg_rpass_node_create_rt(
     return handle;
 }
 
-void rg_render_pass_node_build(
-    rg_render_pass_node_t* node, render_graph_t* rg)
+void rg_render_pass_node_build(rg_render_pass_node_t* node, render_graph_t* rg)
 {
     uint32_t min_width = UINT32_MAX;
     uint32_t min_height = UINT32_MAX;
@@ -376,4 +372,3 @@ rg_pass_info_t rg_render_pass_node_get_rt_info(rg_render_pass_node_t* node, rg_h
     assert(handle.id < node->render_pass_targets.size && "Error whilst getting render target info");
     return DYN_ARRAY_GET(rg_pass_info_t, &node->render_pass_targets, handle.id);
 }
-

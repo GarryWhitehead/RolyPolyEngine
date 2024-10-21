@@ -23,9 +23,9 @@
 #ifndef __VKAPI_RESOURCE_CACHE_H__
 #define __VKAPI_RESOURCE_CACHE_H__
 
+#include <stdbool.h>
 #include <utility/arena.h>
 #include <vulkan-api/common.h>
-#include <stdbool.h>
 
 // Forward declarations.
 typedef struct VkApiContext vkapi_context_t;

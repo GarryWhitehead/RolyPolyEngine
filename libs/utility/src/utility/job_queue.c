@@ -314,7 +314,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_a
     jq->thread_map = HASH_SET_CREATE(uint32_t, thread_info_t*, arena, &murmur_hash3);
     jq->arena = arena;
 
-    //static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
+    // static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
 
     if (!num_threads)
     {

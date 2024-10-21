@@ -26,8 +26,8 @@
 #define _GNU_SOURCE
 #include "hash_set.h"
 #include "random.h"
-#include "work_stealing_queue.h"
 #include "thread.h"
+#include "work_stealing_queue.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>

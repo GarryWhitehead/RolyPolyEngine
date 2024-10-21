@@ -23,10 +23,10 @@
 #ifndef __RPE_RG_RENDER_GRAPH_H__
 #define __RPE_RG_RENDER_GRAPH_H__
 
-#include "render_graph_handle.h"
-#include "resources.h"
-#include "render_graph_pass.h"
 #include "backboard.h"
+#include "render_graph_handle.h"
+#include "render_graph_pass.h"
+#include "resources.h"
 
 #include <utility/arena.h>
 #include <vulkan-api/common.h>
@@ -50,53 +50,36 @@ typedef struct ResourceSlot
 
 render_graph_t* rg_init(arena_t* arena);
 
-rg_render_pass_node_t* rg_create_pass_node(
-    render_graph_t* rg, const char* name, rg_pass_t* rg_pass);
+rg_render_pass_node_t*
+rg_create_pass_node(render_graph_t* rg, const char* name, rg_pass_t* rg_pass);
 
-void rg_add_present_pass(
-    render_graph_t* rg, rg_handle_t handle, const char* name);
+void rg_add_present_pass(render_graph_t* rg, rg_handle_t handle, const char* name);
 
-rg_handle_t rg_add_resource(
-    render_graph_t* rg, rg_resource_t* r, rg_handle_t* parent);
+rg_handle_t rg_add_resource(render_graph_t* rg, rg_resource_t* r, rg_handle_t* parent);
 
-rg_handle_t rg_move_resource(
-    render_graph_t* rg, rg_handle_t from, rg_handle_t to);
+rg_handle_t rg_move_resource(render_graph_t* rg, rg_handle_t from, rg_handle_t to);
 
 rg_resource_t* rg_get_resource(render_graph_t* rg, rg_handle_t handle);
 
 rg_resource_node_t* rg_get_resource_node(render_graph_t* rg, rg_handle_t handle);
 
 rg_handle_t rg_import_render_target(
-    render_graph_t* rg,
-    const char* name,
-    rg_import_rt_desc_t desc,
-    vkapi_rt_handle_t handle);
+    render_graph_t* rg, const char* name, rg_import_rt_desc_t desc, vkapi_rt_handle_t handle);
 
 rg_handle_t rg_add_read(
-    render_graph_t* rg,
-    rg_handle_t handle,
-    rg_pass_node_t* pass_node,
-    VkImageUsageFlags usage);
+    render_graph_t* rg, rg_handle_t handle, rg_pass_node_t* pass_node, VkImageUsageFlags usage);
 
 rg_handle_t rg_add_write(
-    render_graph_t* rg,
-    rg_handle_t handle,
-    rg_pass_node_t* pass_node,
-    VkImageUsageFlags usage);
+    render_graph_t* rg, rg_handle_t handle, rg_pass_node_t* pass_node, VkImageUsageFlags usage);
 
 render_graph_t* rg_compile(render_graph_t* rg);
 
 void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver);
 
 rg_pass_t* rg_add_pass(
-    render_graph_t* rg,
-    const char* name,
-    setup_func setup,
-    execute_func execute,
-    size_t data_size);
+    render_graph_t* rg, const char* name, setup_func setup, execute_func execute, size_t data_size);
 
-void rg_add_executor_pass(
-    render_graph_t* rg, const char* name, execute_func execute);
+void rg_add_executor_pass(render_graph_t* rg, const char* name, execute_func execute);
 
 arena_t* rg_get_arena(render_graph_t* rg);
 

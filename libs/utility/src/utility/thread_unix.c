@@ -23,18 +23,18 @@
 #include "arena.h"
 #include "thread.h"
 
-#include <threads.h>
+#include <pthread.h>
+#include <string.h>
 
 typedef struct Thread
 {
-    thrd_t handle;
+    pthread_t handle;
 } thread_t;
 
 thread_t* thread_create(thrd_func func, void* data, arena_t* arena)
 {
     thread_t* t = ARENA_MAKE_STRUCT(arena, thread_t, ARENA_ZERO_MEMORY);
-    int err = thrd_create(&t->handle, func, data);
-    if (err != thrd_success)
+    if (pthread_create(&t->handle, NULL, func, data) != 0)
     {
         return NULL;
     }
@@ -44,8 +44,7 @@ thread_t* thread_create(thrd_func func, void* data, arena_t* arena)
 bool thread_join(thread_t* t)
 {
     assert(t);
-    int res = thrd_join(t->handle, NULL);
-    if (res != thrd_success)
+    if (pthread_join(t->handle, NULL) != 0)
     {
         return false;
     }
@@ -54,31 +53,29 @@ bool thread_join(thread_t* t)
 
 thread_t thread_current()
 {
-    thread_t t;
-    t.handle = thrd_current();
-    return t;
+    thread_t out;
+    out.handle = pthread_self();
+    return out;
 }
 
 void mutex_init(mutex_t* m) { memset(m, 0, sizeof(mutex_t)); }
 
 bool mutex_lock(mutex_t* m)
 {
-    int res = mtx_lock(m);
-    if (res != thrd_success)
+    if (pthread_mutex_lock(m) != 0)
     {
         return false;
     }
     return true;
 }
 
-void mutex_unlock(mutex_t* m) { mtx_unlock(m); }
+void mutex_unlock(mutex_t* m) { pthread_mutex_unlock(m); }
 
 void condition_init(cond_wait_t* c) { memset(c, 0, sizeof(cond_wait_t)); }
 
 bool condition_wait(cond_wait_t* c, mutex_t* m)
 {
-    int res = cnd_wait(c, m);
-    if (res != thrd_success)
+    if (pthread_cond_wait(c, m) != 0)
     {
         return false;
     }
@@ -87,8 +84,7 @@ bool condition_wait(cond_wait_t* c, mutex_t* m)
 
 bool condition_signal(cond_wait_t* c)
 {
-    int res = cnd_signal(c);
-    if (res != thrd_success)
+    if (pthread_cond_signal(c) != 0)
     {
         return false;
     }
@@ -97,14 +93,13 @@ bool condition_signal(cond_wait_t* c)
 
 bool condition_brdcast(cond_wait_t* c)
 {
-    int res = cnd_broadcast(c);
-    if (res != thrd_success)
+    if (pthread_cond_broadcast(c) != 0)
     {
         return false;
     }
     return true;
 }
 
-void condition_destroy(cond_wait_t* c) {}
+void condition_destroy(cond_wait_t* c) { pthread_cond_destroy(c); }
 
-void mutex_destroy(mutex_t* m) {}
+void mutex_destroy(mutex_t* m) { pthread_mutex_destroy(m); }

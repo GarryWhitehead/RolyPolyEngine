@@ -4,5 +4,5 @@
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #define VMA_IMPLEMENTATION 1
 #define VOLK_IMPLEMENTATION 1
-#include <volk.h>
 #include <vk_mem_alloc.h>
+#include <volk.h>

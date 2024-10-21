@@ -124,7 +124,10 @@ void arena_release(arena_t* arena)
 
 /* Dynamic array allocator functions */
 
-void* _offset_ptr(void* ptr, size_t offset, size_t type_size) { return (uint8_t*)ptr + offset * type_size; }
+void* _offset_ptr(void* ptr, size_t offset, size_t type_size)
+{
+    return (uint8_t*)ptr + offset * type_size;
+}
 
 int dyn_array_init(
     arena_t* arena,

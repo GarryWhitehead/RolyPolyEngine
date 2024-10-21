@@ -344,8 +344,9 @@ int vkapi_context_create_instance(
         VK_CHECK_RESULT(DebugUtilsMessengerCallback(
             context->instance, &dbg_create_info, VK_NULL_HANDLE, &context->debug_messenger))
     }
-    else if (vkapi_find_ext_props(
-                 VK_EXT_DEBUG_REPORT_EXTENSION_NAME, ext_prop_arr, total_ext_count) && CreateDebugReportCallback)
+    else if (
+        vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, ext_prop_arr, total_ext_count) &&
+        CreateDebugReportCallback)
     {
         VkDebugReportCallbackCreateInfoEXT cb_create_info = {0};
         cb_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;

@@ -23,9 +23,9 @@
 #ifndef __RPE_RG_RESOURCE_NODE_H__
 #define __RPE_RG_RESOURCE_NODE_H__
 
+#include "dependency_graph.h"
 #include "render_graph_handle.h"
 #include "render_graph_pass.h"
-#include "dependency_graph.h"
 
 #include <utility/arena.h>
 

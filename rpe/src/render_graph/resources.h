@@ -25,9 +25,9 @@
 
 #include "render_graph_handle.h"
 
-#include <utility/string.h>
-#include <utility/maths.h>
 #include <utility/arena.h>
+#include <utility/maths.h>
+#include <utility/string.h>
 #include <vulkan-api/common.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>

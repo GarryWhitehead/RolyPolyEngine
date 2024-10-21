@@ -26,12 +26,12 @@
 #include "commands.h"
 #include "common.h"
 #include "context.h"
-#include "staging_pool.h"
-#include "resource_cache.h"
 #include "renderpass.h"
+#include "resource_cache.h"
+#include "staging_pool.h"
 
-#define VKAPI_SCRATCH_ARENA_SIZE 1<<20
-#define VKAPI_PERM_ARENA_SIZE 1<<20
+#define VKAPI_SCRATCH_ARENA_SIZE 1 << 20
+#define VKAPI_PERM_ARENA_SIZE 1 << 20
 
 // Forward declarations.
 typedef struct VkApiResourceCache vkapi_res_cache_t;

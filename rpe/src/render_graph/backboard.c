@@ -21,12 +21,13 @@
  */
 
 #include "backboard.h"
-#include <utility/hash.h>
+
 #include <assert.h>
+#include <utility/hash.h>
 
 rg_backboard_t rg_backboard_init(arena_t* arena)
-{ 
-    rg_backboard_t i; 
+{
+    rg_backboard_t i;
     i.backboard = HASH_SET_CREATE(string_t, rg_handle_t, arena, murmur_hash3);
     i.arena = arena;
     return i;
@@ -59,4 +60,3 @@ void rg_backboard_reset(rg_backboard_t* bb)
     assert(bb);
     hash_set_clear(&bb->backboard);
 }
-

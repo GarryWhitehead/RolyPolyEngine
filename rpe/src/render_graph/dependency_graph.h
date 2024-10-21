@@ -23,10 +23,9 @@
 #ifndef __RPE_RG_DEPENDENCY_GRAPH_H__
 #define __RPE_RG_DEPENDENCY_GRAPH_H__
 
-#include <utility/string.h>
-#include <utility/arena.h>
-
 #include <stddef.h>
+#include <utility/arena.h>
+#include <utility/string.h>
 
 // forward declarations
 typedef struct DependencyGraph rg_dep_graph_t;
@@ -56,9 +55,11 @@ rg_edge_t* rg_edge_init(rg_dep_graph_t* dg, rg_node_t* from, rg_node_t* to, aren
 
 rg_dep_graph_t* rg_dep_graph_init(arena_t* arena);
 
-arena_dyn_array_t rg_dep_graph_get_writer_edges(rg_dep_graph_t* dg, rg_node_t* node, arena_t* arena);
+arena_dyn_array_t
+rg_dep_graph_get_writer_edges(rg_dep_graph_t* dg, rg_node_t* node, arena_t* arena);
 
-arena_dyn_array_t rg_dep_graph_get_reader_edges(rg_dep_graph_t* dg, rg_node_t* node, arena_t* arena);
+arena_dyn_array_t
+rg_dep_graph_get_reader_edges(rg_dep_graph_t* dg, rg_node_t* node, arena_t* arena);
 
 bool rg_dep_graph_is_valid_edge(rg_dep_graph_t* dg, rg_edge_t* edge);
 

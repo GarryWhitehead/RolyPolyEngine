@@ -62,9 +62,3 @@
 #else
 #define RPE_PACKED
 #endif
-
-#ifdef __GNUC__
-#define AUTO __auto_type
-#elif _WIN32
-#define AUTO auto
-#endif

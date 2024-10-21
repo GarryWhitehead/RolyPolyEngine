@@ -106,7 +106,7 @@ rg_texture_resource_t* rg_tex_resource_init(
     rg_texture_resource_t* i = ARENA_MAKE_STRUCT(arena, rg_texture_resource_t, ARENA_ZERO_MEMORY);
     i->base.name = string_init(name, arena);
     i->base.type = RG_RESOURCE_TYPE_TEXTURE;
-    i->base.parent = (rg_resource_t *)i;
+    i->base.parent = (rg_resource_t*)i;
     i->image_usage = image_usage;
     i->desc = desc;
     i->base.imported = false;

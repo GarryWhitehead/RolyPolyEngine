@@ -22,8 +22,8 @@
 #ifndef __UTILITY_WORK_STEALING_QUEUE_H__
 #define __UTILITY_WORK_STEALING_QUEUE_H__
 
-#include <stdint.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 // Forward declarations.
 typedef struct Arena arena_t;
@@ -57,7 +57,7 @@ typedef struct WorkStealingDeque
         work_stealing_queue_push(queue, _item);                                                    \
     }*/
 #define WORK_STEALING_QUEUE_PUSH(queue, item) work_stealing_queue_push(queue, item);
-    
+
 #endif
 
 work_stealing_queue_t

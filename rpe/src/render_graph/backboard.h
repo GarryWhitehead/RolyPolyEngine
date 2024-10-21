@@ -24,8 +24,9 @@
 #define __RPE_RG_BACKBOARD_H__
 
 #include "render_graph_handle.h"
-#include <utility/string.h>
+
 #include <utility/hash_set.h>
+#include <utility/string.h>
 
 typedef struct BackBoard
 {
@@ -42,6 +43,6 @@ rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name);
 
 void rg_backboard_remove(rg_backboard_t* bb, string_t name);
 
-void rg_backboard_reset(rg_backboard_t* bb) ;
+void rg_backboard_reset(rg_backboard_t* bb);
 
 #endif

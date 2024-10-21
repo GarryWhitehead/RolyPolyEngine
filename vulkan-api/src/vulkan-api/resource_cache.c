@@ -22,13 +22,10 @@
 
 #include "resource_cache.h"
 
-#include "texture.h"
 #include "commands.h"
+#include "texture.h"
 
-bool vkapi_tex_handle_is_valid(texture_handle_t handle)
-{
-    return handle.id != UINT32_MAX;
-}
+bool vkapi_tex_handle_is_valid(texture_handle_t handle) { return handle.id != UINT32_MAX; }
 
 vkapi_res_cache_t* vkapi_res_cache_init(arena_t* arena)
 {

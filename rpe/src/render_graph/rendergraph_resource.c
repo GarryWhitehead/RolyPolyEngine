@@ -26,9 +26,9 @@
 #include "render_pass_node.h"
 #include "resource_node.h"
 #include "resources.h"
-#include <vulkan-api/resource_cache.h>
 
 #include <assert.h>
+#include <vulkan-api/resource_cache.h>
 
 rg_resource_t* rg_res_get_resource(rg_render_graph_resource_t* r, rg_handle_t handle)
 {
@@ -40,7 +40,7 @@ rg_resource_info_t rg_res_get_render_pass_info(rg_render_graph_resource_t* r, rg
 {
     assert(rg_handle_is_valid(handle));
     rg_pass_info_t info = rg_render_pass_node_get_rt_info(r->pass_node, handle);
-    rg_resource_info_t out = { .data = info.vkapi_rpass_data, .handle = info.desc.rt_handle };
+    rg_resource_info_t out = {.data = info.vkapi_rpass_data, .handle = info.desc.rt_handle};
     return out;
 }
 
@@ -51,4 +51,3 @@ texture_handle_t rg_res_get_tex_handle(rg_render_graph_resource_t* r, rg_handle_
     assert(vkapi_tex_handle_is_valid(t_res->handle));
     return t_res->handle;
 }
-

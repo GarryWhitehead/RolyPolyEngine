@@ -204,7 +204,8 @@ void rg_dep_graph_export_graph_viz(rg_dep_graph_t* dg, string_t output, arena_t*
     assert(dg);
     output = string_append(&output, "digraph \"rendergraph\" { \n", arena);
     output = string_append(&output, "bgcolor = white\n", arena);
-    output = string_append(&output, "node [shape=rectangle, fontname=\"arial\", fontsize=12]\n", arena);
+    output =
+        string_append(&output, "node [shape=rectangle, fontname=\"arial\", fontsize=12]\n", arena);
 
     // add each node
     for (size_t i = 0; i < dg->nodes.size; ++i)
@@ -264,8 +265,12 @@ string_t rg_node_get_graph_viz(rg_node_t* n, arena_t* arena)
     assert(n);
     string_t out;
     out.data = ARENA_MAKE_ARRAY(arena, char, 1024, ARENA_ZERO_MEMORY);
-    sprintf(out.data, "[label=\"node\\n name: %s id: %i, refCount: %i\",", n->name.data, n->id, n->ref_count);
+    sprintf(
+        out.data,
+        "[label=\"node\\n name: %s id: %i, refCount: %i\",",
+        n->name.data,
+        n->id,
+        n->ref_count);
     out = string_append(&out, " style=filled, fillcolor=green]", arena);
     return out;
 }
-

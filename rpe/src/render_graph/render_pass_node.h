@@ -76,9 +76,11 @@ rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena);
 
 rg_pass_node_t* rg_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena);
 
-rg_render_pass_node_t* rg_render_pass_node_init(rg_dep_graph_t* dg, const char* name, rg_pass_t* rg_pass, arena_t* arena);
+rg_render_pass_node_t*
+rg_render_pass_node_init(rg_dep_graph_t* dg, const char* name, rg_pass_t* rg_pass, arena_t* arena);
 
-rg_present_pass_node_t* rg_present_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena);
+rg_present_pass_node_t*
+rg_present_pass_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena);
 
 void rg_pass_node_add_to_bake_list(rg_pass_node_t* node, rg_resource_t* r);
 
@@ -91,14 +93,9 @@ void rg_pass_node_destroy_resource_list(rg_pass_node_t* node, vkapi_driver_t* dr
 void rg_pass_node_add_resource(rg_pass_node_t* node, render_graph_t* rg, rg_handle_t handle);
 
 rg_handle_t rg_rpass_node_create_rt(
-    rg_render_pass_node_t* node,
-    render_graph_t* rg,
-    const char* name,
-    rg_pass_desc_t desc);
+    rg_render_pass_node_t* node, render_graph_t* rg, const char* name, rg_pass_desc_t desc);
 
-void rg_render_pass_node_build(
-    rg_render_pass_node_t* node,
-    render_graph_t* rg);
+void rg_render_pass_node_build(rg_render_pass_node_t* node, render_graph_t* rg);
 
 void rg_render_pass_node_execute(
     rg_render_pass_node_t* node,

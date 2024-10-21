@@ -37,7 +37,8 @@ TEST(ShaderGroup, Shader_CompilerTests)
 
     shader_t* shader = shader_init(RPE_BACKEND_SHADER_STAGE_VERTEX, &arena);
 
-    bool r = shader_compile(shader, vakpi_driver_get_context(driver), test_shader0, "test_path", &arena);
+    bool r =
+        shader_compile(shader, vakpi_driver_get_context(driver), test_shader0, "test_path", &arena);
     TEST_ASSERT(r == true);
 
     // Test shader reflection works.

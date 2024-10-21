@@ -24,8 +24,9 @@
 #define __RPE_RG_RENDER_GRAPH_PASS_H__
 
 #include "render_graph_handle.h"
-#include <vulkan-api/renderpass.h>
+
 #include <utility/maths.h>
+#include <vulkan-api/renderpass.h>
 
 // Forward declarations.
 typedef struct RenderPassNode rg_render_pass_node_t;
@@ -65,8 +66,8 @@ typedef struct RenderGraphPass
 } rg_pass_t;
 
 static inline rg_pass_desc_t rg_pass_desc_init()
-{ 
-    rg_pass_desc_t instance = {0}; 
+{
+    rg_pass_desc_t instance = {0};
     instance.clear_col.a = 1.0f;
     instance.ds_load_clear_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
     instance.ds_load_clear_flags[1] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
@@ -75,7 +76,7 @@ static inline rg_pass_desc_t rg_pass_desc_init()
 
     for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT; ++i)
     {
-        instance.attachments.attach_array[i].id = RG_INVALID_HANDLE; 
+        instance.attachments.attach_array[i].id = RG_INVALID_HANDLE;
     }
     return instance;
 }

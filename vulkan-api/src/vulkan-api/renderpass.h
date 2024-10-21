@@ -23,9 +23,10 @@
 #ifndef __VKAPI_RENDERPASS_H__
 #define __VKAPI_RENDERPASS_H__
 
+#include "backend/enums.h"
 #include "common.h"
 #include "resource_cache.h"
-#include "backend/enums.h"
+
 #include <utility/maths.h>
 
 #define VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT 6

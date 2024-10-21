@@ -1,8 +1,8 @@
+#include <render_graph/backboard.h>
 #include <render_graph/dependency_graph.h>
 #include <render_graph/render_graph.h>
 #include <render_graph/render_pass_node.h>
 #include <render_graph/rendergraph_resource.h>
-#include <render_graph/backboard.h>
 #include <unity_fixture.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
@@ -12,7 +12,7 @@ arena_t* arena;
 
 TEST_GROUP(RenderGraphGroup);
 
-TEST_SETUP(RenderGraphGroup) 
+TEST_SETUP(RenderGraphGroup)
 {
     arena = calloc(1, sizeof(arena_t));
     uint64_t arena_cap = 1 << 20;
@@ -116,7 +116,7 @@ void setup1(render_graph_t* rg, rg_pass_node_t* node, void* data)
         "InputTex", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, desc, rg_get_arena(rg));
     d->rw = rg_add_resource(rg, (rg_resource_t*)r, NULL);
     d->rw = rg_add_write(rg, d->rw, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-    //rg_add_read(rg, d->rw, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    // rg_add_read(rg, d->rw, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 }
 
 TEST(RenderGraphGroup, RenderGraph_Tests1)
@@ -149,7 +149,7 @@ void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data)
         "DepthImage", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg));
     d->depth = rg_add_resource(rg, (rg_resource_t*)r, NULL);
     d->depth = rg_add_write(rg, d->depth, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-    
+
     rg_pass_desc_t desc = rg_pass_desc_init();
     desc.attachments.attach.depth = d->depth;
     d->rt = rg_rpass_node_create_rt((rg_render_pass_node_t*)node, rg, "DepthPass", desc);
@@ -191,17 +191,16 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
 {
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     TEST_ASSERT_TRUE(d);
-    rg_texture_desc_t t_desc = {
-        .width = 100,
-        .height = 100,
-        .mip_levels = 1,
-        .depth = 1};
-   
-    t_desc.format = VK_FORMAT_R8G8B8A8_UNORM; 
-    d->colour = rg_add_resource(rg, rg_tex_resource_init(
-            "Colour", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)), NULL);
+    rg_texture_desc_t t_desc = {.width = 100, .height = 100, .mip_levels = 1, .depth = 1};
 
-    t_desc.format = VK_FORMAT_R16G16B16A16_SFLOAT; 
+    t_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+    d->colour = rg_add_resource(
+        rg,
+        rg_tex_resource_init(
+            "Colour", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
+        NULL);
+
+    t_desc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     d->pos = rg_add_resource(
         rg,
         rg_tex_resource_init(
@@ -218,8 +217,7 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     t_desc.format = VK_FORMAT_R16G16_SFLOAT;
     d->pbr = rg_add_resource(
         rg,
-        rg_tex_resource_init(
-            "PBR", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
+        rg_tex_resource_init("PBR", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     t_desc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -300,7 +298,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer)
 }
 
 TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
-{   
+{
     math_vec4f col = {0.0f, 0.0f, 0.0f, 1.0f};
     vkapi_attach_info_t col_attach[6];
     memset(col_attach, 0, sizeof(vkapi_attach_info_t) * 6);
@@ -315,17 +313,18 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
     i_desc.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     i_desc.store_clear_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE;
     i_desc.load_clear_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR;
-    i_desc.final_layouts[0] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; 
+    i_desc.final_layouts[0] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     i_desc.init_layouts[0] = VK_IMAGE_LAYOUT_UNDEFINED;
     i_desc.clear_col.r = 0.0f;
     i_desc.clear_col.g = 0.0f;
     i_desc.clear_col.b = 0.0f;
     i_desc.clear_col.a = 1.0f;
-    
+
     render_graph_t* rg = rg_init(arena);
-    rg_pass_t* p = rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer));
+    rg_pass_t* p =
+        rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer));
     TEST_ASSERT_TRUE(p);
-    
+
     struct DataGBuffer* d = (struct DataGBuffer*)p->data;
     rg_handle_t backbuffer_handle = rg_import_render_target(rg, "BackBuffer", i_desc, pp_handle);
     rg_move_resource(rg, d->colour, backbuffer_handle);

@@ -39,7 +39,7 @@ typedef struct RenderGraphResourceInfo
 
 typedef struct RenderGraphResource
 {
-   rg_render_graph_t* rg;
+    rg_render_graph_t* rg;
     rg_render_pass_node_t* pass_node;
 } rg_render_graph_resource_t;
 

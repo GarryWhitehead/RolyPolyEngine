@@ -22,13 +22,13 @@
 
 #include "render_graph.h"
 
+#include "backboard.h"
 #include "dependency_graph.h"
 #include "render_graph_pass.h"
 #include "render_pass_node.h"
 #include "rendergraph_resource.h"
 #include "resource_node.h"
 #include "resources.h"
-#include "backboard.h"
 
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
@@ -71,8 +71,7 @@ render_graph_t* rg_init(arena_t* arena)
     return rg;
 }
 
-rg_render_pass_node_t* rg_create_pass_node(
-    render_graph_t* rg, const char* name, rg_pass_t* rg_pass)
+rg_render_pass_node_t* rg_create_pass_node(render_graph_t* rg, const char* name, rg_pass_t* rg_pass)
 {
     assert(rg);
     assert(rg_pass);
@@ -81,8 +80,7 @@ rg_render_pass_node_t* rg_create_pass_node(
     return rg_pass->node;
 }
 
-void rg_add_present_pass(
-    render_graph_t* rg, rg_handle_t handle, const char* name)
+void rg_add_present_pass(render_graph_t* rg, rg_handle_t handle, const char* name)
 {
     assert(rg);
     rg_present_pass_node_t* node = rg_present_pass_node_init(rg->dep_graph, name, rg->arena);
@@ -91,8 +89,7 @@ void rg_add_present_pass(
     DYN_ARRAY_APPEND(&rg->pass_nodes, &node);
 }
 
-rg_handle_t rg_add_resource(
-    render_graph_t* rg, rg_resource_t* r, rg_handle_t* parent)
+rg_handle_t rg_add_resource(render_graph_t* rg, rg_resource_t* r, rg_handle_t* parent)
 {
     assert(rg);
     assert(r);
@@ -101,14 +98,14 @@ rg_handle_t rg_add_resource(
     rg_resource_slot_t slot = {
         .node_idx = rg->resource_nodes.size, .resource_idx = rg->resources.size};
     DYN_ARRAY_APPEND(&rg->resource_slots, &slot);
-    rg_resource_node_t* r_node = rg_res_node_init(rg->dep_graph, r->name.data, rg->arena, handle, parent);
+    rg_resource_node_t* r_node =
+        rg_res_node_init(rg->dep_graph, r->name.data, rg->arena, handle, parent);
     DYN_ARRAY_APPEND(&rg->resources, &r);
     DYN_ARRAY_APPEND(&rg->resource_nodes, &r_node);
     return handle;
 }
 
-rg_handle_t rg_move_resource(
-    render_graph_t* rg, rg_handle_t from, rg_handle_t to)
+rg_handle_t rg_move_resource(render_graph_t* rg, rg_handle_t from, rg_handle_t to)
 {
     assert(rg_handle_is_valid(from));
     assert(rg_handle_is_valid(to));
@@ -133,10 +130,7 @@ rg_resource_node_t* rg_get_resource_node(render_graph_t* rg, rg_handle_t handle)
 }
 
 rg_handle_t rg_import_render_target(
-    render_graph_t* rg,
-    const char* name,
-    rg_import_rt_desc_t desc,
-    vkapi_rt_handle_t handle)
+    render_graph_t* rg, const char* name, rg_import_rt_desc_t desc, vkapi_rt_handle_t handle)
 {
     rg_texture_desc_t r_desc = {.width = desc.width, .height = desc.height};
     rg_import_render_target_t* i = rg_tex_import_rt_init(name, 0, r_desc, desc, handle, rg->arena);
@@ -144,10 +138,7 @@ rg_handle_t rg_import_render_target(
 }
 
 rg_handle_t rg_add_read(
-    render_graph_t* rg,
-    rg_handle_t handle,
-    rg_pass_node_t* pass_node,
-    VkImageUsageFlags usage)
+    render_graph_t* rg, rg_handle_t handle, rg_pass_node_t* pass_node, VkImageUsageFlags usage)
 {
     assert(rg);
     assert(rg_handle_is_valid(handle));
@@ -170,10 +161,7 @@ rg_handle_t rg_add_read(
 }
 
 rg_handle_t rg_add_write(
-    render_graph_t* rg,
-    rg_handle_t handle,
-    rg_pass_node_t* pass_node,
-    VkImageUsageFlags usage)
+    render_graph_t* rg, rg_handle_t handle, rg_pass_node_t* pass_node, VkImageUsageFlags usage)
 {
     assert(rg);
     assert(rg_handle_is_valid(handle));
@@ -210,7 +198,8 @@ render_graph_t* rg_compile(render_graph_t* rg)
 
     size_t tmp_idx = 0;
     rg->active_idx = 0;
-    rg_pass_node_t** tmp_buffer = ARENA_MAKE_ARRAY(rg->arena, rg_pass_node_t*, rg->pass_nodes.size, 0);
+    rg_pass_node_t** tmp_buffer =
+        ARENA_MAKE_ARRAY(rg->arena, rg_pass_node_t*, rg->pass_nodes.size, 0);
     for (size_t i = 0; i < rg->pass_nodes.size; ++i)
     {
         rg_pass_node_t* node = DYN_ARRAY_GET(rg_pass_node_t*, &rg->pass_nodes, i);
@@ -234,7 +223,8 @@ render_graph_t* rg_compile(render_graph_t* rg)
         assert(node_idx < rg->pass_nodes.size);
         rg_pass_node_t* pass_node = DYN_ARRAY_GET(rg_pass_node_t*, &rg->pass_nodes, node_idx);
 
-        arena_dyn_array_t readers = rg_dep_graph_get_reader_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
+        arena_dyn_array_t readers =
+            rg_dep_graph_get_reader_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
         for (size_t i = 0; i < readers.size; ++i)
         {
             rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &readers, i);
@@ -243,7 +233,8 @@ render_graph_t* rg_compile(render_graph_t* rg)
             rg_pass_node_add_resource(pass_node, rg, r_node->resource);
         }
 
-        arena_dyn_array_t writers = rg_dep_graph_get_writer_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
+        arena_dyn_array_t writers =
+            rg_dep_graph_get_writer_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
         for (size_t i = 0; i < writers.size; ++i)
         {
             rg_edge_t* edge = DYN_ARRAY_GET(rg_edge_t*, &writers, i);
@@ -301,7 +292,7 @@ void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver)
         // Create concrete vulkan resources - these are added to the
         // node during the compile call.
         rg_pass_node_bake_resource_list(pass_node, driver);
-        
+
         if (!pass_node->base.imported)
         {
             rg_render_graph_resource_t r = {.rg = rg, .pass_node = pass_node};
@@ -330,11 +321,7 @@ rg_resource_t* rg_get_resource(render_graph_t* rg, rg_handle_t handle)
 }
 
 rg_pass_t* rg_add_pass(
-    render_graph_t* rg,
-    const char* name,
-    setup_func setup,
-    execute_func execute,
-    size_t data_size)
+    render_graph_t* rg, const char* name, setup_func setup, execute_func execute, size_t data_size)
 {
     rg_pass_t* pass = rg_pass_init(execute, data_size, rg->arena);
     rg_render_pass_node_t* node = rg_create_pass_node(rg, name, pass);
@@ -348,8 +335,7 @@ void _executor_setup(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_node_declare_side_effect((rg_node_t*)node);
 }
 
-void rg_add_executor_pass(
-    render_graph_t* rg, const char* name, execute_func execute)
+void rg_add_executor_pass(render_graph_t* rg, const char* name, execute_func execute)
 {
     rg_add_pass(rg, name, _executor_setup, execute, 0);
 }
