@@ -20,32 +20,29 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "utility.h"
+#ifndef __RPE_RG_BACKBOARD_H__
+#define __RPE_RG_BACKBOARD_H__
 
-#include <utility/array_utility.h>
+#include "render_graph_handle.h"
 
-bool vkapi_util_is_depth(VkFormat format)
+#include <utility/hash_set.h>
+#include <utility/string.h>
+
+typedef struct BackBoard
 {
-    VkFormat depth_formats[] = {
-        VK_FORMAT_D16_UNORM,
-        VK_FORMAT_X8_D24_UNORM_PACK32,
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(depth_formats), depth_formats);
-    return idx != UINT32_MAX;
-}
+    hash_set_t backboard;
+    arena_t* arena;
 
-bool vkapi_util_is_stencil(VkFormat format)
-{
-    VkFormat stencil_formats[] = {
-        VK_FORMAT_S8_UINT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(stencil_formats), stencil_formats);
-    return idx != UINT32_MAX;
-}
+} rg_backboard_t;
+
+rg_backboard_t rg_backboard_init(arena_t* arena);
+
+void rg_backboard_add(rg_backboard_t* bb, const char* name, rg_handle_t handle);
+
+rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name);
+
+void rg_backboard_remove(rg_backboard_t* bb, string_t name);
+
+void rg_backboard_reset(rg_backboard_t* bb);
+
+#endif

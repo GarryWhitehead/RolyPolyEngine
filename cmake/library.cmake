@@ -15,6 +15,10 @@ function(rpe_add_compiler_flags)
         set(compile_options
             /bigobj 
             /EHsc
+            #/Zc:preprocessor
+            /std:c17
+            /experimental:c11atomics 
+            /NODEFAULTLIB:library
         )
     else()
         # common flags for gcc and clang
@@ -46,7 +50,7 @@ function(rpe_add_compiler_flags)
 
     # build type specific compiler flags    
     if(MSVC)
-        set(build_type_debug            ${compile_options} ${library_type_flag} /Zi /Ob0 /Od /RTC1 /MD)
+        set(build_type_debug            ${compile_options} ${library_type_flag} /Zi /Ob0 /Od /MDd /Oy-) # Dr Memory docs suggest not to use: /RTC1
         set(build_type_relwithdebinfo   ${compile_options} ${library_type_flag} /O2 /Gy /Zi /MD)
         set(build_type_release          ${compile_options} ${library_type_flag} /O2 /MD)
 
@@ -80,9 +84,9 @@ function(rpe_add_compiler_flags)
 
     # intrinsics flags - basic setup for now.
     if (MSVC)
-        set(intrinsic_flags ${intrinsic_flags} /arch:SSE3)
+        set(intrinsic_flags ${intrinsic_flags} /arch:AVX2)
     else()
-        set(intrinsic_flags ${intrinsic_flags} -msse3)
+        set(intrinsic_flags ${intrinsic_flags} -march=haswell)
     endif()
     target_compile_options(
         ${COMPILE_FLAGS_TARGET} 

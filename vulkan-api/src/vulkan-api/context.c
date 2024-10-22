@@ -243,37 +243,23 @@ int vkapi_context_create_instance(
     arena_t* arena,
     arena_t* scratch_arena)
 {
-    VkApplicationInfo appInfo = {};
+    VkApplicationInfo appInfo = {0};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "RolyPolyEngine";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "RolyPolyEngine";
+    appInfo.pEngineName = "No Engine";
     appInfo.apiVersion = VK_API_VERSION_1_2;
 
     // glfw extensions
     arena_dyn_array_t ext_arr;
     MAKE_DYN_ARRAY(const char*, scratch_arena, 30, &ext_arr);
 
-    // extension properties
-    uint32_t ext_count = 0;
-    vkEnumerateInstanceExtensionProperties(VK_NULL_HANDLE, &ext_count, VK_NULL_HANDLE);
-    VkExtensionProperties* ext_prop_arr =
-        ARENA_MAKE_ARRAY(scratch_arena, VkExtensionProperties, ext_count, 0);
-    vkEnumerateInstanceExtensionProperties(VK_NULL_HANDLE, &ext_count, ext_prop_arr);
-
-    int ret = vkapi_context_prep_extensions(
-        context, &ext_arr, glfw_ext, glfw_ext_count, ext_prop_arr, ext_count);
-    if (ret != VKAPI_SUCCESS)
-    {
-        return ret;
-    }
-
     uint32_t layer_count = 0;
-    vkEnumerateInstanceLayerProperties(&layer_count, VK_NULL_HANDLE);
+    VK_CHECK_RESULT(vkEnumerateInstanceLayerProperties(&layer_count, VK_NULL_HANDLE));
     VkLayerProperties* layer_prop_arr =
         ARENA_MAKE_ARRAY(scratch_arena, VkLayerProperties, layer_count, 0);
-    vkEnumerateInstanceLayerProperties(&layer_count, layer_prop_arr);
+    VK_CHECK_RESULT(vkEnumerateInstanceLayerProperties(&layer_count, layer_prop_arr));
 
 #ifdef VULKAN_VALIDATION_DEBUG
     if (vkapi_find_layer_ext(VKAPI_VALIDATION_LAYER_NAME, layer_prop_arr, layer_count))
@@ -285,11 +271,40 @@ int vkapi_context_create_instance(
         log_warn("Unable to find validation standard layers.");
     }
 #endif
-    VkInstanceCreateInfo createInfo = {};
+
+    // extension properties
+    VkExtensionProperties ext_prop_arr[25];
+    uint32_t total_ext_count = 0;
+
+    for (uint32_t i = 0; i < layer_count; ++i)
+    {
+        uint32_t ext_count;
+        VK_CHECK_RESULT(
+            vkEnumerateInstanceExtensionProperties(layer_prop_arr[i].layerName, &ext_count, NULL));
+        if (ext_count + total_ext_count >= 25)
+        {
+            log_warn("Reached maximum instance extensions prop count. Some extensions will be "
+                     "excluded.");
+            break;
+        }
+        VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties(
+            layer_prop_arr[i].layerName, &ext_count, ext_prop_arr + total_ext_count));
+        total_ext_count += ext_count;
+    }
+
+    int ret = vkapi_context_prep_extensions(
+        context, &ext_arr, glfw_ext, glfw_ext_count, ext_prop_arr, total_ext_count);
+    if (ret != VKAPI_SUCCESS)
+    {
+        return ret;
+    }
+
+    VkInstanceCreateInfo createInfo = {0};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    createInfo.pNext = NULL;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = 0; // context->req_layers.size;
-    createInfo.ppEnabledLayerNames = NULL; // context->req_layers.data;
+    createInfo.enabledLayerCount = context->req_layers.size;
+    createInfo.ppEnabledLayerNames = context->req_layers.data;
     createInfo.enabledExtensionCount = ext_arr.size;
     createInfo.ppEnabledExtensionNames = ext_arr.data;
     VK_CHECK_RESULT(vkCreateInstance(&createInfo, VK_NULL_HANDLE, &context->instance));
@@ -314,9 +329,9 @@ int vkapi_context_create_instance(
             context->instance, "vkCreateDebugUtilsMessengerEXT");
 #endif
 
-    if (context->extensions.has_debug_utils)
+    if (context->extensions.has_debug_utils && DebugUtilsMessengerCallback)
     {
-        VkDebugUtilsMessengerCreateInfoEXT dbg_create_info = {};
+        VkDebugUtilsMessengerCreateInfoEXT dbg_create_info = {0};
         dbg_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         dbg_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
@@ -329,9 +344,11 @@ int vkapi_context_create_instance(
         VK_CHECK_RESULT(DebugUtilsMessengerCallback(
             context->instance, &dbg_create_info, VK_NULL_HANDLE, &context->debug_messenger))
     }
-    else if (vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, ext_prop_arr, ext_count))
+    else if (
+        vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, ext_prop_arr, total_ext_count) &&
+        CreateDebugReportCallback)
     {
-        VkDebugReportCallbackCreateInfoEXT cb_create_info = {};
+        VkDebugReportCallbackCreateInfoEXT cb_create_info = {0};
         cb_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
         cb_create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT |
             VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
@@ -356,10 +373,10 @@ int vkapi_context_prepare_device(
     // Find a suitable gpu - at the moment this is pretty basic - find a gpu and
     // that will do. In the future, find the best match.
     uint32_t phys_dev_count = 0;
-    vkEnumeratePhysicalDevices(context->instance, &phys_dev_count, VK_NULL_HANDLE);
+    VK_CHECK_RESULT(vkEnumeratePhysicalDevices(context->instance, &phys_dev_count, VK_NULL_HANDLE));
     VkPhysicalDevice* phys_dev_arr =
         ARENA_MAKE_ARRAY(scratch_arena, VkPhysicalDevice, phys_dev_count, 0);
-    vkEnumeratePhysicalDevices(context->instance, &phys_dev_count, phys_dev_arr);
+    VK_CHECK_RESULT(vkEnumeratePhysicalDevices(context->instance, &phys_dev_count, phys_dev_arr));
 
     for (uint32_t i = 0; i < phys_dev_count; ++i)
     {
@@ -385,12 +402,12 @@ int vkapi_context_prepare_device(
 
     // Also get all the device extensions for querying later.
     uint32_t dev_ext_prop_count = 0;
-    vkEnumerateDeviceExtensionProperties(
-        context->physical, VK_NULL_HANDLE, &dev_ext_prop_count, VK_NULL_HANDLE);
+    VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties(
+        context->physical, VK_NULL_HANDLE, &dev_ext_prop_count, VK_NULL_HANDLE));
     VkExtensionProperties* dev_ext_prop_arr =
         ARENA_MAKE_ARRAY(scratch_arena, VkExtensionProperties, dev_ext_prop_count, 0);
-    vkEnumerateDeviceExtensionProperties(
-        context->physical, VK_NULL_HANDLE, &dev_ext_prop_count, dev_ext_prop_arr);
+    VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties(
+        context->physical, VK_NULL_HANDLE, &dev_ext_prop_count, dev_ext_prop_arr));
 
     // Find queues for this gpu.
     uint32_t queue_prop_count = 0;
@@ -416,7 +433,7 @@ int vkapi_context_prepare_device(
 
     float queue_priority = 1.0f;
     uint32_t queue_count = 1;
-    VkDeviceQueueCreateInfo queue_info[3] = {};
+    VkDeviceQueueCreateInfo queue_info[3] = {0};
     queue_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_info[0].queueFamilyIndex = context->queue_info.graphics;
     queue_info[0].queueCount = 1;
@@ -482,13 +499,13 @@ int vkapi_context_prepare_device(
     }
 
     // Enable required device features.
-    VkPhysicalDeviceMultiviewFeatures mv_features = {};
+    VkPhysicalDeviceMultiviewFeatures mv_features = {0};
     mv_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
     mv_features.multiview = VK_TRUE;
     mv_features.multiviewGeometryShader = VK_FALSE;
     mv_features.multiviewTessellationShader = VK_FALSE;
 
-    VkPhysicalDeviceFeatures2 req_features2 = {};
+    VkPhysicalDeviceFeatures2 req_features2 = {0};
     req_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     req_features2.pNext = &mv_features;
 
@@ -537,7 +554,7 @@ int vkapi_context_prepare_device(
         ++req_ext_count;
     }
 
-    VkDeviceCreateInfo create_info = {};
+    VkDeviceCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     create_info.queueCreateInfoCount = queue_count;
     create_info.pQueueCreateInfos = queue_info;

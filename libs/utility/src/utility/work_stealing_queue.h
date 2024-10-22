@@ -19,7 +19,6 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 #ifndef __UTILITY_WORK_STEALING_QUEUE_H__
 #define __UTILITY_WORK_STEALING_QUEUE_H__
 
@@ -42,12 +41,24 @@ typedef struct WorkStealingDeque
 #define WORK_STEALING_DEQUE_INIT(type, arena, count)                                               \
     work_stealing_queue_init(arena, count, sizeof(type));
 
+#ifdef __linux__
 #define WORK_STEALING_QUEUE_PUSH(queue, item)                                                      \
     ({                                                                                             \
         __auto_type _item = item;                                                                  \
         assert(sizeof(*_item) == (queue)->type_size);                                              \
         work_stealing_queue_push(queue, _item);                                                    \
     })
+#else
+/*                                                                                             \
+#define WORK_STEALING_QUEUE_PUSH(queue, item)                                                      \
+    {                                                                                             \
+        auto _item = item;                                                                  \
+        assert(sizeof(*_item) == (queue)->type_size);                                              \
+        work_stealing_queue_push(queue, _item);                                                    \
+    }*/
+#define WORK_STEALING_QUEUE_PUSH(queue, item) work_stealing_queue_push(queue, item);
+
+#endif
 
 work_stealing_queue_t
 work_stealing_queue_init(arena_t* arena, uint32_t queue_count, uint32_t type_size);

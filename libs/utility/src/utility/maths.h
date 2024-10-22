@@ -23,7 +23,7 @@
 #ifndef __UTILITY_MATHS_H__
 #define __UTILITY_MATHS_H__
 
-#if __SSE__
+#if __SSE__ || __AVX2__
 #define MATH_USE_SSE3 1
 #include <pmmintrin.h>
 #endif
@@ -36,6 +36,11 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+
+#define MAX(a, b) a > b ? a : b;
+
+#define MIN(a, b) a < b ? a : b;
+
 
 typedef union Vec2
 {

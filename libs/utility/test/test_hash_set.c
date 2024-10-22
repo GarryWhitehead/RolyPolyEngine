@@ -34,8 +34,8 @@ TEST(HashSetGroup, HashSet_GeneralTests)
     HASH_SET_INSERT(&set, &keys[2], &vals[2]);
     HASH_SET_INSERT(&set, &keys[3], &vals[3]);
 
-    TEST_ASSERT_TRUE(HASH_SET_FIND(&set, &keys[2]));
-    TEST_ASSERT_TRUE(HASH_SET_ERASE(&set, &keys[2]));
+    TEST_ASSERT(HASH_SET_FIND(&set, &keys[2]));
+    TEST_ASSERT(HASH_SET_ERASE(&set, &keys[2]));
     TEST_ASSERT_FALSE(HASH_SET_FIND(&set, &keys[2]));
     TEST_ASSERT(set.size == 3);
 

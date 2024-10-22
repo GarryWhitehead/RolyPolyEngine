@@ -9,17 +9,17 @@ vkapi_staging_instance_t _vkapi_staging_create(VmaAllocator* vma_alloc, VkDevice
 {
     assert(size > 0);
 
-    vkapi_staging_instance_t instance = {};
+    vkapi_staging_instance_t instance = {0};
     instance.size = size;
     instance.frame_last_used = 0;
 
-    VkBufferCreateInfo bufferInfo = {};
+    VkBufferCreateInfo bufferInfo = {0};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     bufferInfo.size = size;
 
     // cpu staging pool
-    VmaAllocationCreateInfo create_info = {};
+    VmaAllocationCreateInfo create_info = {0};
     create_info.usage = VMA_MEMORY_USAGE_AUTO;
     create_info.flags =
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
@@ -36,7 +36,7 @@ vkapi_staging_instance_t _vkapi_staging_create(VmaAllocator* vma_alloc, VkDevice
 
 vkapi_staging_pool_t vkapi_staging_init(arena_t* perm_arena)
 {
-    vkapi_staging_pool_t instance = {};
+    vkapi_staging_pool_t instance = {0};
     MAKE_DYN_ARRAY(vkapi_staging_instance_t, perm_arena, 50, &instance.stages);
     MAKE_DYN_ARRAY(vkapi_staging_instance_t, perm_arena, 50, &instance.stages);
     return instance;
@@ -69,8 +69,7 @@ vkapi_staging_instance_t* vkapi_staging_get(
 
     vkapi_staging_instance_t new_instance = _vkapi_staging_create(vma_alloc, req_size);
     uint32_t idx = DYN_ARRAY_APPEND(&staging_pool->stages, &new_instance);
-    DYN_ARRAY_APPEND(&staging_pool->in_use_stages, &idx);
-    return &staging_pool->stages.data[idx];
+    return DYN_ARRAY_APPEND(&staging_pool->in_use_stages, &idx);
 }
 
 void vkapi_staging_gc(
@@ -82,7 +81,8 @@ void vkapi_staging_gc(
     // destroy buffers that have not been used in some time
     for (uint32_t i = 0; i < staging_pool->stages.size; ++i)
     {
-        vkapi_staging_instance_t* stage = &staging_pool->stages.data[i];
+        vkapi_staging_instance_t* stage =
+            DYN_ARRAY_GET_PTR(vkapi_staging_pool_t, &staging_pool->stages, i);
         uint64_t collect_frame = stage->frame_last_used + VKAPI_MAX_COMMAND_BUFFER_SIZE;
         if (collect_frame < current_frame)
         {

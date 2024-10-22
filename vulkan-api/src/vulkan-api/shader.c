@@ -318,7 +318,7 @@ VkShaderStageFlagBits shader_vk_stage_flag(enum ShaderStage stage)
 
 VkFormat shader_format_from_width(uint32_t width, uint32_t vecSize, spvc_basetype base_type)
 {
-    VkFormat format;
+    VkFormat format = VK_FORMAT_UNDEFINED;
 
     // floats
     if (base_type == SPVC_BASETYPE_FP32)
@@ -436,7 +436,7 @@ bool shader_compile(
     shader_reflect_spirv(shader, bin.words, bin.size, arena);
 
     // create the shader module
-    VkShaderModuleCreateInfo shader_info = {};
+    VkShaderModuleCreateInfo shader_info = {0};
     shader_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shader_info.flags = 0;
     shader_info.codeSize = bin.size;
@@ -454,7 +454,7 @@ bool shader_compile(
     return true;
 }
 
-void _error_callback(void*, const char* msg)
+void _error_callback(void* data, const char* msg)
 {
     log_error("Error during shader reflection: %s", msg);
 }

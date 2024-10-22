@@ -528,7 +528,7 @@ shader_t* program_manager_compile_shader(
         return NULL;
     }
     // cache for later use
-    shader_t* out = hash_set_insert(&manager->shader_cache, &key, shader);
+    shader_t* out = hash_set_insert(&manager->shader_cache, key, shader);
     assert(out);
     return out;
 }
@@ -553,7 +553,7 @@ shader_t* program_manager_find_shader_variant_or_create(
     arena_t* arena)
 {
     // Check whether the required variant shader is in the cache and use this if so.
-    shader_cache_key_t key = {};
+    shader_cache_key_t key = {0};
     key.shader_id = bundle->shader_id;
     key.variant_bits = variant_bits;
     key.topology = (uint32_t)topo;

@@ -75,7 +75,7 @@ typedef struct Array
 #define ARRAY_FOR_EACH(type, item, array)                                                          \
     for (int keep = 1, count = 0, size = (array.size); keep && count != size;                      \
          keep = !keep, count++)                                                                    \
-        for (type item = (array.data) + count * sizeof(type); keep; keep = !keep)
+        for (type item = ((uint8_t*)array.data) + count * sizeof(type); keep; keep = !keep)
 
 /**
  Initialise a new array instance.

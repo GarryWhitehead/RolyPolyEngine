@@ -21,10 +21,10 @@ TEST(ProgramManagerGroup, PM_ShaderProgram_Tests)
     res = arena_new(arena_cap, &scratch_arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
-    vkapi_driver_t driver;
-    int error_code = vkapi_driver_init(NULL, 0, &driver);
+    int error_code;
+    vkapi_driver_t* driver = vkapi_driver_init(NULL, 0, &error_code);
     TEST_ASSERT(error_code == VKAPI_SUCCESS);
-    error_code = vkapi_driver_create_device(&driver, NULL);
+    error_code = vkapi_driver_create_device(driver, NULL);
     TEST_ASSERT(error_code == VKAPI_SUCCESS);
 
     program_manager_t* m = program_manager_init(&arena);
@@ -74,7 +74,7 @@ TEST(ProgramManagerGroup, PM_ShaderProgram_Tests)
 
     r = program_manager_find_shader_variant_or_create(
         m,
-        &driver.context,
+        vakpi_driver_get_context(driver),
         RPE_BACKEND_SHADER_STAGE_VERTEX,
         VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
         bundle,
@@ -84,11 +84,13 @@ TEST(ProgramManagerGroup, PM_ShaderProgram_Tests)
 
     r = program_manager_find_shader_variant_or_create(
         m,
-        &driver.context,
+        vakpi_driver_get_context(driver),
         RPE_BACKEND_SHADER_STAGE_FRAGMENT,
         VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
         bundle,
         0,
         &arena);
     TEST_ASSERT(r);
+
+    vkapi_driver_shutdown(driver);
 }

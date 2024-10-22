@@ -86,7 +86,7 @@ void vkapi_pl_build(vkapi_pl_layout_t* layout, vkapi_context_t* context)
     for (uint32_t set_idx = 0; set_idx < VKAPI_PIPELINE_MAX_DESC_SET_COUNT; ++set_idx)
     {
         VkDescriptorSetLayoutBinding* set_binding = HASH_SET_GET(&layout->desc_bindings, &set_idx);
-        VkDescriptorSetLayoutCreateInfo layout_info = {};
+        VkDescriptorSetLayoutCreateInfo layout_info = {0};
         layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_info.bindingCount = layout->desc_binding_counts[set_idx];
         layout_info.pBindings = !layout_info.bindingCount ? VK_NULL_HANDLE : set_binding;
@@ -111,7 +111,7 @@ void vkapi_pl_build(vkapi_pl_layout_t* layout, vkapi_context_t* context)
         }
     }
 
-    VkPipelineLayoutCreateInfo pl_info = {};
+    VkPipelineLayoutCreateInfo pl_info = {0};
     pl_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl_info.pushConstantRangeCount = cr_count;
     pl_info.pPushConstantRanges = constant_ranges;
@@ -143,7 +143,7 @@ void vkapi_pl_layout_add_desc_layout(
     arena_t* arena)
 {
     assert(set < VKAPI_PIPELINE_MAX_DESC_SET_COUNT);
-    VkDescriptorSetLayoutBinding set_binding = {};
+    VkDescriptorSetLayoutBinding set_binding = {0};
     set_binding.binding = binding;
     set_binding.descriptorType = desc_type;
     set_binding.descriptorCount = 1;
@@ -201,7 +201,7 @@ void vkapi_graph_pl_create(
 {
     // sort the vertex attribute descriptors so only ones that are used
     // are applied to the pipeline
-    VkVertexInputAttributeDescription input_decs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
+    VkVertexInputAttributeDescription input_decs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT] = {0};
     int input_desc_count = 0;
     for (int i = 0; i < VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT; ++i)
     {
@@ -212,22 +212,22 @@ void vkapi_graph_pl_create(
     }
 
     bool hasInputState = !input_desc_count;
-    VkPipelineVertexInputStateCreateInfo vis;
+    VkPipelineVertexInputStateCreateInfo vis = {0};
     vis.vertexAttributeDescriptionCount = input_desc_count;
     vis.pVertexAttributeDescriptions = hasInputState ? input_decs : VK_NULL_HANDLE;
     vis.vertexBindingDescriptionCount = hasInputState ? 1 : 0;
     vis.pVertexBindingDescriptions = hasInputState ? key->vert_bind_descs : VK_NULL_HANDLE;
 
     // ============== primitive topology =====================
-    VkPipelineInputAssemblyStateCreateInfo as;
+    VkPipelineInputAssemblyStateCreateInfo as = {0};
     as.topology = key->raster_state.topology;
     as.primitiveRestartEnable = key->raster_state.prim_restart;
 
     // ============== multi-sample state =====================
-    VkPipelineMultisampleStateCreateInfo ss;
+    VkPipelineMultisampleStateCreateInfo ss = {0};
 
     // ============== depth/stenicl state ====================
-    VkPipelineDepthStencilStateCreateInfo dss;
+    VkPipelineDepthStencilStateCreateInfo dss = {0};
     dss.depthTestEnable = key->raster_state.depth_test_enable;
     dss.depthWriteEnable = key->raster_state.depth_write_enable;
     dss.depthCompareOp = key->ds_block.compare_op;
@@ -247,31 +247,31 @@ void vkapi_graph_pl_create(
     }
 
     // ============ raster state =======================
-    VkPipelineRasterizationStateCreateInfo rs;
+    VkPipelineRasterizationStateCreateInfo rs = {0};
     rs.cullMode = key->raster_state.cull_mode;
     rs.frontFace = key->raster_state.front_face;
     rs.polygonMode = key->raster_state.polygon_mode;
     rs.lineWidth = 1.0f;
 
     // ============ dynamic states ====================
-    VkPipelineDynamicStateCreateInfo dcs;
+    VkPipelineDynamicStateCreateInfo dcs = {0};
     dcs.dynamicStateCount = pipeline->dyn_state_count;
     dcs.pDynamicStates = pipeline->dyn_states;
 
     // =============== viewport state ====================
     // scissor and viewport are set at draw time
-    VkPipelineViewportStateCreateInfo vs;
+    VkPipelineViewportStateCreateInfo vs = {0};
     vs.viewportCount = 1;
     vs.scissorCount = 1;
 
     // =============== tesselation =======================
-    VkPipelineTessellationStateCreateInfo tsc;
+    VkPipelineTessellationStateCreateInfo tsc = {0};
     tsc.patchControlPoints = key->tesse_vert_count;
 
     // ============= colour attachment =================
     // all blend attachments are the same for each pass
-    VkPipelineColorBlendStateCreateInfo cbs;
-    VkPipelineColorBlendAttachmentState bas[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT];
+    VkPipelineColorBlendStateCreateInfo cbs = {0};
+    VkPipelineColorBlendAttachmentState bas[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT] = {0};
     for (uint32_t i = 0; i < key->raster_state.colour_attach_count; ++i)
     {
         bas[i].srcColorBlendFactor = key->blend_state.src_color_blend_factor;
@@ -305,7 +305,7 @@ void vkapi_graph_pl_create(
     }
     assert(shader_count);
 
-    VkGraphicsPipelineCreateInfo ci = {};
+    VkGraphicsPipelineCreateInfo ci = {0};
     ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     ci.stageCount = shader_count;
     ci.pStages = shaders;
@@ -335,7 +335,7 @@ void vkapi_compute_pl_create(
     assert(key);
     assert(pipeline);
 
-    VkComputePipelineCreateInfo ci = {};
+    VkComputePipelineCreateInfo ci = {0};
     ci.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     ci.layout = layout->instance;
     ci.stage = key->shader;

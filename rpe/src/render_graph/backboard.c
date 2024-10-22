@@ -20,32 +20,43 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "utility.h"
+#include "backboard.h"
 
-#include <utility/array_utility.h>
+#include <assert.h>
+#include <utility/hash.h>
 
-bool vkapi_util_is_depth(VkFormat format)
+rg_backboard_t rg_backboard_init(arena_t* arena)
 {
-    VkFormat depth_formats[] = {
-        VK_FORMAT_D16_UNORM,
-        VK_FORMAT_X8_D24_UNORM_PACK32,
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(depth_formats), depth_formats);
-    return idx != UINT32_MAX;
+    rg_backboard_t i;
+    i.backboard = HASH_SET_CREATE(string_t, rg_handle_t, arena, murmur_hash3);
+    i.arena = arena;
+    return i;
 }
 
-bool vkapi_util_is_stencil(VkFormat format)
+void rg_backboard_add(rg_backboard_t* bb, const char* name, rg_handle_t handle)
 {
-    VkFormat stencil_formats[] = {
-        VK_FORMAT_S8_UINT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(stencil_formats), stencil_formats);
-    return idx != UINT32_MAX;
+    assert(bb);
+    string_t str = string_init(name, bb->arena);
+    HASH_SET_INSERT(&bb->backboard, &str, &handle);
+}
+
+rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name)
+{
+    assert(bb);
+    rg_handle_t* h = HASH_SET_GET(&bb->backboard, &name);
+    assert(h);
+    return *h;
+}
+
+void rg_backboard_remove(rg_backboard_t* bb, string_t name)
+{
+    assert(bb);
+    rg_handle_t* h = HASH_SET_ERASE(&bb->backboard, &name);
+    assert(h);
+}
+
+void rg_backboard_reset(rg_backboard_t* bb)
+{
+    assert(bb);
+    hash_set_clear(&bb->backboard);
 }

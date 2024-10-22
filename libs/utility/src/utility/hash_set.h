@@ -24,6 +24,7 @@
 #define __UTILITY_HASH_SET_H__
 
 #include "arena.h"
+#include "compiler.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -59,50 +60,6 @@ typedef struct HashSet
     /** Private **/
     hash_set_node_t* _curr_node;
 } hash_set_t;
-
-
-#define HASH_SET_CREATE(key_type, val_type, arena, hash_func)                                      \
-    hash_set_create(arena, hash_func, sizeof(key_type), sizeof(val_type))
-
-#define HASH_SET_FIND(set, key)                                                                    \
-    ({                                                                                             \
-        __auto_type _key = (key);                                                                  \
-        assert((set)->key_type_size == sizeof(*_key));                                             \
-        hash_set_find(set, _key);                                                                  \
-    })
-
-#define HASH_SET_INSERT(set, key, value)                                                           \
-    ({                                                                                             \
-        __auto_type _key = (key);                                                                  \
-        __auto_type _val = (value);                                                                \
-        assert((set)->key_type_size == sizeof(*_key));                                             \
-        assert((set)->value_type_size == sizeof(*_val));                                           \
-        hash_set_insert(set, _key, _val);                                                          \
-    })
-
-#define HASH_SET_GET(set, key)                                                                     \
-    ({                                                                                             \
-        __auto_type _key = (key);                                                                  \
-        assert((set)->key_type_size == sizeof(*_key));                                             \
-        hash_set_get(set, _key);                                                                   \
-    })
-
-#define HASH_SET_SET(set, key, value)                                                              \
-    ({                                                                                             \
-        __auto_type _key = (key);                                                                  \
-        __auto_type _val = (value);                                                                \
-        assert((set)->key_type_size == sizeof(*_key));                                             \
-        assert((set)->value_type_size == sizeof(*_val));                                           \
-        hash_set_set(set, _key, value);                                                            \
-    })
-
-#define HASH_SET_ERASE(set, key)                                                                   \
-    ({                                                                                             \
-        __auto_type _key = (key);                                                                  \
-        assert((set)->key_type_size == sizeof(*_key));                                             \
-        hash_set_erase(set, _key);                                                                 \
-    })
-
 
 /**
 
@@ -161,4 +118,61 @@ uint32_t hash_set_default_hasher(void* key, uint32_t size);
 
 void hash_set_clear(hash_set_t* set);
 
+#ifndef WIN32
+#define HASH_SET_CREATE(key_type, val_type, arena, hash_func)                                      \
+    hash_set_create(arena, hash_func, sizeof(key_type), sizeof(val_type))
+
+#define HASH_SET_FIND(set, key)                                                                    \
+    ({                                                                                             \
+        __auto_type _key = (key);                                                                  \
+        assert((set)->key_type_size == sizeof(*_key));                                             \
+        hash_set_find(set, _key);                                                                  \
+    })
+
+#define HASH_SET_INSERT(set, key, value)                                                           \
+    ({                                                                                             \
+        __auto_type _key = (key);                                                                  \
+        __auto_type _val = (value);                                                                \
+        assert((set)->key_type_size == sizeof(*_key));                                             \
+        assert((set)->value_type_size == sizeof(*_val));                                           \
+        hash_set_insert(set, _key, _val);                                                          \
+    })
+
+#define HASH_SET_GET(set, key)                                                                     \
+    ({                                                                                             \
+        __auto_type _key = (key);                                                                  \
+        __auto_type _set = (set);                                                                  \
+        assert((_set)->key_type_size == sizeof(*_key));                                            \
+        hash_set_get(_set, _key);                                                                  \
+    })
+
+#define HASH_SET_SET(set, key, value)                                                              \
+    ({                                                                                             \
+        __auto_type _key = (key);                                                                  \
+        __auto_type _val = (value);                                                                \
+        assert((set)->key_type_size == sizeof(*_key));                                             \
+        assert((set)->value_type_size == sizeof(*_val));                                           \
+        hash_set_set(set, _key, value);                                                            \
+    })
+
+#define HASH_SET_ERASE(set, key)                                                                   \
+    ({                                                                                             \
+        __auto_type _key = (key);                                                                  \
+        assert((set)->key_type_size == sizeof(*_key));                                             \
+        hash_set_erase(set, _key);                                                                 \
+    })
+#else
+#define HASH_SET_CREATE(key_type, val_type, arena, hash_func)                                      \
+    hash_set_create(arena, hash_func, sizeof(key_type), sizeof(val_type))
+
+#define HASH_SET_FIND(set, key) hash_set_find(set, key)
+
+#define HASH_SET_INSERT(set, key, value) hash_set_insert(set, key, value)
+
+#define HASH_SET_GET(set, key) hash_set_get(set, key)
+
+#define HASH_SET_SET(set, key, value) hash_set_set(set, key, value)
+
+#define HASH_SET_ERASE(set, key) hash_set_erase(set, key)
+#endif
 #endif

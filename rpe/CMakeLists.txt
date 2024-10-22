@@ -20,10 +20,26 @@ set (public_headers
 
 set (src_files
     src/private_engine.c
+    src/render_graph/render_graph.c
+    src/render_graph/render_pass_node.c
+    src/render_graph/resources.c
+    src/render_graph/resource_node.c
+    src/render_graph/rendergraph_resource.c
+    src/render_graph/dependency_graph.c
+    src/render_graph/backboard.c
 )
 
 set (hdr_files
     src/private_engine.h
+    src/render_graph/render_graph.h
+    src/render_graph/render_pass_node.h
+    src/render_graph/resources.h
+    src/render_graph/resource_node.h
+    src/render_graph/rendergraph_resource.h
+    src/render_graph/render_graph_handle.h
+    src/render_graph/render_graph_pass.h
+    src/render_graph/dependency_graph.h
+    src/render_graph/backboard.h
 )
 
 target_sources(
@@ -46,7 +62,7 @@ target_link_libraries(
 target_compile_definitions(
     RPE
     PRIVATE
-    RPE_SHADER_DIRECTORY="${YAVE_SHADER_DIRECTORY}"
+    RPE_SHADER_DIRECTORY="$RPE_SHADER_DIRECTORY}"
     RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
     "$<$<PLATFORM_ID:Windows>:_USE_MATH_DEFINES;NOMINMAX;_CRT_SECURE_NO_WARNINGS>"  
 )
@@ -63,12 +79,14 @@ rpe_source_group(
 if (BUILD_TESTS)
 
     set (test_srcs
-        test/test_runner.c
+        test/test_main.c
+        test/test_render_graph.c
     )
 
     add_executable(RpeTest ${test_srcs})
     target_link_libraries(RpeTest PRIVATE unity::unity RPE VulkanApi)
     set_target_properties(RpeTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
+    rpe_add_compiler_flags(TARGET RpeTest)
 
     add_test(
             NAME RpeTest

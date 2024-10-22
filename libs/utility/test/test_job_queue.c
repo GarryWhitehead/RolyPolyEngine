@@ -2,8 +2,7 @@
 #include "unity_fixture.h"
 #include "utility/arena.h"
 #include "utility/job_queue.h"
-
-#include <unistd.h>
+#include "utility/thread.h"
 
 TEST_GROUP(JobQueueGroup);
 

@@ -23,7 +23,9 @@
 #ifndef __VKAPI_RENDERPASS_H__
 #define __VKAPI_RENDERPASS_H__
 
+#include "backend/enums.h"
 #include "common.h"
+#include "resource_cache.h"
 
 #include <utility/maths.h>
 
@@ -35,13 +37,17 @@
 #define VKAPI_RENDER_TARGET_STENCIL_INDEX 8
 
 // Forward declarations.
-typedef struct TextureHandle texture_handle_t;
+
+typedef struct RenderTargetHandle
+{
+    uint32_t id;
+} vkapi_rt_handle_t;
 
 typedef struct AttachmentInfo
 {
     uint8_t layer;
     uint8_t level;
-    texture_handle_t* handle;
+    texture_handle_t handle;
 } vkapi_attach_info_t;
 
 typedef struct RenderTarget
@@ -49,10 +55,27 @@ typedef struct RenderTarget
     vkapi_attach_info_t depth;
     vkapi_attach_info_t stencil;
     vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT];
-    union Vec4 clear_colour;
+    math_vec4f clear_colour;
     uint8_t samples;
     bool multiView;
 
 } vkapi_render_target_t;
+
+/**
+ Used for building a concrete vulkan renderpass. The data is obtained
+ from the RenderGraph side.
+ */
+typedef struct RenderPassData
+{
+    enum LoadClearFlags load_clear_flags[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
+    enum StoreClearFlags store_clear_flags[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
+    // Initial layout is usually undefined, but needs to be the layout used in the previous pass
+    // when load-clear flags are set to 'load'.
+    VkImageLayout init_layouts[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
+    VkImageLayout final_layouts[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
+    uint32_t width;
+    uint32_t height;
+    math_vec4f clear_col;
+} vkapi_render_pass_data_t;
 
 #endif

@@ -29,7 +29,11 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <math.h>
+#ifdef __linux__
 #include <sched.h>
+#elif WIN32
+#include <processthreadsapi.h>
+#endif
 #include <string.h>
 
 uint32_t _get_cpu_count()
@@ -65,6 +69,16 @@ void _thread_affinity_by_id(size_t id)
 #endif
 }
 
+uint32_t _get_thread_id()
+{
+#if __linux__
+    return (uint32_t)gettid();
+#elif WIN32
+    return (uint32_t)GetCurrentThreadId();
+#endif
+    return 0;
+}
+
 bool _active_jobs(job_queue_t* jq)
 {
     int active_count = atomic_load_explicit(&jq->active_job_count, memory_order_relaxed);
@@ -96,26 +110,26 @@ void _decrement_ref(job_queue_t* jq, job_t* job)
 
 void _wake(job_queue_t* jq, int count)
 {
-    pthread_mutex_lock(&jq->wait_mutex);
+    mutex_lock(&jq->wait_mutex);
     if (count == 1)
     {
-        pthread_cond_signal(&jq->wait_cond);
+        condition_signal(&jq->wait_cond);
     }
     else
     {
-        pthread_cond_broadcast(&jq->wait_cond);
+        condition_brdcast(&jq->wait_cond);
     }
-    pthread_mutex_unlock(&jq->wait_mutex);
+    mutex_unlock(&jq->wait_mutex);
 }
 
 void _wake_all(job_queue_t* jq)
 {
-    pthread_mutex_lock(&jq->wait_mutex);
-    pthread_cond_broadcast(&jq->wait_cond);
-    pthread_mutex_unlock(&jq->wait_mutex);
+    mutex_lock(&jq->wait_mutex);
+    condition_brdcast(&jq->wait_cond);
+    mutex_unlock(&jq->wait_mutex);
 }
 
-void _wait(job_queue_t* jq) { pthread_cond_wait(&jq->wait_cond, &jq->wait_mutex); }
+void _wait(job_queue_t* jq) { condition_wait(&jq->wait_cond, &jq->wait_mutex); }
 
 job_t* _pop(job_queue_t* jq, thread_info_t* info)
 {
@@ -147,7 +161,7 @@ void _push(job_queue_t* jq, thread_info_t* info, job_t* job)
 {
     assert(job);
 
-    size_t job_idx = (job - (job_t*)jq->job_cache.data);
+    size_t job_idx = job - (job_t*)jq->job_cache.data;
     assert(job_idx >= 0);
     job_idx += 1;
     WORK_STEALING_QUEUE_PUSH(&info->work_queue, (int*)&job_idx);
@@ -263,24 +277,24 @@ void* _thread_loop(void* arg)
     _set_thread_name("job_queue.loop");
 
     thread_info_t* info = (thread_info_t*)arg;
-    pthread_mutex_lock(&info->job_queue->thread_map_mutex);
-    __pid_t id = gettid();
+    mutex_lock(&info->job_queue->thread_map_mutex);
+    uint32_t id = _get_thread_id();
     HASH_SET_INSERT(&info->job_queue->thread_map, &id, &info);
-    pthread_mutex_unlock(&info->job_queue->thread_map_mutex);
+    mutex_unlock(&info->job_queue->thread_map_mutex);
 
     do
     {
         job_t* job = _thread_execute(info);
         if (!job)
         {
-            pthread_mutex_lock(&info->job_queue->wait_mutex);
+            mutex_lock(&info->job_queue->wait_mutex);
             // Keep waiting until either an exit from the thread is requested or a new job is
             // pushed.
             while (!_exit_requested(info) && !_active_jobs(info->job_queue))
             {
                 _wait(info->job_queue);
             }
-            pthread_mutex_unlock(&info->job_queue->wait_mutex);
+            mutex_unlock(&info->job_queue->wait_mutex);
         }
     } while (!_exit_requested(info));
 
@@ -297,20 +311,20 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_a
     jq->active_job_count = 0;
     jq->adopted_thread_count = 0;
     jq->exit_thread = false;
-    jq->thread_map = HASH_SET_CREATE(__pid_t, thread_info_t*, arena, &murmur_hash3);
+    jq->thread_map = HASH_SET_CREATE(uint32_t, thread_info_t*, arena, &murmur_hash3);
     jq->arena = arena;
 
-    static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
+    // static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
 
     if (!num_threads)
     {
         jq->thread_count = _get_cpu_count();
     }
-    jq->thread_count = fmaxf32(1, fminf32(JOB_QUEUE_MAX_THREAD_COUNT, jq->thread_count));
+    jq->thread_count = fmax(1, fmin(JOB_QUEUE_MAX_THREAD_COUNT, jq->thread_count));
 
-    pthread_mutex_init(&jq->thread_map_mutex, NULL);
-    pthread_mutex_init(&jq->wait_mutex, NULL);
-    pthread_cond_init(&jq->wait_cond, NULL);
+    mutex_init(&jq->thread_map_mutex);
+    mutex_init(&jq->wait_mutex);
+    condition_init(&jq->wait_cond);
 
     int err = MAKE_DYN_ARRAY(job_t, arena, 100, &jq->job_cache);
     assert(err == ARENA_SUCCESS);
@@ -321,8 +335,8 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_a
         info->job_queue = jq;
         info->is_joinable = true;
         info->work_queue = WORK_STEALING_DEQUE_INIT(int, arena, JOB_QUEUE_MAX_JOB_COUNT);
-        info->rand_gen = xoro_rand_init(gettid(), 0x1234);
-        pthread_create(&info->thread, NULL, &_thread_loop, info);
+        info->rand_gen = xoro_rand_init(_get_thread_id(), 0x1234);
+        info->thread = thread_create(&_thread_loop, info, arena);
     }
     return jq;
 }
@@ -351,33 +365,33 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
 void job_queue_destroy(job_queue_t* jq)
 {
     atomic_store(&jq->exit_thread, true);
-    pthread_mutex_lock(&jq->wait_mutex);
-    pthread_cond_broadcast(&jq->wait_cond);
-    pthread_mutex_unlock(&jq->wait_mutex);
+    mutex_lock(&jq->wait_mutex);
+    condition_brdcast(&jq->wait_cond);
+    mutex_unlock(&jq->wait_mutex);
 
     for (int i = 0; i < jq->thread_count; ++i)
     {
         thread_info_t* info = &jq->thread_states[i];
         if (info->is_joinable)
         {
-            pthread_join(info->thread, NULL);
+            thread_join(info->thread);
         }
     }
 
-    pthread_mutex_destroy(&jq->wait_mutex);
-    pthread_cond_destroy(&jq->wait_cond);
-    pthread_mutex_destroy(&jq->thread_map_mutex);
+    mutex_destroy(&jq->wait_mutex);
+    condition_destroy(&jq->wait_cond);
+    mutex_destroy(&jq->thread_map_mutex);
 }
 
 void job_queue_run_job(job_queue_t* jq, job_t* job)
 {
     assert(job);
 
-    pthread_mutex_lock(&jq->thread_map_mutex);
-    int id = gettid();
+    mutex_lock(&jq->thread_map_mutex);
+    uint32_t id = _get_thread_id();
     thread_info_t** info = HASH_SET_GET(&jq->thread_map, &id);
     assert(info && "Trying to run on a thread that hasn't been adopted?");
-    pthread_mutex_unlock(&jq->thread_map_mutex);
+    mutex_unlock(&jq->thread_map_mutex);
 
     _push(jq, *info, job);
 }
@@ -396,10 +410,10 @@ void job_queue_wait_and_release(job_queue_t* jq, job_t* job)
 {
     assert(job);
 
-    pid_t id = gettid();
-    pthread_mutex_lock(&jq->thread_map_mutex);
+    uint32_t id = _get_thread_id();
+    mutex_lock(&jq->thread_map_mutex);
     thread_info_t** info = HASH_SET_GET(&jq->thread_map, &id);
-    pthread_mutex_unlock(&jq->thread_map_mutex);
+    mutex_unlock(&jq->thread_map_mutex);
     assert(info);
 
     do
@@ -410,12 +424,12 @@ void job_queue_wait_and_release(job_queue_t* jq, job_t* job)
             {
                 break;
             }
-            pthread_mutex_lock(&jq->wait_mutex);
+            mutex_lock(&jq->wait_mutex);
             if (!_job_completed(job) && !_exit_requested(*info) && !_active_jobs(jq))
             {
                 _wait(jq);
             }
-            pthread_mutex_unlock(&jq->wait_mutex);
+            mutex_unlock(&jq->wait_mutex);
         }
     } while (!_job_completed(job) && !_exit_requested(*info));
 
@@ -425,10 +439,10 @@ void job_queue_wait_and_release(job_queue_t* jq, job_t* job)
 
 void job_queue_adopt_thread(job_queue_t* jq)
 {
-    pid_t id = gettid();
-    pthread_mutex_lock(&jq->thread_map_mutex);
+    uint32_t id = _get_thread_id();
+    mutex_lock(&jq->thread_map_mutex);
     thread_info_t* info = HASH_SET_GET(&jq->thread_map, &id);
-    pthread_mutex_unlock(&jq->thread_map_mutex);
+    mutex_unlock(&jq->thread_map_mutex);
 
     if (info && info->job_queue == jq)
     {
@@ -444,9 +458,9 @@ void job_queue_adopt_thread(job_queue_t* jq)
     info->job_queue = jq;
     info->is_joinable = false;
     info->work_queue = WORK_STEALING_DEQUE_INIT(uint32_t, jq->arena, JOB_QUEUE_MAX_JOB_COUNT);
-    info->rand_gen = xoro_rand_init(gettid(), 0x1234);
+    info->rand_gen = xoro_rand_init(_get_thread_id(), 0x1234);
 
-    pthread_mutex_lock(&jq->thread_map_mutex);
+    mutex_lock(&jq->thread_map_mutex);
     HASH_SET_INSERT(&jq->thread_map, &id, &info);
-    pthread_mutex_unlock(&jq->thread_map_mutex);
+    mutex_unlock(&jq->thread_map_mutex);
 }

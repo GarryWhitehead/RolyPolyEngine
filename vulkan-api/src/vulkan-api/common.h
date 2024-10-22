@@ -24,8 +24,7 @@
 
 #include <assert.h>
 #include <log.h>
-#include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
+#include <vma/vma_common.h>
 
 // threading info (not used at present)
 #define VULKAN_THREADED 1

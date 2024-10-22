@@ -118,18 +118,16 @@ void arena_release(arena_t* arena)
     {
         assert(0 && "VirtualFreeEx() failed.");
     }
-}
 #endif
 #endif
-
-    arena->begin = NULL;
-    arena->end = NULL;
-    arena->offset = 0;
 }
 
 /* Dynamic array allocator functions */
 
-void* _offset_ptr(void* ptr, size_t offset, size_t type_size) { return ptr + offset * type_size; }
+void* _offset_ptr(void* ptr, size_t offset, size_t type_size)
+{
+    return (uint8_t*)ptr + offset * type_size;
+}
 
 int dyn_array_init(
     arena_t* arena,
@@ -197,7 +195,7 @@ void dyn_array_remove(arena_dyn_array_t* arr, uint32_t idx)
     }
 
     void* left_ptr = _offset_ptr(arr->data, idx, arr->type_size);
-    void* right_ptr = left_ptr + arr->type_size;
+    void* right_ptr = (uint8_t*)left_ptr + arr->type_size;
     uint32_t copy_size = arr->size - (idx + 1);
     memcpy(left_ptr, right_ptr, copy_size * arr->type_size);
     --arr->size;
@@ -256,6 +254,24 @@ void* dyn_array_get(arena_dyn_array_t* arr, uint32_t idx)
 {
     assert(idx < arr->size);
     return _offset_ptr(arr->data, idx, arr->type_size);
+}
+
+void* dyn_array_pop_back(arena_dyn_array_t* arr)
+{
+    void* out = NULL;
+    if (arr->size > 0)
+    {
+        out = dyn_array_get(arr, arr->size - 1);
+        --arr->size;
+    }
+    return out;
+}
+
+void dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item)
+{
+    assert(idx < arr->size);
+    void* ptr = _offset_ptr(arr->data, idx, arr->type_size);
+    memcpy(ptr, item, arr->type_size);
 }
 
 void dyn_array_clear(arena_dyn_array_t* dyn_array) { dyn_array->size = 0; }

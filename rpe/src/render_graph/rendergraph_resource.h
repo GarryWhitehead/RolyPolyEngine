@@ -20,32 +20,33 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "utility.h"
+#ifndef __RPE_RG_RESOURCE_H__
+#define __RPE_RG_RESOURCE_H__
 
-#include <utility/array_utility.h>
+#include "render_graph_handle.h"
+#include "vulkan-api/renderpass.h"
 
-bool vkapi_util_is_depth(VkFormat format)
+// forward declarations
+typedef struct RenderPassNode rg_render_pass_node_t;
+typedef struct RenderGraph rg_render_graph_t;
+typedef struct Resource rg_resource_t;
+
+typedef struct RenderGraphResourceInfo
 {
-    VkFormat depth_formats[] = {
-        VK_FORMAT_D16_UNORM,
-        VK_FORMAT_X8_D24_UNORM_PACK32,
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(depth_formats), depth_formats);
-    return idx != UINT32_MAX;
-}
+    vkapi_render_pass_data_t data;
+    vkapi_rt_handle_t handle;
+} rg_resource_info_t;
 
-bool vkapi_util_is_stencil(VkFormat format)
+typedef struct RenderGraphResource
 {
-    VkFormat stencil_formats[] = {
-        VK_FORMAT_S8_UINT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(stencil_formats), stencil_formats);
-    return idx != UINT32_MAX;
-}
+    rg_render_graph_t* rg;
+    rg_render_pass_node_t* pass_node;
+} rg_render_graph_resource_t;
+
+rg_resource_t* rg_res_get_resource(rg_render_graph_resource_t* r, rg_handle_t handle);
+
+rg_resource_info_t rg_res_get_render_pass_info(rg_render_graph_resource_t* r, rg_handle_t handle);
+
+texture_handle_t rg_res_get_tex_handle(rg_render_graph_resource_t* r, rg_handle_t handle);
+
+#endif

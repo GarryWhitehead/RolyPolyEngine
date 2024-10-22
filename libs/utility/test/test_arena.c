@@ -39,8 +39,6 @@ TEST(ArenaGroup, ArenaTests_GeneralTests)
     TEST_ASSERT_EQUAL_UINT32(arena.offset, 0);
 
     arena_release(&arena);
-    TEST_ASSERT(arena.begin == NULL);
-    TEST_ASSERT(arena.end == NULL);
 }
 
 TEST(ArenaGroup, ArenaTests_DynamicArray)

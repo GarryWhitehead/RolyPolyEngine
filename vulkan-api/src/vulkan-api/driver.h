@@ -26,32 +26,16 @@
 #include "commands.h"
 #include "common.h"
 #include "context.h"
+#include "renderpass.h"
+#include "resource_cache.h"
 #include "staging_pool.h"
 
-#define VKAPI_SCRATCH_ARENA_SIZE 80000
-#define VKAPI_PERM_ARENA_SIZE 20000
+#define VKAPI_SCRATCH_ARENA_SIZE 1 << 20
+#define VKAPI_PERM_ARENA_SIZE 1 << 20
 
-typedef struct VkApiDriver
-{
-    /// Current device context (instance, physical device, device).
-    vkapi_context_t context;
-    /// VMA instance.
-    VmaAllocator vma_allocator;
-    /// Semaphore used to signal that the image is ready for presentation.
-    VkSemaphore image_ready_signal;
-
-    vkapi_staging_pool_t staging_pool;
-
-    vkapi_commands_t* commands;
-
-    /** Private **/
-    /// Permanent arena space for the lifetime of this driver.
-    arena_t _perm_arena;
-    /// Small scratch arena for limited lifetime allocations. Should be passed as a copy to
-    /// functions for scoping only for the lifetime of that function.
-    arena_t _scratch_arena;
-
-} vkapi_driver_t;
+// Forward declarations.
+typedef struct VkApiResourceCache vkapi_res_cache_t;
+typedef struct VkApiDriver vkapi_driver_t;
 
 /**
  initialise the Vulkan driver - includes creating the abstract device,
@@ -71,7 +55,7 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface);
  @returns The error code returned by the call. If not VKAPI_SUCCESS, then the driver instance will
  be uninitialised.
  */
-int vkapi_driver_init(const char** instance_ext, uint32_t ext_count, vkapi_driver_t* driver);
+vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* errror_code);
 
 /**
  Deallocate all resources associated with the vulkan api.
@@ -85,5 +69,27 @@ void vkapi_driver_shutdown(vkapi_driver_t* driver);
  @return The supported depth format.
  */
 VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver);
+
+texture_handle_t vkapi_driver_create_tex2d(
+    vkapi_driver_t* driver,
+    VkFormat format,
+    uint32_t width,
+    uint32_t height,
+    uint8_t mip_levels,
+    uint8_t face_count,
+    uint8_t array_count,
+    VkImageUsageFlags usage_flags);
+
+void vkapi_driver_destroy_tex2d(vkapi_driver_t* driver, texture_handle_t handle);
+
+vkapi_rt_handle_t vkapi_driver_create_rt(
+    vkapi_driver_t* driver,
+    bool multiView,
+    math_vec4f clear_col,
+    vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT],
+    vkapi_attach_info_t depth,
+    vkapi_attach_info_t stencil);
+
+vkapi_context_t* vakpi_driver_get_context(vkapi_driver_t* driver);
 
 #endif

@@ -20,16 +20,16 @@ elseif(WIN32)
 endif()
 
 # Create VMA as a c++ library and use the C interface to avoid linkage errors.
-add_library(VmaLib
+add_library(Vma
     "${vulkan-memory-allocator_INCLUDE_DIRS}/vk_mem_alloc.h"
 
     "${CMAKE_CURRENT_LIST_DIR}/src/vma/vma_common.h"
     "${CMAKE_CURRENT_LIST_DIR}/src/vma/vma_common.cpp"
 )
-set_target_properties(VmaLib PROPERTIES CXX_STANDARD 17)
-set_target_properties(VmaLib PROPERTIES LINKER_LANGUAGE CXX)
-target_include_directories(VmaLib PUBLIC ${vulkan-memory-allocator_INCLUDE_DIRS})
-target_link_libraries(VmaLib PRIVATE Vulkan::Vulkan)
+set_target_properties(Vma PROPERTIES CXX_STANDARD 17)
+set_target_properties(Vma PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories(Vma PUBLIC ${vulkan-memory-allocator_INCLUDE_DIRS})
+target_link_libraries(Vma PUBLIC volk::volk)
 
 add_library(VulkanApi STATIC)
 
@@ -105,12 +105,11 @@ target_link_libraries(
     log.c::log.c
     vulkan-validationlayers::vulkan-validationlayers
     spirv-cross::spirv-cross
-    VmaLib
-    Vulkan::Vulkan
+    Vma
+    volk::volk
+    Threads::Threads
     UtilityLib
 )
-
-#target_compile_options(VulkanApi PUBLIC -fno-stack-protector)
 
 # add common compiler flags
 rpe_add_compiler_flags(TARGET VulkanApi)
@@ -143,7 +142,7 @@ if (BUILD_TESTS)
     target_link_libraries(VulkanApiTest PRIVATE unity::unity VulkanApi)
     set_target_properties(VulkanApiTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
     set_target_properties(VulkanApiTest PROPERTIES LINKER_LANGUAGE C)
-    target_compile_options(VulkanApiTest PUBLIC -fno-stack-protector)
+    rpe_add_compiler_flags(TARGET VulkanApiTest)
 
     add_test(
             NAME VulkanApiTest

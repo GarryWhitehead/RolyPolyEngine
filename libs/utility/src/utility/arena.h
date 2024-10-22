@@ -23,6 +23,8 @@
 #ifndef __UTILITY_ARENA_H__
 #define __UTILITY_ARENA_H__
 
+#include "compiler.h"
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -158,16 +160,31 @@ void arena_release(arena_t* arena);
 #define MAKE_DYN_ARRAY(type, arena, size, new_dyn_array)                                           \
     dyn_array_init(arena, size, sizeof(type), _Alignof(type), new_dyn_array)
 
+#ifndef WIN32
 #define DYN_ARRAY_APPEND(dyn_array, item)                                                          \
     ({                                                                                             \
         __auto_type _item = (item);                                                                \
         assert((dyn_array)->type_size == sizeof(*_item));                                          \
-        dyn_array_append(dyn_array, item);                                                         \
+        dyn_array_append(dyn_array, _item);                                                        \
     })
+
+#define DYN_ARRAY_SET(dyn_array, idx, item)                                                        \
+    ({                                                                                             \
+        __auto_type _item = (item);                                                                \
+        assert((dyn_array)->type_size == sizeof(*_item));                                          \
+        dyn_array_set(dyn_array, idx, _item);                                                      \
+    })
+#else
+#define DYN_ARRAY_APPEND(dyn_array, item) dyn_array_append(dyn_array, item);
+
+#define DYN_ARRAY_SET(dyn_array, idx, item) dyn_array_set(dyn_array, idx, item);
+#endif
 
 #define DYN_ARRAY_GET(type, dyn_array, idx) *(type*)dyn_array_get(dyn_array, idx)
 
 #define DYN_ARRAY_GET_PTR(type, dyn_array, idx) (type*)dyn_array_get(dyn_array, idx)
+
+#define DYN_ARRAY_POP_BACK(type, dyn_array) *(type*)dyn_array_pop_back(dyn_array)
 
 #define DYN_ARRAY_APPEND_CHAR(dyn_array, item)                                                     \
     ({                                                                                             \
@@ -225,6 +242,10 @@ void* dyn_array_append(arena_dyn_array_t* dyn_array, void* item);
  @returns a void pointer to the retrieved item.
  */
 void* dyn_array_get(arena_dyn_array_t* dyn_array, uint32_t idx);
+
+void dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item);
+
+void* dyn_array_pop_back(arena_dyn_array_t* arr);
 
 /**
  Remove an item from the array.

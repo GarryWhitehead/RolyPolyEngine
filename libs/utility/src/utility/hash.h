@@ -37,7 +37,7 @@ static uint32_t rotl32(uint32_t x, int8_t r) { return (x << r) | (x >> (32 - r))
  https://github.com/PeterScott/murmur3 This is for the use with smaller keys
  with an improvement in performance compared to 128bit versions
  */
-static uint32_t murmur_hash3(void* key, uint32_t size)
+static uint32_t murmur_hash3(uint32_t* key, uint32_t size)
 {
     assert(key);
     assert(size > 0);

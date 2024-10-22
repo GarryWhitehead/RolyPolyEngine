@@ -20,32 +20,47 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "utility.h"
+#ifndef __UTILITY_THREAD_H__
+#define __UTILITY_THREAD_H__
 
-#include <utility/array_utility.h>
+#include <stdbool.h>
 
-bool vkapi_util_is_depth(VkFormat format)
-{
-    VkFormat depth_formats[] = {
-        VK_FORMAT_D16_UNORM,
-        VK_FORMAT_X8_D24_UNORM_PACK32,
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(depth_formats), depth_formats);
-    return idx != UINT32_MAX;
-}
+typedef struct Thread thread_t;
+typedef struct Arena arena_t;
+typedef void* (*thrd_func)(void*);
 
-bool vkapi_util_is_stencil(VkFormat format)
-{
-    VkFormat stencil_formats[] = {
-        VK_FORMAT_S8_UINT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(stencil_formats), stencil_formats);
-    return idx != UINT32_MAX;
-}
+thread_t* thread_create(thrd_func func, void* data, arena_t* arena);
+
+bool thread_join(thread_t* t);
+
+thread_t thread_current();
+
+#if WIN32
+#include <threads.h>
+typedef mtx_t mutex_t;
+typedef cnd_t cond_wait_t;
+#elif __linux__
+#include <pthread.h>
+typedef pthread_mutex_t mutex_t;
+typedef pthread_cond_t cond_wait_t;
+#endif
+
+void mutex_init(mutex_t* m);
+
+bool mutex_lock(mutex_t* m);
+
+void mutex_unlock(mutex_t* m);
+
+void mutex_destroy(mutex_t* m);
+
+void condition_init(cond_wait_t* c);
+
+bool condition_wait(cond_wait_t* c, mutex_t* m);
+
+bool condition_signal(cond_wait_t* c);
+
+bool condition_brdcast(cond_wait_t* c);
+
+void condition_destroy(cond_wait_t* c);
+
+#endif

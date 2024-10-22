@@ -20,32 +20,26 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "utility.h"
+#ifndef __RPE_RG_RENDER_GRAPH_HANDLE_H__
+#define __RPE_RG_RENDER_GRAPH_HANDLE_H__
 
-#include <utility/array_utility.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-bool vkapi_util_is_depth(VkFormat format)
+#define RG_INVALID_HANDLE UINT32_MAX
+
+typedef struct RenderGraphHandle
 {
-    VkFormat depth_formats[] = {
-        VK_FORMAT_D16_UNORM,
-        VK_FORMAT_X8_D24_UNORM_PACK32,
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(depth_formats), depth_formats);
-    return idx != UINT32_MAX;
+    uint32_t id;
+} rg_handle_t;
+
+static rg_handle_t rg_handle_init()
+{
+    rg_handle_t h = {.id = RG_INVALID_HANDLE};
+    return h;
 }
 
-bool vkapi_util_is_stencil(VkFormat format)
-{
-    VkFormat stencil_formats[] = {
-        VK_FORMAT_S8_UINT,
-        VK_FORMAT_D16_UNORM_S8_UINT,
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT};
-    uint32_t idx =
-        ARRAY_UTIL_FIND(VkFormat, &format, ARRAY_UTIL_COUNT_OF(stencil_formats), stencil_formats);
-    return idx != UINT32_MAX;
-}
+static bool rg_handle_is_valid(rg_handle_t handle) { return handle.id != RG_INVALID_HANDLE; }
+
+
+#endif

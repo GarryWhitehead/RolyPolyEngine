@@ -26,9 +26,9 @@
 #define _GNU_SOURCE
 #include "hash_set.h"
 #include "random.h"
+#include "thread.h"
 #include "work_stealing_queue.h"
 
-#include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -67,7 +67,7 @@ typedef struct ThreadInfo
     /// The work stealing queue for this thread.
     work_stealing_queue_t work_queue;
     /// A thread reference - used for joining upon destruction.
-    pthread_t thread;
+    thread_t* thread;
     /// States whether this thread is joinbale - adopted threads are not joinable.
     bool is_joinable;
     /// A pointer to the job queue this thread is associated with.
@@ -86,7 +86,7 @@ typedef struct JobQueue
     /// The number of threads this job queue is running. Doesn't include adopted threads.
     uint32_t thread_count;
     /// Condition for waiting on for jobs to finish or the threads exiting on destruction.
-    pthread_cond_t wait_cond;
+    cond_wait_t wait_cond;
     /// The number of active jobs.
     atomic_int active_job_count;
     /// State used to determine if the threads should be terminated.
@@ -96,9 +96,9 @@ typedef struct JobQueue
     /// A map of thread ids and their index in the thread state buffer.
     hash_set_t thread_map;
     /// A mutex used for accessing the thread map.
-    pthread_mutex_t thread_map_mutex;
+    mutex_t thread_map_mutex;
     /// A mutex used for the wait condition.
-    pthread_mutex_t wait_mutex;
+    mutex_t wait_mutex;
     /// The arena used for allocations for this job queue.
     arena_t* arena;
 } job_queue_t;
