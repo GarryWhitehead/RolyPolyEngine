@@ -74,7 +74,7 @@ rg_handle_t rg_add_write(
 
 render_graph_t* rg_compile(render_graph_t* rg);
 
-void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver);
+void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver, rpe_engine_t* engine);
 
 rg_pass_t* rg_add_pass(
     render_graph_t* rg, const char* name, setup_func setup, execute_func execute, size_t data_size);
@@ -86,5 +86,7 @@ arena_t* rg_get_arena(render_graph_t* rg);
 rg_dep_graph_t* rg_get_dep_graph(render_graph_t* rg);
 
 rg_backboard_t* rg_get_backboard(render_graph_t* rg);
+
+void rg_clear(render_graph_t* rg);
 
 #endif

@@ -30,7 +30,7 @@
 // Forward declarations.
 typedef struct VkApiContext vkapi_context_t;
 
-typedef struct StageInstance
+typedef struct VkApiStageInstance
 {
     VkBuffer buffer;
     VkDeviceSize size;
@@ -43,7 +43,7 @@ typedef struct StageInstance
  A simplistic staging pool for CPU-only stages. Used when copying to and from
  GPU only memory.
  */
-typedef struct StagingPool
+typedef struct VkApiStagingPool
 {
     // a list of free stages and their size
     arena_dyn_array_t stages;
@@ -51,17 +51,16 @@ typedef struct StagingPool
 
 } vkapi_staging_pool_t;
 
-vkapi_staging_pool_t vkapi_staging_init(arena_t* perm_arena);
-
-void vkapi_staging_destroy(vkapi_staging_pool_t* staging_pool, VmaAllocator* vma_alloc);
+vkapi_staging_pool_t* vkapi_staging_init(arena_t* perm_arena);
 
 vkapi_staging_instance_t* vkapi_staging_get(
-    vkapi_staging_pool_t* staging_pool, VmaAllocator* vma_alloc, VkDeviceSize req_size);
+    vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, VkDeviceSize req_size);
 
 void vkapi_staging_gc(
-    vkapi_context_t* context,
     vkapi_staging_pool_t* staging_pool,
-    VmaAllocator* vma_alloc,
+    VmaAllocator vma_alloc,
     uint64_t current_frame);
+
+void vkapi_staging_destroy(vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc);
 
 #endif

@@ -39,6 +39,7 @@
 
 #if ARENA_ALLOCATOR_MEM_TYPE == ARENA_MEM_TYPE_VMEM
 #if !defined(WIN32)
+#undef __USE_MISC
 #define __USE_MISC
 #include <sys/mman.h>
 #include <unistd.h>

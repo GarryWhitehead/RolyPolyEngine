@@ -224,6 +224,34 @@ static inline math_vec4f math_vec4f_mul(math_vec4f* a, math_vec4f* b)
     return out;
 }
 
+static inline math_vec2f math_vec2f_mul_sca(math_vec2f* a, float s)
+{
+    assert(a);
+    math_vec2f out = {.x = a->x * s, .y = a->y * s};
+    return out;
+}
+
+static inline math_vec3f math_vec3f_mul_sca(math_vec3f* a, float s)
+{
+    assert(a);
+    math_vec3f out = {.x = a->x * s, .y = a->y * s, .z = a->z * s};
+    return out;
+}
+
+static inline math_vec4f math_vec4f_mul_sca(math_vec4f* a, float s)
+{
+    assert(a);
+#ifdef MATH_USE_SSE3
+    math_vec4f out;
+    __m128 sca = _mm_load_ps1(&s);
+    __m128 res = _mm_mul_ps(a->sse_data, sca);
+    _mm_store_ps(out.data, res);
+#else
+    math_vec4f out = {.x = a->x * s, .y = a->y * s, .z = a->z * s, .w = a->w * s};
+#endif
+    return out;
+}
+
 /** Division **/
 static inline math_vec2f math_vec2f_div(math_vec2f* a, math_vec2f* b)
 {
@@ -248,6 +276,34 @@ static inline math_vec4f math_vec4f_div(math_vec4f* a, math_vec4f* b)
     _mm_store_ps(out.data, res);
 #else
     math_vec4f out = {.x = a->x / b->x, .y = a->y / b->y, .z = a->z / b->z, .w = a->w / b->w};
+#endif
+    return out;
+}
+
+static inline math_vec2f math_vec2f_div_sca(math_vec2f* a, float s)
+{
+    assert(a);
+    math_vec2f out = {.x = a->x / s, .y = a->y / s};
+    return out;
+}
+
+static inline math_vec3f math_vec3f_div_sca(math_vec3f* a, float s)
+{
+    assert(a);
+    math_vec3f out = {.x = a->x / s, .y = a->y / s, .z = a->z / s};
+    return out;
+}
+
+static inline math_vec4f math_vec4f_div_sca(math_vec4f* a, float s)
+{
+    assert(a);
+#ifdef MATH_USE_SSE3
+    math_vec4f out;
+    __m128 sca = _mm_load_ps1(&s);
+    __m128 res = _mm_div_ps(a->sse_data, sca);
+    _mm_store_ps(out.data, res);
+#else
+    math_vec4f out = {.x = a->x / s, .y = a->y / s, .z = a->z / s, .w = a->w / s};
 #endif
     return out;
 }
@@ -679,6 +735,66 @@ static inline math_mat4f math_mat4f_mul(math_mat4f* a, math_mat4f* b)
     return out;
 }
 
+static inline math_mat4f math_mat4f_inverse(math_mat4f* m)
+{
+    math_mat4f out = math_mat4f_identity();
+
+    for (size_t i = 0; i < 4; ++i)
+    {
+        // Find the largest element in the i'th column.
+        size_t pivot = i;
+        float t = fabsf(m->data[i][i]);
+        for (size_t j = i + 1; j < 4; ++j)
+        {
+            float tmp = fabsf(m->data[j][i]);
+            if (tmp > t) {
+                pivot = j;
+                t = tmp;
+            }
+        }
+        // Matrix is singular so don't continue.
+        if (t == 0)
+        {
+            return out;
+        }
+
+        if (pivot != i)
+        {
+            // Swap columns.
+            math_vec4f tmp = m->cols[i];
+            m->cols[i] = m->cols[pivot];
+            m->cols[pivot] = tmp;
+
+            tmp = out.cols[i];
+            out.cols[i] = out.cols[pivot];
+            out.cols[pivot] = tmp;
+        }
+
+        float denom = m->data[i][i];
+        for (size_t k = 0; k < 4; ++k)
+        {
+            m->data[i][k] /= denom;
+            out.data[i][k] /= denom;
+        }
+
+        // Factor out the lower triangle.
+        for (size_t j = 0; j < 4; ++j)
+        {
+            if (j != i)
+            {
+                float t = m->data[j][i];
+                for (size_t k = 0; k < 4; ++k)
+                {
+                    m->data[j][k] -= m->data[i][k] * t;
+                    out.data[j][k] -= out.data[i][k] * t;
+                }
+            }
+        }
+    }
+
+    return out;
+}
+
 /** Useful graphic functions **/
 
 static inline math_mat4f math_mat4f_translate(math_vec3f* v)
@@ -739,6 +855,22 @@ static inline math_mat4f math_mat4f_lookat_lh(math_vec3f* center, math_vec3f* ey
     return math_mat4f_lookat(&right, &cam_up, &dir, eye);
 }
 
+inline math_mat4f math_mat4f_projection(float fov_y, float aspect_ratio, float near_z, float far_z)
+{
+    math_mat4f out;
+    float tan_half_fov_y = tanf(0.5f * fov_y);
+
+    math_vec4f c1 = {1.0f / (aspect_ratio * tan_half_fov_y), 0.0f, 0.0f, 0.0f};
+    math_vec4f c2 = {0.0f, -1.0f / tan_half_fov_y, 0.0f, 0.0f };
+    math_vec4f c3 = {0.0f, 0.0f, (far_z + near_z) / (far_z - near_z), -(2.0f * far_z * near_z) / (far_z - near_z)};
+    math_vec4f c4 = {0.0f, 0.0f, 1.0f, 0.0f};
+    out.cols[0] = c1;
+    out.cols[1] = c2;
+    out.cols[2] = c3;
+    out.cols[3] = c4;
+    return out;
+}
+
 static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
 {
     math_mat4f out = math_mat4f_identity();
@@ -764,6 +896,29 @@ static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
 static inline math_mat4f math_mat4f_rotate_lh(float angle, math_vec3f axis)
 {
     return math_mat4f_rotate_rh(-angle, axis);
+}
+
+static inline math_mat3f math_mat4f_to_rotation_matrix(math_mat4f* m)
+{
+    assert(m);
+    math_mat3f out;
+    out.data[0][0] = m->data[0][0];
+    out.data[0][1] = m->data[0][1];
+    out.data[0][2] = m->data[0][2];
+    out.data[1][0] = m->data[1][0];
+    out.data[1][1] = m->data[1][1];
+    out.data[1][2] = m->data[1][2];
+    out.data[2][0] = m->data[2][0];
+    out.data[2][1] = m->data[2][1];
+    out.data[2][2] = m->data[2][2];
+    return out;
+}
+
+static inline math_vec3f math_mat4f_translation_vec(math_mat4f* m)
+{
+    assert(m);
+    math_vec3f out = {.x = m->data[3][0], .y = m->data[3][1], .z = m->data[3][2] };
+    return out;
 }
 
 /** ================================ Quaternion functions ================================= **/

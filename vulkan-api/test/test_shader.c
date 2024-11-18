@@ -37,9 +37,9 @@ TEST(ShaderGroup, Shader_CompilerTests)
 
     shader_t* shader = shader_init(RPE_BACKEND_SHADER_STAGE_VERTEX, &arena);
 
-    bool r =
-        shader_compile(shader, vakpi_driver_get_context(driver), test_shader0, "test_path", &arena);
-    TEST_ASSERT(r == true);
+    spirv_binary_t bin = shader_compile(shader, test_shader0, "test_path", &arena);
+    TEST_ASSERT(bin.words);
+    TEST_ASSERT(bin.size > 0);
 
     // Test shader reflection works.
     const char* test_shader1 = "#version 460\n"
@@ -64,10 +64,12 @@ TEST(ShaderGroup, Shader_CompilerTests)
                                "outUv = inUv;"
                                "}\n";
 
-    r = shader_compile(shader, vakpi_driver_get_context(driver), test_shader1, "test_path", &arena);
-    TEST_ASSERT(r == true);
+    bin = shader_compile(shader, test_shader1, "test_path", &arena);
+    TEST_ASSERT(bin.words);
+    TEST_ASSERT(bin.size > 0);
+    shader_reflect_spirv(shader, bin.words, bin.size, &arena);
 
-    shader_binding_t* resource_binding = shader_get_resource_binding(shader);
+    shader_binding_t* resource_binding = &shader->resource_binding;
     TEST_ASSERT_EQUAL_UINT(2, resource_binding->stage_output_count);
     TEST_ASSERT_EQUAL_UINT(2, resource_binding->stage_input_count);
 

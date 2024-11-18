@@ -1,40 +1,29 @@
+#include "vk_setup.h"
 #include <render_graph/backboard.h>
 #include <render_graph/dependency_graph.h>
 #include <render_graph/render_graph.h>
 #include <render_graph/render_pass_node.h>
 #include <render_graph/rendergraph_resource.h>
+#include <engine.h>
 #include <unity_fixture.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
 
-vkapi_driver_t* driver;
-arena_t* arena;
 
 TEST_GROUP(RenderGraphGroup);
 
 TEST_SETUP(RenderGraphGroup)
 {
-    arena = calloc(1, sizeof(arena_t));
-    uint64_t arena_cap = 1 << 20;
-    int res = arena_new(arena_cap, arena);
-    TEST_ASSERT(ARENA_SUCCESS == res);
-
-    int error_code;
-    driver = vkapi_driver_init(NULL, 0, &error_code);
-    TEST_ASSERT(error_code == VKAPI_SUCCESS);
-    error_code = vkapi_driver_create_device(driver, NULL);
-    TEST_ASSERT(error_code == VKAPI_SUCCESS);
 }
 
 TEST_TEAR_DOWN(RenderGraphGroup)
 {
-    vkapi_driver_shutdown(driver);
-    arena_release(arena);
-    free(arena);
 }
 
 TEST(RenderGraphGroup, RenderGraph_DepGraph_Tests1)
 {
+    arena_t* arena = setup_arena(1 << 20);
+
     rg_dep_graph_t* dg = rg_dep_graph_init(arena);
     rg_node_t* n1 = rg_node_init(dg, "node1", arena);
     rg_node_t* n2 = rg_node_init(dg, "node2", arena);
@@ -57,6 +46,8 @@ TEST(RenderGraphGroup, RenderGraph_DepGraph_Tests1)
 
 TEST(RenderGraphGroup, RenderGraph_DepGraph_Tests2)
 {
+    arena_t* arena = setup_arena(1 << 20);
+
     rg_dep_graph_t* dg = rg_dep_graph_init(arena);
     rg_node_t* n1 = rg_node_init(dg, "node1", arena);
     rg_node_t* n2 = rg_node_init(dg, "node2", arena);
@@ -121,12 +112,18 @@ void setup1(render_graph_t* rg, rg_pass_node_t* node, void* data)
 
 TEST(RenderGraphGroup, RenderGraph_Tests1)
 {
+    arena_t* arena = setup_arena(1 << 20);
+    vkapi_driver_t* driver = setup_driver();
+
     render_graph_t* rg = rg_init(arena);
+    rpe_engine_t* eng = NULL;
     rg_pass_t* p = rg_add_pass(rg, "Pass1", setup1, NULL, sizeof(struct DataRW));
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_TRUE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver);
+    rg_execute(rg, p, driver, eng);
+
+    shutdown(driver, arena);
 }
 
 struct DataBasic
@@ -156,7 +153,7 @@ void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_node_declare_side_effect(node);
 }
 
-void execute_basic(vkapi_driver_t* driver, rg_render_graph_resource_t* res, void* data)
+void execute_basic(vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
 {
     TEST_ASSERT_TRUE(data);
     struct DataBasic* d = (struct DataBasic*)data;
@@ -168,12 +165,17 @@ void execute_basic(vkapi_driver_t* driver, rg_render_graph_resource_t* res, void
 
 TEST(RenderGraphGroup, RenderGraph_TestsBasic)
 {
+    arena_t* arena = setup_arena(1 << 20);
+    vkapi_driver_t* driver = setup_driver();
+
     render_graph_t* rg = rg_init(arena);
     rg_pass_t* p = rg_add_pass(rg, "Pass1", setup_basic, execute_basic, sizeof(struct DataBasic));
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver);
+    rg_execute(rg, p, driver, NULL);
+
+    shutdown(driver, arena);
 }
 
 struct DataGBuffer
@@ -231,7 +233,7 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     d->depth = rg_add_resource(
         rg,
         rg_tex_resource_init(
-            "Depth", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
+            "Depth", VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     d->colour = rg_add_write(rg, d->colour, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
@@ -239,7 +241,7 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     d->normal = rg_add_write(rg, d->normal, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     d->pbr = rg_add_write(rg, d->pbr, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     d->emissive = rg_add_write(rg, d->emissive, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-    d->depth = rg_add_write(rg, d->depth, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    d->depth = rg_add_write(rg, d->depth, node, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
     rg_pass_desc_t desc = rg_pass_desc_init();
     desc.attachments.attach.colour[0] = d->colour;
@@ -264,7 +266,7 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_backboard_add(bb, "gbufferDepth", d->depth);
 }
 
-void execute_gbuffer(vkapi_driver_t* driver, rg_render_graph_resource_t* res, void* data)
+void execute_gbuffer(vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
 {
     TEST_ASSERT_TRUE(data);
     struct DataGBuffer* d = (struct DataGBuffer*)data;
@@ -288,17 +290,26 @@ void execute_gbuffer(vkapi_driver_t* driver, rg_render_graph_resource_t* res, vo
 
 TEST(RenderGraphGroup, RenderGraph_TestsGBuffer)
 {
+    arena_t* arena = setup_arena(1 << 20);
+    vkapi_driver_t* driver = setup_driver();
+
     render_graph_t* rg = rg_init(arena);
+    rpe_engine_t* eng = NULL;
     rg_pass_t* p =
         rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer));
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver);
+    rg_execute(rg, p, driver, eng);
+
+    shutdown(driver, arena);
 }
 
 TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
 {
+    arena_t* arena = setup_arena(1 << 20);
+    vkapi_driver_t* driver = setup_driver();
+
     math_vec4f col = {0.0f, 0.0f, 0.0f, 1.0f};
     vkapi_attach_info_t col_attach[6];
     memset(col_attach, 0, sizeof(vkapi_attach_info_t) * 6);
@@ -332,5 +343,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
 
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver);
+    rg_execute(rg, p, driver, NULL);
+
+    shutdown(driver, arena);
 }

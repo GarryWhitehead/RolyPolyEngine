@@ -125,9 +125,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessenger(
     return VK_FALSE;
 }
 
-void vkapi_context_init(arena_t* perm_arena, vkapi_context_t* new_context)
+vkapi_context_t* vkapi_context_init(arena_t* perm_arena)
 {
-    memset(new_context, 0, sizeof(vkapi_context_t));
+    vkapi_context_t* new_context = ARENA_MAKE_ZERO_STRUCT(perm_arena, vkapi_context_t);
 
     new_context->queue_info.compute = VK_QUEUE_FAMILY_IGNORED;
     new_context->queue_info.graphics = VK_QUEUE_FAMILY_IGNORED;
@@ -143,11 +143,20 @@ void vkapi_context_init(arena_t* perm_arena, vkapi_context_t* new_context)
     new_context->device = VK_NULL_HANDLE;
 
     MAKE_DYN_ARRAY(const char*, perm_arena, 30, &new_context->req_layers);
+    return new_context;
 }
 
 void vkapi_context_shutdown(vkapi_context_t* context)
 {
     vkDestroyDevice(context->device, VK_NULL_HANDLE);
+    if (context->debug_messenger)
+    {
+        vkDestroyDebugUtilsMessengerEXT(context->instance, context->debug_messenger, VK_NULL_HANDLE);
+    }
+    else if (context->debug_callback)
+    {
+        vkDestroyDebugReportCallbackEXT(context->instance, context->debug_callback, VK_NULL_HANDLE);
+    }
     vkDestroyInstance(context->instance, VK_NULL_HANDLE);
 }
 
@@ -209,8 +218,13 @@ int vkapi_context_prep_extensions(
     }
     if (vkapi_find_ext_props(VK_KHR_MULTIVIEW_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
     {
-        DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        DYN_ARRAY_APPEND_CHAR(ext_array, VK_KHR_MULTIVIEW_EXTENSION_NAME);
         context->extensions.has_multi_view = true;
+    }
+    if (vkapi_find_ext_props(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
+    {
+        DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+        context->extensions.has_desc_indexing = true;
     }
 
 #ifdef VULKAN_VALIDATION_DEBUG
@@ -505,9 +519,18 @@ int vkapi_context_prepare_device(
     mv_features.multiviewGeometryShader = VK_FALSE;
     mv_features.multiviewTessellationShader = VK_FALSE;
 
+    // Descriptor indexing for bindless textures.
+    VkPhysicalDeviceDescriptorIndexingFeatures di_features = {0};
+    di_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    di_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    di_features.runtimeDescriptorArray = VK_TRUE;
+    di_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    di_features.descriptorBindingPartiallyBound = VK_TRUE;
+    di_features.pNext = &mv_features;
+
     VkPhysicalDeviceFeatures2 req_features2 = {0};
     req_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    req_features2.pNext = &mv_features;
+    req_features2.pNext = &di_features;
 
     VkPhysicalDeviceFeatures dev_features;
     vkGetPhysicalDeviceFeatures(context->physical, &dev_features);

@@ -26,6 +26,7 @@
 
 typedef struct Engine rpe_engine_t;
 typedef struct SwapchainHandle swapchain_handle_t;
+typedef struct ObjectManager rpe_obj_manager_t;
 
 /**
  Create a new engine instance.
@@ -52,5 +53,8 @@ void rpe_engine_shutdown(rpe_engine_t* engine);
  */
 swapchain_handle_t* rpe_engine_create_swapchain(
     rpe_engine_t* engine, VkSurfaceKHR surface, uint32_t width, uint32_t height);
+
+
+rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* e);
 
 #endif

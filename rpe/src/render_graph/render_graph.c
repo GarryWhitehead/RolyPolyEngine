@@ -277,7 +277,7 @@ render_graph_t* rg_compile(render_graph_t* rg)
     return rg;
 }
 
-void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver)
+void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver, rpe_engine_t* engine)
 {
     assert(rg);
     assert(driver);
@@ -296,7 +296,7 @@ void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver)
         if (!pass_node->base.imported)
         {
             rg_render_graph_resource_t r = {.rg = rg, .pass_node = pass_node};
-            rg_render_pass_node_execute(pass_node, rg, pass, driver, &r);
+            rg_render_pass_node_execute(pass_node, rg, pass, driver, engine, &r);
         }
 
         // Resources used by the render graph are added to the garbage
@@ -338,6 +338,17 @@ void _executor_setup(render_graph_t* rg, rg_pass_node_t* node, void* data)
 void rg_add_executor_pass(render_graph_t* rg, const char* name, execute_func execute)
 {
     rg_add_pass(rg, name, _executor_setup, execute, 0);
+}
+
+void rg_clear(render_graph_t* rg)
+{
+    dyn_array_clear(&rg->resources);
+    dyn_array_clear(&rg->pass_nodes);
+    dyn_array_clear(&rg->resource_slots);
+    dyn_array_clear(&rg->resource_nodes);
+    dyn_array_clear(&rg->rg_passes);
+    rg_backboard_reset(&rg->backboard);
+    rg_dep_graph_clear(rg->dep_graph);
 }
 
 arena_t* rg_get_arena(render_graph_t* rg)

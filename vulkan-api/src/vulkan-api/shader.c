@@ -22,6 +22,7 @@
 
 #include "shader.h"
 
+#include "descriptor_cache.h"
 #include "driver.h"
 #include "pipeline_cache.h"
 
@@ -31,17 +32,6 @@
 #include <string.h>
 #include <utility/arena.h>
 
-typedef struct Shader
-{
-    /// All the bindings for this shader - generated via the @p reflect call.
-    shader_binding_t resource_binding;
-    /// A vulkan shader module object for use with a pipeline.
-    VkShaderModule module;
-    /// The stage of this shader see @p backend::ShaderStage.
-    enum ShaderStage stage;
-    /// Create info used by the graphics/compute pipeline.
-    VkPipelineShaderStageCreateInfo create_info;
-} shader_t;
 
 const size_t sizeof_shader_t = sizeof(struct Shader);
 
@@ -408,38 +398,60 @@ shader_t* shader_init(enum ShaderStage stage, arena_t* arena)
     return out;
 }
 
-bool shader_compile(
-    shader_t* shader,
-    vkapi_context_t* context,
-    const char* shader_code,
-    const char* filename,
-    arena_t* arena)
+spirv_binary_t shader_load_spirv(const char* filename, arena_t* arena)
+{
+    spirv_binary_t bin = {.words = NULL, .size = 0};
+    string_t shader_dir = string_init(RPE_SHADER_DIRECTORY, arena);
+    string_t shader_filename = string_append(&shader_dir, filename, arena);
+    FILE* fp = fopen(shader_filename.data, "rb");
+    if (!fp)
+    {
+        log_error("Invalid shader SPIRV file: %s", shader_filename.data);
+        return bin;
+    }
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (bin.size <= 0)
+    {
+        log_error("Shader SPIRV file is empty: %s", shader_filename.data);
+        return bin;
+    }
+    bin.size = file_size / sizeof(uint32_t);
+    bin.words = ARENA_MAKE_ZERO_ARRAY(arena, uint32_t, bin.size);
+    if (fread(bin.words, bin.size, sizeof(uint32_t), fp) != bin.size)
+    {
+        log_error("Error reading shader SPRIV: %s", shader_filename.data);
+    }
+    return bin;
+}
+
+spirv_binary_t
+shader_compile(shader_t* shader, const char* shader_code, const char* filename, arena_t* arena)
 {
     assert(shader);
-    assert(context);
-    assert(context->device);
 
+    spirv_binary_t bin = {.size = 0, .words = NULL};
     if (!shader_code)
     {
         log_error("There is no shader code to process!");
-        return false;
+        return bin;
     }
-
     // Compile into bytecode ready for wrapping.
-    spirv_binary_t bin = shader_compiler_compile(
+    bin = shader_compiler_compile(
         shader_to_glslang_type(shader->stage), shader_code, filename, arena);
-    if (!bin.words)
-    {
-        return false;
-    }
+    return bin;
+}
 
-    shader_reflect_spirv(shader, bin.words, bin.size, arena);
+void shader_create_vk_module(shader_t* shader, vkapi_context_t* context, spirv_binary_t bin)
+{
+    assert(shader);
 
     // create the shader module
     VkShaderModuleCreateInfo shader_info = {0};
     shader_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shader_info.flags = 0;
-    shader_info.codeSize = bin.size;
+    shader_info.codeSize = bin.size * sizeof(uint32_t);
     shader_info.pCode = bin.words;
     VK_CHECK_RESULT(
         vkCreateShaderModule(context->device, &shader_info, VK_NULL_HANDLE, &shader->module));
@@ -450,8 +462,6 @@ bool shader_compile(
     shader->create_info.stage = shader_vk_stage_flag(shader->stage);
     shader->create_info.module = shader->module;
     shader->create_info.pName = "main";
-
-    return true;
 }
 
 void _error_callback(void* data, const char* msg)
@@ -583,9 +593,10 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         layout->type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         layout->name = string_init(list[i].name, arena);
         layout->stage = shader_vk_stage_flag(shader->stage);
-        spvc_compiler_get_declared_struct_size(
+        spvc_compiler_get_declared_struct_size_runtime_array(
             compiler_glsl,
             spvc_compiler_get_type_handle(compiler_glsl, list[i].base_type_id),
+            1,
             &layout->range);
     }
 
@@ -594,7 +605,7 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_PUSH_CONSTANT, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        const spvc_buffer_range** ranges;
+        const spvc_buffer_range** ranges = NULL;
         size_t range_count;
         spvc_compiler_get_active_buffer_ranges(compiler_glsl, list[i].id, ranges, &range_count);
         for (size_t j = 0; j < range_count; ++j)
@@ -604,19 +615,18 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
     }
 
     // specialisation constants
-    // TODO: add.
+    const spvc_specialization_constant* consts = NULL;
+    spvc_compiler_get_specialization_constants(compiler_glsl, &consts, &count);
+    for (size_t i = 0; i < count; ++i)
+    {
+        spvc_constant c = spvc_compiler_get_constant_handle(compiler_glsl, consts[i].id);
+        spvc_type_id ti = spvc_constant_get_type(c);
+        spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, ti);
+        shader->resource_binding.spec_consts[i].id = consts[i].constant_id;
+        // spvc_compiler_get_declared_struct_size(compiler_glsl, t,
+        // &shader->resource_binding.spec_consts[i].size);
+        shader->resource_binding.spec_const_count = count;
+    }
 
     spvc_context_destroy(context);
-}
-
-VkPipelineShaderStageCreateInfo shader_get_create_info(shader_t* shader)
-{
-    assert(shader);
-    return shader->create_info;
-}
-
-shader_binding_t* shader_get_resource_binding(shader_t* shader)
-{
-    assert(shader);
-    return &shader->resource_binding;
 }

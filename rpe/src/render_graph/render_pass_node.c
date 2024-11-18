@@ -355,6 +355,7 @@ void rg_render_pass_node_execute(
     render_graph_t* rg,
     rg_pass_t* rp,
     vkapi_driver_t* driver,
+    rpe_engine_t* engine,
     rg_render_graph_resource_t* r)
 {
     for (size_t i = 0; i < node->render_pass_targets.size; ++i)
@@ -363,7 +364,7 @@ void rg_render_pass_node_execute(
         rg_render_pass_info_bake(rg, info, driver);
     }
 
-    rp->func(driver, r, rp->data);
+    rp->func(driver, engine, r, rp->data);
     // TODO: and delete the targets.
 }
 

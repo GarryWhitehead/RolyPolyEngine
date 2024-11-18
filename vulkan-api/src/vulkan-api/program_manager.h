@@ -26,7 +26,8 @@
 #include "common.h"
 #include "driver.h"
 #include "pipeline.h"
-#include "pipeline_cache.h"
+#include "descriptor_cache.h"
+
 
 #include <utility/arena.h>
 #include <utility/hash_set.h>
@@ -36,157 +37,199 @@
 typedef struct Shader shader_t;
 typedef struct PipelineLayout vkapi_pl_layout_t;
 typedef struct TextureHandle texture_handle_t;
-typedef struct ShaderProgram shader_program_t;
-typedef struct ProgramManager program_manager_t;
-typedef struct ShaderProgramBundle shader_prog_bundle_t;
 
-typedef struct Variant
+#define VKAPI_INVALID_SHADER_HANDLE UINT32_MAX
+
+typedef struct ShaderHandle
 {
-    string_t definition;
-    uint32_t value;
-} variant_t;
+    uint32_t id;
+} shader_handle_t;
 
-typedef struct RasterState
-{
-    VkCullModeFlagBits cull_mode;
-    VkPolygonMode polygon_mode;
-    VkFrontFace front_face;
-} raster_state_t;
-
-typedef struct StencilState
-{
-    VkBool32 use_stencil;
-    VkStencilOp fail_op;
-    VkStencilOp pass_op;
-    VkStencilOp depth_fail_op;
-    VkStencilOp stencil_fail_op;
-    VkCompareOp compare_op;
-    uint32_t compare_mask;
-    uint32_t write_mask;
-    uint32_t reference;
-    VkBool32 front_equal_back;
-} stencil_state_t;
-
-typedef struct DepthStencilState
-{
-    stencil_state_t stencil_state;
-
-    // Depth state.
-    VkBool32 test_enable;
-    VkBool32 write_enable;
-    VkBool32 stencil_test_enable;
-    VkCompareOp compare_op;
-
-    // Only processed if the above is true.
-    struct StencilState frontStencil;
-    struct StencilState backStencil;
-} depth_stencil_state_t;
-
-typedef struct BlendFactorState
-{
-    VkBool32 blend_enable;
-    VkBlendFactor src_colour;
-    VkBlendFactor dst_colour;
-    VkBlendOp colour;
-    VkBlendFactor src_alpha;
-    VkBlendFactor dst_alpha;
-    VkBlendOp alpha;
-} blend_factor_state_t;
-
-typedef struct RenderPrimitive
-{
-    uint32_t indices_count;
-    uint32_t offset;
-    uint32_t vertex_count;
-    VkPrimitiveTopology topology;
-    VkBool32 prim_restart;
-    VkIndexType index_buffer_type;
-} render_prim_t;
+bool vkapi_is_valid_shader_handle(shader_handle_t h);
+void vkapi_invalidate_shader_handle(shader_handle_t* h);
 
 typedef struct DescriptorBindInfo
 {
     uint32_t binding;
-    VkBuffer buffer;
+    buffer_handle_t buffer;
     uint32_t size;
     VkDescriptorType type;
 } desc_bind_info_t;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic warning "-Wpadded"
-
-// clang-format off
-typedef struct CachedKey
+typedef struct ShaderProgramBundle
 {
-    uint64_t variant_bits;      // 8 bytes
-    uint32_t shader_id;         // 4 bytes
-    uint32_t shader_stage;      // 4 bytes
-    uint32_t topology;          // 4 bytes    
-    uint8_t padding[4];         // 4 bytes
-} shader_cache_key_t;
-// clang-format on
-#pragma clang diagnostic pop
+    struct RasterState
+    {
+        VkCullModeFlagBits cull_mode;
+        VkPolygonMode polygon_mode;
+        VkFrontFace front_face;
+    } raster_state;
 
-/* Shader program functions */
+    struct StencilState
+    {
+        VkStencilOp fail_op;
+        VkStencilOp pass_op;
+        VkStencilOp depth_fail_op;
+        VkStencilOp stencil_fail_op;
+        VkCompareOp compare_op;
+        uint32_t compare_mask;
+        uint32_t write_mask;
+        uint32_t reference;
+    } stencil_state;
 
-shader_program_t* shader_program_init(arena_t* arena);
+    struct DepthStencilState
+    {
+        struct StencilState stencil_state;
 
-void shader_program_add_attr_block(shader_program_t* prog, string_t* block);
+        // Depth state.
+        VkBool32 test_enable;
+        VkBool32 write_enable;
+        VkBool32 stencil_test_enable;
+        VkCompareOp compare_op;
+
+        // Only processed if the above is true.
+        struct StencilState front;
+        struct StencilState back;
+    } ds_state;
+
+    struct BlendFactorState
+    {
+        VkBool32 blend_enable;
+        VkBlendFactor src_colour;
+        VkBlendFactor dst_colour;
+        VkBlendOp colour;
+        VkBlendFactor src_alpha;
+        VkBlendFactor dst_alpha;
+        VkBlendOp alpha;
+    } blend_state;
+
+    struct ProgramPrimitive
+    {
+        VkPrimitiveTopology topology;
+        VkBool32 prim_restart;
+    } render_prim;
+
+    struct PushBlockBindParams
+    {
+        uint32_t binding;
+        uint32_t range;
+        VkShaderStageFlags stage;
+        void* data;
+    } push_blocks[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+
+    struct SpecConstParams
+    {
+        VkSpecializationMapEntry entries[VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT];
+        uint32_t entry_count;
+        void* data;
+        uint32_t data_size;
+    } spec_const_params[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+
+    // Index into the resource cache for the texture for each attachment.
+    struct ImageSamplerParams
+    {
+        texture_handle_t handle;
+        VkSampler sampler;
+    } image_samplers[VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT];
+
+    texture_handle_t storage_images[VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT];
+
+    VkDescriptorSetLayout desc_layouts[VKAPI_PIPELINE_MAX_DESC_SET_COUNT];
+
+    VkVertexInputAttributeDescription vert_attrs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
+    VkVertexInputBindingDescription vert_bind_desc;
+
+    // We keep a record of descriptors here and their binding info for
+    // use at the pipeline binding draw stage.
+    desc_bind_info_t ubos[VKAPI_PIPELINE_MAX_UBO_BIND_COUNT];
+    desc_bind_info_t ssbos[VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT];
+
+    VkRect2D scissor;
+    VkViewport viewport;
+    size_t tesse_vert_count;
+
+    shader_handle_t shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+
+} shader_prog_bundle_t;
+
+typedef struct ProgramCache
+{
+    /// Fully compiled, complete shader programs.
+    arena_dyn_array_t program_bundles;
+
+    // This is where individual shaders are cached until required to assemble
+    // into a complete shader program.
+    arena_dyn_array_t shaders;
+
+} program_cache_t;
 
 /* Shader bundle functions */
 
 shader_prog_bundle_t* shader_bundle_init(arena_t* arena);
 
-/**
-
- @param bundle
- @param filename
- @param stage
- @param variants
- @param variant_count
- @param arena
- @param scratch_arena
- @return
- */
-bool shader_bundle_build_shader(
+void shader_bundle_add_desc_binding(
     shader_prog_bundle_t* bundle,
-    const char* filename,
-    enum ShaderStage stage,
-    variant_t* variants,
-    uint32_t variant_count,
-    arena_t* arena,
-    arena_t* scratch_arena);
+    uint32_t size,
+    uint32_t binding,
+    VkDescriptorType type);
 
-bool shader_bundle_parse_mat_shader(
-    shader_prog_bundle_t* bundle, const char* shader_path, arena_t* arena, arena_t* scratch_arena);
+void shader_bundle_update_desc_buffer(shader_prog_bundle_t* bundle, uint32_t binding, VkDescriptorType type, buffer_handle_t buffer);
 
-shader_program_t*
-shader_bundle_get_stage_program(shader_prog_bundle_t* bundle, enum ShaderStage stage);
+void shader_bundle_add_image_sampler(
+    shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding, VkSampler sampler);
+
+void shader_bundle_add_texture_sampler(
+    shader_prog_bundle_t* bundle, VkSampler sampler, uint32_t binding);
+
+void shader_bundle_add_storage_image(
+    shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding);
+
+void shader_bundle_set_viewport(
+    shader_prog_bundle_t* bundle, uint32_t width, uint32_t height, float minDepth, float maxDepth);
+
+void shader_bundle_set_scissor(
+    shader_prog_bundle_t* bundle,
+    uint32_t width,
+    uint32_t height,
+    uint32_t x_offset,
+    uint32_t y_offset);
+
+void shader_bundle_add_render_primitive(
+    shader_prog_bundle_t* bundle,
+    VkPrimitiveTopology topo,
+    VkBool32 prim_restart);
+
+void shader_bundle_update_spec_const_data(shader_prog_bundle_t* bundle, uint32_t data_size, void* data, enum ShaderStage stage);
+
+void shader_bundle_get_shader_stage_create_info_all(shader_prog_bundle_t* b, vkapi_driver_t* driver, VkPipelineShaderStageCreateInfo* out);
+
+VkPipelineShaderStageCreateInfo shader_bundle_get_shader_stage_create_info(shader_prog_bundle_t* b, vkapi_driver_t* driver, enum ShaderStage stage);
+
+void shader_bundle_update_descs_from_reflection(shader_prog_bundle_t* bundle, vkapi_driver_t* driver, shader_handle_t handle, arena_t* arena);
 
 /* Program manager functions */
 
-program_manager_t* program_manager_init(arena_t* arena);
+program_cache_t* program_cache_init(arena_t* arena);
 
-/**
- Check whether the shader exists in the cache based on the key, if not try and compile. Also
- updates the pipeline layout with the descriptor information associated with the shader.
- @note The shader bundle must be first built using @sa shader_bundle_build_shader and if
- using materials, @sa shader_bundle_parse_mat_shader.
- @param manager A pointer to the program manager state.
- @param context A pointer to the Vulkan context.
- @param stage The shader stage which to find or create. Used as the cache key.
- @param topo The Vulkan topology which will be associated with this shader - used as the cache key.
- @param bundle An initialised shader bundle.
- @param variant_bits
- @param arena An arena allocator.
- @return
- */
-shader_t* program_manager_find_shader_variant_or_create(
-    program_manager_t* manager,
+shader_handle_t program_cache_compile_shader(
+    program_cache_t* c,
     vkapi_context_t* context,
+    const char* shader_code,
     enum ShaderStage stage,
-    VkPrimitiveTopology topo,
-    shader_prog_bundle_t* bundle,
-    uint64_t variant_bits,
     arena_t* arena);
+
+shader_handle_t program_cache_from_spirv(
+    program_cache_t* c,
+    vkapi_context_t* context,
+    const char* filename,
+    enum ShaderStage stage,
+    arena_t* arena);
+
+shader_prog_bundle_t*
+program_cache_create_program_bundle(program_cache_t* c, arena_t* arena);
+
+shader_t* program_cache_get_shader(program_cache_t* c, shader_handle_t handle);
+
+void program_cache_destroy(program_cache_t* c, vkapi_driver_t* driver);
 
 #endif

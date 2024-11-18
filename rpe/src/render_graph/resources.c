@@ -29,6 +29,7 @@
 #include <utility/string.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/texture.h>
+#include <vulkan-api/resource_cache.h>
 
 rg_resource_t* rg_resource_init(const char* name, enum ResourceType type, arena_t* arena)
 {
@@ -150,8 +151,9 @@ void rg_resource_bake(rg_resource_t* r, vkapi_driver_t* driver)
     {
         case RG_RESOURCE_TYPE_TEXTURE: {
             rg_texture_resource_t* r_tex = (rg_texture_resource_t*)r;
-            r_tex->handle = vkapi_driver_create_tex2d(
-                driver,
+            r_tex->handle = vkapi_res_cache_create_tex2d(
+                driver->res_cache,
+                driver->context,
                 r_tex->desc.format,
                 r_tex->desc.width,
                 r_tex->desc.height,
@@ -176,7 +178,7 @@ void rg_resource_destroy(rg_resource_t* r, vkapi_driver_t* driver)
     {
         case RG_RESOURCE_TYPE_TEXTURE: {
             rg_texture_resource_t* r_tex = (rg_texture_resource_t*)r;
-            vkapi_driver_destroy_tex2d(driver, r_tex->handle);
+            vkapi_res_cache_delete_tex2d(driver->res_cache, r_tex->handle);
         }
         case RG_RESOURCE_TYPE_IMPORTED:
         case RG_RESOURCE_TYPE_IMPORTED_RENDER_TARGET:

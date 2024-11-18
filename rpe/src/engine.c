@@ -20,14 +20,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "private_engine.h"
-
-#include "rpe/engine.h"
-#include "vulkan-api/driver.h"
-#include "vulkan-api/error_codes.h"
-
+#include "engine.h"
+#include "managers/transform_manager.h"
+#include "managers/renderable_manager.h"
 #include <log.h>
-#include <stdlib.h>
+#include <vulkan-api/driver.h>
+#include <vulkan-api/error_codes.h>
+#include <vulkan-api/shader.h>
 
 rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver)
 {
@@ -42,6 +41,24 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver)
     assert(err == ARENA_SUCCESS);
     err = arena_new(RPE_ENGINE_PERM_ARENA_SIZE, &instance->perm_arena);
     assert(err == ARENA_SUCCESS);
+    err = arena_new(RPE_ENGINE_FRAME_ARENA_SIZE, &instance->frame_arena);
+
+    // Load the material shaders. Held by the engine as the most logical place.
+    instance->mat_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX] = program_cache_from_spirv(
+        driver->prog_manager,
+        driver->context,
+        "material.vert.spv",
+        RPE_BACKEND_SHADER_STAGE_VERTEX,
+        &instance->perm_arena);
+    instance->mat_shaders[RPE_BACKEND_SHADER_STAGE_FRAGMENT] = program_cache_from_spirv(
+        driver->prog_manager,
+        driver->context,
+        "material.frag.spv",
+        RPE_BACKEND_SHADER_STAGE_FRAGMENT,
+        &instance->perm_arena);
+
+    instance->transform_manager = rpe_transform_manager_init(&instance->perm_arena);
+    instance->rend_manager = rpe_rend_manager_init(&instance->perm_arena);
 
     return instance;
 }
@@ -52,7 +69,7 @@ void rpe_engine_shutdown(rpe_engine_t* engine)
 
     for (uint32_t i = 0; i < engine->swap_chain_count; ++i)
     {
-        vkapi_swapchain_destroy(vkapi_driver_get_context(engine->driver), &engine->swap_chains[i]);
+        vkapi_swapchain_destroy(engine->driver, &engine->swap_chains[i]);
     }
     arena_release(&engine->perm_arena);
     arena_release(&engine->scratch_arena);
@@ -71,7 +88,7 @@ swapchain_handle_t* rpe_engine_create_swapchain(
 
     engine->swap_chains[engine->swap_chain_count] = vkapi_swapchain_init();
     int err = vkapi_swapchain_create(
-        vkapi_driver_get_context(engine->driver),
+        engine->driver,
         &engine->swap_chains[engine->swap_chain_count],
         surface,
         width,
@@ -87,4 +104,10 @@ swapchain_handle_t* rpe_engine_create_swapchain(
     swapchain_handle_t* handle = calloc(1, sizeof(struct SwapchainHandle));
     handle->idx = engine->swap_chain_count++;
     return handle;
+}
+
+rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* e)
+{
+    assert(e);
+    return &e->obj_manager;
 }

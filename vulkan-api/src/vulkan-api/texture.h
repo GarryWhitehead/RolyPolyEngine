@@ -25,13 +25,13 @@
 #define VKAPI_TEXTURE_MAX_MIP_COUNT 12
 
 #include "common.h"
-#include "utility/compiler.h"
+#include <utility/compiler.h>
 
 // Forward declarations.
 typedef struct VkApiContext vkapi_context_t;
 typedef struct Arena arena_t;
 typedef struct Commands vkapi_commands_t;
-typedef struct StagingPool vkapi_staging_pool_t;
+typedef struct VkApiStagingPool vkapi_staging_pool_t;
 
 typedef struct Texture
 {
@@ -51,7 +51,8 @@ typedef struct Texture
     VkDeviceMemory image_memory;
 
     VkImageView image_views[VKAPI_TEXTURE_MAX_MIP_COUNT];
-
+    // Note: The sampler cache holds the main reference to the sampler and will destroy on termination.
+    VkSampler sampler;
     uint64_t frames_until_gc;
 
 } vkapi_texture_t;
@@ -73,8 +74,8 @@ uint32_t vkapi_texture_format_comp_size(VkFormat format);
 void vkapi_texture_create_image(
     vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);
 
-void vkapi_texture_create_image_view(
-    vkapi_context_t* context, vkapi_texture_t* texture, int view_idx);
+VkImageView vkapi_texture_create_image_view(
+    vkapi_context_t* context, vkapi_texture_t* texture);
 
 void vkapi_texture_create_2d(
     vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);
@@ -83,7 +84,7 @@ void vkapi_texture_map(
     vkapi_context_t* context,
     vkapi_staging_pool_t* staging_pool,
     vkapi_commands_t* commands,
-    VmaAllocator* vma_alloc,
+    VmaAllocator vma_alloc,
     vkapi_texture_t* texture,
     void* data,
     uint32_t data_size,

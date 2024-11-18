@@ -25,6 +25,7 @@
 #include "context.h"
 #include "driver.h"
 #include "error_codes.h"
+#include "texture.h"
 
 #include <math.h>
 #include <string.h>
@@ -37,27 +38,22 @@ vkapi_swapchain_t vkapi_swapchain_init()
     return swapchain;
 }
 
-void vkapi_swapchain_destroy(vkapi_context_t* context, vkapi_swapchain_t* swapchain)
+void vkapi_swapchain_destroy(vkapi_driver_t* driver, vkapi_swapchain_t* swapchain)
 {
-    for (uint32_t i = 0; i < swapchain->image_count; ++i)
-    {
-        vkDestroyImageView(
-            context->device, swapchain->contexts[i].texture.image_views[0], VK_NULL_HANDLE);
-        vkDestroyImage(context->device, swapchain->contexts[i].texture.image, VK_NULL_HANDLE);
-    }
-    vkDestroySwapchainKHR(context->device, swapchain->sc_instance, VK_NULL_HANDLE);
+    // The swapchain images are held by the resource cache and cleared up over there.
+    vkDestroySwapchainKHR(driver->context->device, swapchain->sc_instance, VK_NULL_HANDLE);
 }
 
 int vkapi_swapchain_create(
-    vkapi_context_t* context,
+    vkapi_driver_t* driver,
     vkapi_swapchain_t* swapchain,
     VkSurfaceKHR surface,
     uint32_t win_width,
     uint32_t win_height,
     arena_t* scratch_arena)
 {
-    VkDevice device = context->device;
-    VkPhysicalDevice gpu = context->physical;
+    VkDevice device = driver->context->device;
+    VkPhysicalDevice gpu = driver->context->physical;
 
     // Get the basic surface properties of the physical device
     VkSurfaceCapabilitiesKHR capabilities;
@@ -152,7 +148,7 @@ int vkapi_swapchain_create(
     // if the graphics and presentation aren't the same, then use concurrent
     // sharing mode.
     VkSharingMode sharing_mode = VK_SHARING_MODE_EXCLUSIVE;
-    if (context->queue_info.graphics != context->queue_info.present)
+    if (driver->context->queue_info.graphics != driver->context->queue_info.present)
     {
         sharing_mode = VK_SHARING_MODE_CONCURRENT;
     }
@@ -175,30 +171,36 @@ int vkapi_swapchain_create(
     VK_CHECK_RESULT(
         vkCreateSwapchainKHR(device, &createInfo, VK_NULL_HANDLE, &swapchain->sc_instance));
 
-    vkapi_swapchain_prepare_views(context, swapchain, swapchain->surface_format, scratch_arena);
+    vkapi_swapchain_prepare_views(driver, swapchain, swapchain->surface_format, scratch_arena);
 
     arena_reset(scratch_arena);
     return VKAPI_SUCCESS;
 }
 
 void vkapi_swapchain_prepare_views(
-    vkapi_context_t* context,
+    vkapi_driver_t* driver,
     vkapi_swapchain_t* swapchain,
     VkSurfaceFormatKHR surface_format,
     arena_t* scratch_arena)
 {
     // Get the image locations created when creating the swap chain.
     vkGetSwapchainImagesKHR(
-        context->device, swapchain->sc_instance, &swapchain->image_count, VK_NULL_HANDLE);
+        driver->context->device, swapchain->sc_instance, &swapchain->image_count, VK_NULL_HANDLE);
     VkImage* images = ARENA_MAKE_ARRAY(scratch_arena, VkImage, swapchain->image_count, 0);
     vkGetSwapchainImagesKHR(
-        context->device, swapchain->sc_instance, &swapchain->image_count, images);
+        driver->context->device, swapchain->sc_instance, &swapchain->image_count, images);
 
     for (uint32_t i = 0; i < swapchain->image_count; ++i)
     {
-        swapchain->contexts[i].texture = vkapi_texture_init(
-            swapchain->extent.width, swapchain->extent.height, 1, 1, 0, surface_format.format);
-        swapchain->contexts[i].texture.image = images[i];
-        vkapi_texture_create_image_view(context, &swapchain->contexts[i].texture, i);
+        swapchain->contexts[i].texture = vkapi_res_cache_push_tex2d(
+            driver->res_cache,
+            driver->context,
+            images[i],
+            swapchain->extent.width,
+            swapchain->extent.height,
+            1,
+            1,
+            0,
+            surface_format.format);
     }
 }

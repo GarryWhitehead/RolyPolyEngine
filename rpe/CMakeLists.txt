@@ -16,10 +16,21 @@ target_include_directories(
 )
 
 set (public_headers 
-    include/rpe/engine.h)
+    include/rpe/engine.h
+    include/rpe/object.h
+)
 
 set (src_files
-    src/private_engine.c
+    src/engine.c
+    src/material.c
+    src/commands.c
+    src/render_queue.c
+    src/colour_pass.c
+    src/scene.c
+    src/frustum.c
+    src/renderer.c
+    src/compute.c
+    src/camera.c
     src/render_graph/render_graph.c
     src/render_graph/render_pass_node.c
     src/render_graph/resources.c
@@ -27,10 +38,24 @@ set (src_files
     src/render_graph/rendergraph_resource.c
     src/render_graph/dependency_graph.c
     src/render_graph/backboard.c
+    src/managers/object_manager.c
+    src/managers/renderable_manager.c
+    src/managers/transform_manager.c
+    src/managers/component_manager.c
 )
 
 set (hdr_files
-    src/private_engine.h
+    src/material.h
+    src/commands.h
+    src/render_queue.h
+    src/colour_pass.h
+    src/scene.h
+    src/engine.h
+    src/frustum.h
+    src/aabox.h
+    src/renderer.h
+    src/compute.h
+    src/camera.h
     src/render_graph/render_graph.h
     src/render_graph/render_pass_node.h
     src/render_graph/resources.h
@@ -40,6 +65,10 @@ set (hdr_files
     src/render_graph/render_graph_pass.h
     src/render_graph/dependency_graph.h
     src/render_graph/backboard.h
+    src/managers/object_manager.h
+    src/managers/renderable_manager.h
+    src/managers/transform_manager.h
+    src/managers/component_manager.h
 )
 
 target_sources(
@@ -58,6 +87,8 @@ target_link_libraries(
     UtilityLib
     log.c::log.c
 )
+
+add_dependencies(RPE Shaders)
 
 target_compile_definitions(
     RPE
@@ -81,6 +112,10 @@ if (BUILD_TESTS)
     set (test_srcs
         test/test_main.c
         test/test_render_graph.c
+        test/test_commands.c
+        test/test_visibility.c
+        test/test_compute.c
+        test/vk_setup.h
     )
 
     add_executable(RpeTest ${test_srcs})

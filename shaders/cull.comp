@@ -1,0 +1,51 @@
+#version 460
+
+layout (binding = 0, set = 0) buffer CameraUbo
+{
+    mat4 proj;
+    mat4 view;
+    mat4 model;
+    vec4 fustrums[6];
+} camera_ubo;
+
+struct Instance
+{
+    vec4 center;
+    vec4 extent;
+};
+
+layout (binding = 0, set = 1) readonly buffer InstanceUbo
+{
+    Instance instances[];
+};
+
+layout (binding = 1, set = 1) writeonly buffer VisOut
+{
+    uint visibility[];
+};
+
+layout (local_size_x = 16) in;
+
+bool checkIntersection(vec4 center, vec4 extent)
+{
+    uint is_vis = 1;
+    for (uint i = 0; i < 6; ++i)
+    {
+        
+        float v = camera_ubo.fustrums[i].x * center.x - abs(camera_ubo.fustrums[i].x) * extent.x +
+                  camera_ubo.fustrums[i].y * center.y - abs(camera_ubo.fustrums[i].y) * extent.y +
+                  camera_ubo.fustrums[i].z * center.z - abs(camera_ubo.fustrums[i].z) * extent.z + 
+                  camera_ubo.fustrums[i].w;
+
+        is_vis = v <= 0.0f ? is_vis & 1 : is_vis & 0;
+    }
+    return bool(is_vis);
+}
+
+void main()
+{
+	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+
+    Instance i = instances[idx];
+    visibility[idx] = uint(checkIntersection(i.center, i.extent));
+}

@@ -25,6 +25,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #define ARRAY_UTIL_COUNT_OF(x)                                                                     \
     ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
@@ -33,5 +34,7 @@
     array_util_find((type*)val, (type*)data, size, sizeof(type));
 
 uint32_t array_util_find(void* val, void* data, uint32_t size, uint32_t type_size);
+
+uint64_t array_max_value(const uint64_t* arr, size_t sz);
 
 #endif

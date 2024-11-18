@@ -1,4 +1,4 @@
-/* Copyright (c) 2022 Garry Whitehead
+/* Copyright (c) 2024 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -52,6 +52,7 @@ vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena)
     assert(context);
 
     vkapi_commands_t* instance = ARENA_MAKE_STRUCT(arena, vkapi_commands_t, ARENA_ZERO_MEMORY);
+    instance->available_cmd_buffers = VKAPI_MAX_COMMAND_BUFFER_SIZE;
 
     VkCommandPoolCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -218,4 +219,10 @@ VkSemaphore vkapi_commands_get_finished_signal(vkapi_commands_t* commands)
     VkSemaphore output = commands->submitted_signal;
     commands->submitted_signal = NULL;
     return output;
+}
+
+void vkapi_commands_set_ext_wait_signal(vkapi_commands_t* commands, VkSemaphore s)
+{
+    assert(commands);
+    commands->ext_signal = s;
 }

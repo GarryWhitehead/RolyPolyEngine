@@ -20,38 +20,30 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_PRIVATE_ENGINE_H__
-#define __RPE_PRIVATE_ENGINE_H__
+#ifndef __VKAPI_SAMPLER_CACHE_H__
+#define __VKAPI_SAMPLER_CACHE_H__
 
-#include "rpe/engine.h"
-#include "vulkan-api/swapchain.h"
+#include "backend/enums.h"
+#include "common.h"
 
-#define RPE_ENGINE_MAX_SWAPCHAIN_COUNT 4
-#define RPE_ENGINE_SCRATCH_ARENA_SIZE 1 << 15
-#define RPE_ENGINE_PERM_ARENA_SIZE 1 << 30
+#include <utility/hash_set.h>
 
-// Forward declarations.
 typedef struct VkApiDriver vkapi_driver_t;
-typedef struct VkApiSwapchain vkapi_swapchain_t;
 
-struct SwapchainHandle
+/**
+ Keep track of samplers dispersed between textures
+ with all samplers kept track of in one place.
+ */
+typedef struct SamplerCache
 {
-    /// Index into the swap chain array.
-    uint32_t idx;
-};
+    hash_set_t samplers;
+} vkapi_sampler_cache_t;
 
-struct Engine
-{
-    /// A Vulkan driver instance.
-    vkapi_driver_t* driver;
-    /// A cache array of swapchains.
-    vkapi_swapchain_t swap_chains[RPE_ENGINE_MAX_SWAPCHAIN_COUNT];
-    /// The current number of swapchains that have been created.
-    uint32_t swap_chain_count;
-    /// A scratch arena - used for function scope allocations.
-    arena_t scratch_arena;
-    /// A permanent arena - lasts the lifetime of the engine.
-    arena_t perm_arena;
-};
+vkapi_sampler_cache_t* vkapi_sampler_cache_init(arena_t* arena);
+
+VkSampler* vkapi_sampler_cache_create(
+    vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_driver_t* driver);
+
+void vkapi_sampler_cache_destroy(vkapi_sampler_cache_t* c, vkapi_driver_t* driver);
 
 #endif

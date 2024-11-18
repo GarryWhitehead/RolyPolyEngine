@@ -20,7 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef __VKAPI_COMMON_H__
+#define __VKAPI_COMMON_H__
 
 #include <assert.h>
 #include <log.h>
@@ -56,3 +57,5 @@
             assert(res == VK_SUCCESS);                                                             \
         }                                                                                          \
     }
+
+#endif

@@ -27,6 +27,7 @@
 #include "common.h"
 #include "resource_cache.h"
 
+#include <utility/arena.h>
 #include <utility/maths.h>
 
 #define VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT 6
@@ -43,6 +44,11 @@ typedef struct RenderTargetHandle
     uint32_t id;
 } vkapi_rt_handle_t;
 
+typedef struct AttachmentHandle
+{
+    uint32_t id;
+} vkapi_attach_handle_t;
+
 typedef struct AttachmentInfo
 {
     uint8_t layer;
@@ -50,14 +56,14 @@ typedef struct AttachmentInfo
     texture_handle_t handle;
 } vkapi_attach_info_t;
 
-typedef struct RenderTarget
+typedef struct VkApiRenderTarget
 {
     vkapi_attach_info_t depth;
     vkapi_attach_info_t stencil;
     vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT];
     math_vec4f clear_colour;
     uint8_t samples;
-    bool multiView;
+    bool multi_view;
 
 } vkapi_render_target_t;
 
@@ -77,5 +83,68 @@ typedef struct RenderPassData
     uint32_t height;
     math_vec4f clear_col;
 } vkapi_render_pass_data_t;
+
+struct VkApiAttachment
+{
+    VkFormat format;
+    uint32_t sample_count;
+    VkImageLayout initial_layout;
+    VkImageLayout final_layout;
+    enum LoadClearFlags load_op;
+    enum StoreClearFlags store_op;
+    enum LoadClearFlags stencil_load_op;
+    enum StoreClearFlags stencil_store_op;
+    uint32_t width;
+    uint32_t height;
+};
+
+typedef struct VkApiRenderpass
+{
+    // The frame in which this renderpass was created. Used to
+    // calculate the point at which this renderpass will be destroyed
+    // based on its lifetime.
+    uint64_t last_used_frame_stamp;
+
+    VkRenderPass instance;
+
+    // The colour/input attachments
+    arena_dyn_array_t attach_descriptors;
+    arena_dyn_array_t colour_attach_refs;
+    VkAttachmentReference* depth_attach_desc;
+
+    // The dependencies between renderpasses and external sources
+    VkSubpassDependency subpass_dep[2];
+} vkapi_rpass_t;
+
+typedef struct VkApiFbo
+{
+    // The frame in which this framebuffer was created. Used to
+    // work out the point at which it will be destroyed based on its
+    // lifetime.
+    uint64_t last_used_frame_stamp;
+
+    VkFramebuffer instance;
+
+    uint32_t width;
+    uint32_t height;
+} vkapi_fbo_t;
+
+vkapi_rpass_t vkapi_rpass_init(arena_t* arena);
+
+vkapi_attach_handle_t vkapi_rpass_add_attach(vkapi_rpass_t* rp, struct VkApiAttachment* attach);
+
+void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiView);
+
+vkapi_fbo_t vkapi_fbo_init();
+
+void vkapi_fbo_create(
+    vkapi_fbo_t* fbo,
+    vkapi_driver_t* driver,
+    VkRenderPass rp,
+    VkImageView* image_views,
+    uint32_t count,
+    uint32_t width,
+    uint32_t height,
+    uint8_t layers);
 
 #endif

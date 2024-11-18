@@ -57,6 +57,7 @@ typedef struct VkApiContext
         bool has_external_capabilities;
         bool has_debug_utils;
         bool has_multi_view;
+        bool has_desc_indexing;
     } extensions;
 
     VkInstance instance;
@@ -83,7 +84,7 @@ typedef struct VkApiContext
  @param perm_arena A permanent arena lifetime allocator.
  @param new_context A pointer to the context struct to initialise.
  */
-void vkapi_context_init(arena_t* perm_arena, vkapi_context_t* new_context);
+vkapi_context_t* vkapi_context_init(arena_t* perm_arena);
 
 /**
  Create a Vulkan instance. This must be called before creating the Vulkan device.

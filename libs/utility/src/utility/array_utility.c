@@ -22,8 +22,8 @@
 
 #include "array_utility.h"
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
 uint8_t* _pointer_offset(uint8_t* data, uint32_t size, uint32_t type_size)
 {
@@ -44,4 +44,16 @@ uint32_t array_util_find(void* val, void* data, uint32_t size, uint32_t type_siz
         }
     }
     return UINT32_MAX;
+}
+
+uint64_t array_max_value(const uint64_t* arr, size_t sz)
+{
+    assert(arr);
+    assert(sz > 0);
+    uint64_t max = arr[0];
+    for (size_t i = 1; i < sz; ++i)
+    {
+        max = arr[i] > max ? arr[i] : max;
+    }
+    return max;
 }
