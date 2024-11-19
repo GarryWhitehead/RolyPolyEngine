@@ -88,7 +88,7 @@ rpe_cmd_packet_t* rpe_command_bucket_add_command(
     // store key and pointer to the data
     uint32_t idx = bucket->curr_index++;
     bucket->packets[idx] = packet;
-    void* key_ptr = bucket->keys + idx * sizeof(uint64_t);
+    void* key_ptr = (uint8_t*)bucket->keys + idx * sizeof(uint64_t);
     memcpy(key_ptr, &key, sizeof(uint64_t));
 
     packet->next = NULL;
@@ -148,7 +148,7 @@ void rpe_command_bucket_reset(rpe_cmd_bucket_t* bucket)
 
 rpe_cmd_packet_t* rpe_cmd_packet_create(size_t data_size, size_t cmd_size, arena_t* arena)
 {
-    size_t pkt_size = sizeof(struct CommandPacket) + sizeof(uint8_t[data_size]);
+    size_t pkt_size = sizeof(struct CommandPacket) + data_size * sizeof(uint8_t);
     uint8_t* bytes = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, pkt_size);
     rpe_cmd_packet_t* pkt = (rpe_cmd_packet_t*)bytes;
     pkt->cmds = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, cmd_size);

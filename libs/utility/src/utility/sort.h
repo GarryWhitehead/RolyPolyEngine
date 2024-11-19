@@ -25,7 +25,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "arena.h"
 
-void radix_sort(uint64_t* arr, size_t sz, uint64_t* output);
+void radix_sort(uint64_t* arr, size_t sz, arena_t* arena, uint64_t* output);
 
 #endif

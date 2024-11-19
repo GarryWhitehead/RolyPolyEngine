@@ -36,11 +36,11 @@ rpe_camera_t rpe_camera_init(vkapi_driver_t* driver)
 }
 
 void rpe_camera_set_proj_matrix(
-    rpe_camera_t* cam, float fovy, float aspect, float near, float far, enum ProjectionType type)
+    rpe_camera_t* cam, float fovy, float aspect, float n, float f, enum ProjectionType type)
 {
     if (type == RPE_CAMERA_TYPE_PERSPECTIVE)
     {
-        cam->projection = math_mat4f_projection(fovy, aspect, near, far);
+        cam->projection = math_mat4f_projection(fovy, aspect, n, f);
     }
     else
     {
@@ -49,6 +49,6 @@ void rpe_camera_set_proj_matrix(
 
     cam->aspect = aspect;
     cam->fov = fovy;
-    cam->near = near;
-    cam->far = far;
+    cam->n= n;
+    cam->z = f;
 }

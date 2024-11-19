@@ -188,10 +188,10 @@ void arena_release(arena_t* arena);
 #define DYN_ARRAY_POP_BACK(type, dyn_array) *(type*)dyn_array_pop_back(dyn_array)
 
 #define DYN_ARRAY_APPEND_CHAR(dyn_array, item)                                                     \
-    ({                                                                                             \
+    {                                                                                             \
         const char* str = (const char*)item;                                                       \
         (const char*)dyn_array_append(dyn_array, &(str));                                          \
-    })
+    }
 
 #define DYN_ARRAY_REMOVE(dyn_array, idx) dyn_array_remove(dyn_array, idx)
 

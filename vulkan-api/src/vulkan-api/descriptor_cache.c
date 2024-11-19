@@ -102,7 +102,7 @@ void vkapi_desc_cache_bind_sampler(vkapi_desc_cache_t* c, struct DescriptorImage
 {
     assert(c);
     memcpy(
-        &c->desc_requires.samplers,
+        c->desc_requires.samplers,
         images,
         sizeof(struct DescriptorImage) * VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT);
     c->use_bound_samplers = true;
@@ -112,7 +112,7 @@ void vkapi_desc_cache_bind_storage_image(vkapi_desc_cache_t* c, struct Descripto
 {
     assert(c);
     memcpy(
-        &c->desc_requires.storage_images,
+        c->desc_requires.storage_images,
         images,
         sizeof(struct DescriptorImage) * VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT);
 }
@@ -265,7 +265,7 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
         // As image samplers are bindless, all textures are bound which are
         // currently held by the resource cache.
         vkapi_res_cache_t* rs = c->driver->res_cache;
-        VkDescriptorImageInfo ii[rs->textures.size];
+        VkDescriptorImageInfo* ii = ARENA_MAKE_ZERO_ARRAY(&c->driver->_scratch_arena, VkDescriptorImageInfo, rs->textures.size);
         for (uint32_t i = 0; i < rs->textures.size; ++i)
         {
             vkapi_texture_t* tex = DYN_ARRAY_GET_PTR(vkapi_texture_t, &rs->textures, i);

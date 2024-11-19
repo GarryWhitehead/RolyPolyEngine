@@ -219,7 +219,7 @@ void vkapi_driver_end_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
     vkapi_commands_flush(driver->context, driver->commands);
     VkSemaphore render_complete_signal = vkapi_commands_get_finished_signal(driver->commands);
 
-    VkPresentInfoKHR pi = {};
+    VkPresentInfoKHR pi = {0};
     pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     pi.waitSemaphoreCount = 1;
     pi.pWaitSemaphores = &render_complete_signal;
@@ -321,7 +321,7 @@ void vkapi_driver_begin_rpass(
     fbo->last_used_frame_stamp = driver->current_frame;
 
     // Sort out the clear values for the pass - clear values required for each attachment.
-    VkClearValue clear_values[attach_count];
+    VkClearValue* clear_values = ARENA_MAKE_ARRAY(&driver->_scratch_arena, VkClearValue, attach_count, 0);
 
     for (int i = 0; i < attach_count; ++i)
     {
@@ -345,7 +345,7 @@ void vkapi_driver_begin_rpass(
     VkRect2D extents = {
         .offset.x = 0, .offset.y = 0, .extent.width = fbo->width, .extent.height = fbo->height};
 
-    VkRenderPassBeginInfo bi = {};
+    VkRenderPassBeginInfo bi = {0};
     bi.renderPass = rpass->instance;
     bi.framebuffer = fbo->instance;
     bi.renderArea = extents;
@@ -432,7 +432,7 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
     vkapi_pline_cache_bind_polygon_mode(driver->pline_cache, bundle->raster_state.polygon_mode);
 
     // TODO: Need to support differences in front/back stencil
-    VkPipelineDepthStencilStateCreateInfo ds_state = {};
+    VkPipelineDepthStencilStateCreateInfo ds_state = {0};
     ds_state.front.compareOp = bundle->ds_state.front.compare_op;
     ds_state.front.compareMask = bundle->ds_state.front.compare_mask;
     ds_state.front.depthFailOp = bundle->ds_state.front.depth_fail_op;
@@ -443,7 +443,7 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
     vkapi_pline_cache_bind_depth_stencil_block(driver->pline_cache, &ds_state);
 
     // blend factors
-    VkPipelineColorBlendAttachmentState blend_state = {};
+    VkPipelineColorBlendAttachmentState blend_state = {0};
     blend_state.blendEnable = bundle->blend_state.blend_enable;
     blend_state.srcColorBlendFactor = bundle->blend_state.src_colour;
     blend_state.dstColorBlendFactor = bundle->blend_state.dst_colour;
@@ -506,7 +506,7 @@ void vkapi_driver_begin_cond_render(
 {
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, cond_buffer);
-    VkConditionalRenderingBeginInfoEXT bi = {};
+    VkConditionalRenderingBeginInfoEXT bi = {0};
     bi.sType = VK_STRUCTURE_TYPE_CONDITIONAL_RENDERING_BEGIN_INFO_EXT;
     bi.buffer = buffer->buffer;
     bi.offset = offset;

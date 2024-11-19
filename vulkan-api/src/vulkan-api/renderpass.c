@@ -130,13 +130,13 @@ void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiVie
         rp->subpass_dep[1].srcAccessMask = rp->subpass_dep[0].dstAccessMask;
     }
 
-    VkSubpassDescription sp = {};
+    VkSubpassDescription sp = {0};
     sp.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     sp.colorAttachmentCount = rp->colour_attach_refs.size;
     sp.pColorAttachments = rp->colour_attach_refs.data;
     sp.pDepthStencilAttachment = rp->depth_attach_desc ? rp->depth_attach_desc : VK_NULL_HANDLE;
 
-    VkRenderPassCreateInfo ci = {};
+    VkRenderPassCreateInfo ci = {0};
     ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     ci.attachmentCount = rp->attach_descriptors.size;
     ci.pAttachments = rp->attach_descriptors.data;
@@ -147,8 +147,8 @@ void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiVie
 
     VkRenderPassMultiviewCreateInfo mv_ci = {};
     mv_ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO;
-    uint32_t view_masks[rp->attach_descriptors.size];
-    uint32_t correlation_masks[rp->attach_descriptors.size];
+    uint32_t* view_masks = ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint32_t, rp->attach_descriptors.size, 0);
+    uint32_t* correlation_masks = ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint32_t, rp->attach_descriptors.size, 0);
     if (multiView)
     {
         // Note: at present only multi view rendering to cube maps

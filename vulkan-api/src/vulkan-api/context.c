@@ -27,7 +27,7 @@
 #include <log.h>
 #include <string.h>
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     VkDebugReportFlagsEXT flags,
     VkDebugReportObjectTypeEXT obj_type,
     uint64_t obj,
@@ -66,7 +66,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     return VK_FALSE;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessenger(
+VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessenger(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     VkDebugUtilsMessageTypeFlagsEXT type,
     const VkDebugUtilsMessengerCallbackDataEXT* data,

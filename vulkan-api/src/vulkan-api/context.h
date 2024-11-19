@@ -24,8 +24,9 @@
 #define __VKAPI_CONTEXT_H__
 
 #include "common.h"
-#include "utility/arena.h"
-#include "utility/compiler.h"
+
+#include <utility/arena.h>
+#include <utility/compiler.h>
 
 #include <stdbool.h>
 

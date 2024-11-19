@@ -72,7 +72,7 @@ void vkapi_buffer_map_to_gpu_buffer(vkapi_buffer_t* buffer, void* data, size_t d
 {
     assert(buffer);
     assert(data);
-    memcpy(buffer->alloc_info.pMappedData + offset, data, data_size);
+    memcpy((uint8_t*)buffer->alloc_info.pMappedData + offset, data, data_size);
 }
 
 void vkapi_map_and_copy_to_gpu(

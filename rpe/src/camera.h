@@ -50,10 +50,16 @@ typedef struct Camera
     math_mat4f model;
 
     float fov;
-    float near;
-    float far;
+    float n;
+    float z;
     float aspect;
 
 } rpe_camera_t;
+
+
+rpe_camera_t rpe_camera_init(vkapi_driver_t* driver);
+
+void rpe_camera_set_proj_matrix(
+    rpe_camera_t* cam, float fovy, float aspect, float n, float z, enum ProjectionType type);
 
 #endif

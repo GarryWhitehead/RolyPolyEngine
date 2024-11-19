@@ -79,9 +79,11 @@ enum InsertResult
 };
 enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value)
 {
+    assert(set);
     assert(value);
 
     uint32_t idx = _index_from_hash(set, hash);
+    assert(idx < set->capacity);
 
     hash_set_node_t* node = &set->nodes[idx];
     if (node->hash == hash)

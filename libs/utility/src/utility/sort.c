@@ -27,13 +27,13 @@
 #include <string.h>
 #include <stdio.h>
 
-void count_sort(uint64_t* arr, size_t sz, int pos, uint64_t* output)
+void count_sort(uint64_t* arr, size_t sz, int pos, arena_t* arena, uint64_t* output)
 {
     uint64_t bucket[10];
     memset(bucket, 0, sizeof(uint64_t) * 10);
 
-    uint64_t sorted[sz];
-    uint64_t tmp[sz];
+    uint64_t* sorted = ARENA_MAKE_ARRAY(arena, uint64_t, sz, 0);
+    uint64_t* tmp = ARENA_MAKE_ARRAY(arena, uint64_t, sz, 0);
 
     for (size_t i = 0; i < sz; ++i)
     {
@@ -54,13 +54,13 @@ void count_sort(uint64_t* arr, size_t sz, int pos, uint64_t* output)
     memcpy(output, tmp, sizeof(uint64_t) * sz);
 }
 
-void radix_sort(uint64_t* arr, size_t sz, uint64_t* output)
+void radix_sort(uint64_t* arr, size_t sz, arena_t* arena, uint64_t* output)
 {
     assert(arr);
     uint64_t max = array_max_value(arr, sz);
 
     // Keep looping based upon the number of digits of the max value in the array.
-    uint64_t temp_arr[sz];
+    uint64_t* temp_arr = ARENA_MAKE_ARRAY(arena, uint64_t, sz, 0);
     for (uint64_t i = 0; i < sz; ++i)
     {
         output[i] = i;
@@ -68,6 +68,6 @@ void radix_sort(uint64_t* arr, size_t sz, uint64_t* output)
     memcpy(temp_arr, arr, sz * sizeof(uint64_t));
     for (int pos = 1; max / pos > 0; pos *= 10)
     {
-        count_sort(temp_arr, sz, pos, output);
+        count_sort(temp_arr, sz, pos, arena, output);
     }
 }
