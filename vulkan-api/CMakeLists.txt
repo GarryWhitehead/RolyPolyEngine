@@ -82,21 +82,21 @@ target_include_directories(
     PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanApi"
+    "${RPE_RENDERDOC_ROOT_PATH}/include"
+    ${RPE_RENDERDOC_ROOT_PATH}
     PRIVATE
     ${VulkanHeaders_INCLUDE_DIRS}
 )
 
 target_compile_definitions(
     VulkanApi
-    PRIVATE
+    PUBLIC
     RPE_SHADER_DIRECTORY="${RPE_SHADER_SIPRV_DIRECTORY}"
     VULKAN_VALIDATION_DEBUG=${WITH_VALIDATION_LAYERS}
     RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
 )
 
-target_link_libraries(
-    VulkanApi
-    PUBLIC
+set (vulkan_api_libs
     glslang::glslang
     glslang::SPIRV
     log.c::log.c
@@ -108,7 +108,21 @@ target_link_libraries(
     UtilityLib
 )
 
+target_link_libraries(
+    VulkanApi
+    PUBLIC
+    ${vulkan_api_libs}
+)
+
 add_dependencies(VulkanApi Shaders)
+
+if (RPE_FOUND_RENDERDOC)
+    target_compile_definitions(
+        VulkanApi
+        PUBLIC
+        RPE_RENDERDOC_LIB_PATH="${RPE_RENDERDOC_LIB_PATH}"
+    )
+endif()
 
 # add common compiler flags
 rpe_add_compiler_flags(TARGET VulkanApi)

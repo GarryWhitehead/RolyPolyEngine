@@ -23,7 +23,7 @@ static inline arena_t* setup_arena(size_t size)
     return arena;
 }
 
-static inline void shutdown(vkapi_driver_t* driver, arena_t* arena)
+static inline void test_shutdown(vkapi_driver_t* driver, arena_t* arena)
 {
     vkapi_driver_shutdown(driver);
     arena_release(arena);

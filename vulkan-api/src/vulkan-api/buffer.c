@@ -171,11 +171,10 @@ void vkapi_buffer_download_to_host(
     assert(host_buffer);
     assert(data_size > 0);
 
-    vkapi_commands_t* cmds = driver->commands;
-    vkapi_cmdbuffer_t* cmd = vkapi_commands_get_cmdbuffer(driver->context, cmds);
+    vkapi_cmdbuffer_t* cmd = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
 
     VkMemoryBarrier mem_barrier = {
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT, .dstAccessMask = VK_ACCESS_HOST_READ_BIT};
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER, .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT, .dstAccessMask = VK_ACCESS_HOST_READ_BIT};
     vkCmdPipelineBarrier(
         cmd->instance,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -187,7 +186,7 @@ void vkapi_buffer_download_to_host(
         VK_NULL_HANDLE,
         0,
         VK_NULL_HANDLE);
-    vkapi_commands_flush(driver->context, cmds);
+    vkapi_commands_flush(driver->context, driver->commands);
     // TODO: Make thread blocking by this function optional.
     VK_CHECK_RESULT(vkWaitForFences(
        driver->context->device, 1, &cmd->fence, VK_TRUE, UINT64_MAX));

@@ -40,7 +40,7 @@ TEST(ComputeGroup, TestComputePipeline)
 
     arena_t* arena = setup_arena(1 << 20);
     vkapi_driver_t* driver = setup_driver();
-
+   
     rpe_compute_t* compute = rpe_compute_init_from_text(driver, test_shader, arena);
     TEST_ASSERT_NOT_NULL(compute);
 
@@ -51,17 +51,18 @@ TEST(ComputeGroup, TestComputePipeline)
         in_data[i] = i * 2;
     }
 
-    buffer_handle_t in_ssbo_handle = rpe_compute_bind_ssbo(compute, driver, 0, data_size * sizeof(int));
-    rpe_compute_bind_ssbo(compute, driver, 1, data_size * sizeof(int));
+    buffer_handle_t in_ssbo_handle = rpe_compute_bind_ssbo(compute, driver, 0, data_size);
+    rpe_compute_bind_ssbo(compute, driver, 1, data_size);
     buffer_handle_t ubo_handle = rpe_compute_bind_ubo(compute, driver, 0);
 
     vkapi_driver_map_gpu_buffer(driver, in_ssbo_handle, data_size * sizeof(int), 0, in_data);
     vkapi_driver_map_gpu_buffer(driver, ubo_handle, sizeof(int), 0, &data_size);
 
     vkapi_driver_dispatch_compute(driver, compute->bundle, data_size / 16 + 1, 1, 1);
-
+   
     int host_data[1000];
     rpe_compute_download_ssbo_to_host(compute, driver, 1, data_size * sizeof(int), host_data);
 
     TEST_ASSERT(memcmp(host_data, in_data, data_size * sizeof(int)) == 0);
+
 }

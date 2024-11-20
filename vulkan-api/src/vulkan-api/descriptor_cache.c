@@ -25,8 +25,8 @@
 #include "driver.h"
 #include "pipeline_cache.h"
 #include "program_manager.h"
-#include "texture.h"
 #include "shader.h"
+#include "texture.h"
 
 #include <utility/hash.h>
 
@@ -146,15 +146,13 @@ void vkapi_desc_cache_bind_ssbo(
     c->desc_requires.ssbo_buffer_sizes[bind_value] = size;
 }
 
-vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
-    vkapi_desc_cache_t* c, shader_prog_bundle_t* bundle)
+vkapi_desc_set_t
+vkapi_desc_cache_create_desc_sets(vkapi_desc_cache_t* c, shader_prog_bundle_t* bundle)
 {
     assert(c);
     assert(bundle);
 
-    vkapi_desc_set_t ds;
-    memset(&ds, 0, sizeof(vkapi_desc_set_t));
-
+    vkapi_desc_set_t ds = {0};
     memcpy(
         ds.layout,
         bundle->desc_layouts,
@@ -177,7 +175,7 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
     ext_info.pDescriptorCounts = variable_counts;
 
     // Create a descriptor set for each layout.
-    VkDescriptorSetAllocateInfo ai = {};
+    VkDescriptorSetAllocateInfo ai = {0};
     ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     ai.descriptorPool = c->descriptor_pool;
     ai.pSetLayouts = ds.layout;
@@ -186,7 +184,7 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
     VK_CHECK_RESULT(vkAllocateDescriptorSets(c->driver->context->device, &ai, ds.desc_sets));
 
     // Update the descriptor sets for each type (buffer, sampler, attachment).
-    VkWriteDescriptorSet write_sets[VKAPI_PIPELINE_MAX_DESC_SET_COUNT * 6];
+    VkWriteDescriptorSet write_sets[VKAPI_PIPELINE_MAX_DESC_SET_COUNT * 6] = {};
     size_t write_set_count = 0;
 
     VkDescriptorBufferInfo buffer_info[VKAPI_PIPELINE_MAX_UBO_BIND_COUNT] = {};
@@ -205,14 +203,13 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
             bi->offset = 0;
             bi->range = c->desc_requires.buffer_sizes[bind];
 
-            VkWriteDescriptorSet ws = {};
-            ws.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            ws.dstSet = ds.desc_sets[VKAPI_PIPELINE_UBO_SET_VALUE];
-            ws.pBufferInfo = bi;
-            ws.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            ws.dstBinding = bind;
-            ws.descriptorCount = 1;
-            write_sets[write_set_count++] = ws;
+            VkWriteDescriptorSet* ws = &write_sets[write_set_count++];
+            ws->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            ws->dstSet = ds.desc_sets[VKAPI_PIPELINE_UBO_SET_VALUE];
+            ws->pBufferInfo = bi;
+            ws->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            ws->dstBinding = bind;
+            ws->descriptorCount = 1;
         }
     }
     // storage buffers
@@ -225,14 +222,13 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
             bi->offset = 0;
             bi->range = c->desc_requires.ssbo_buffer_sizes[bind];
 
-            VkWriteDescriptorSet ws = {};
-            ws.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            ws.dstSet = ds.desc_sets[VKAPI_PIPELINE_SSBO_SET_VALUE];
-            ws.pBufferInfo = bi;
-            ws.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            ws.dstBinding = bind;
-            ws.descriptorCount = 1;
-            write_sets[write_set_count++] = ws;
+            VkWriteDescriptorSet* ws = &write_sets[write_set_count++];
+            ws->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            ws->dstSet = ds.desc_sets[VKAPI_PIPELINE_SSBO_SET_VALUE];
+            ws->pBufferInfo = bi;
+            ws->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            ws->dstBinding = bind;
+            ws->descriptorCount = 1;
         }
     }
 
@@ -249,14 +245,13 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
                 ii->imageLayout = c->desc_requires.samplers[bind].image_layout;
                 ii->sampler = c->desc_requires.samplers[bind].image_sampler;
 
-                VkWriteDescriptorSet ws = {};
-                ws.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                ws.dstSet = ds.desc_sets[VKAPI_PIPELINE_SAMPLER_SET_VALUE];
-                ws.pImageInfo = ii;
-                ws.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                ws.dstBinding = bind;
-                ws.descriptorCount = 1;
-                write_sets[write_set_count++] = ws;
+                VkWriteDescriptorSet* ws = &write_sets[write_set_count++];
+                ws->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                ws->dstSet = ds.desc_sets[VKAPI_PIPELINE_SAMPLER_SET_VALUE];
+                ws->pImageInfo = ii;
+                ws->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                ws->dstBinding = bind;
+                ws->descriptorCount = 1;
             }
         }
     }
@@ -265,7 +260,8 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
         // As image samplers are bindless, all textures are bound which are
         // currently held by the resource cache.
         vkapi_res_cache_t* rs = c->driver->res_cache;
-        VkDescriptorImageInfo* ii = ARENA_MAKE_ZERO_ARRAY(&c->driver->_scratch_arena, VkDescriptorImageInfo, rs->textures.size);
+        VkDescriptorImageInfo* ii = ARENA_MAKE_ZERO_ARRAY(
+            &c->driver->_scratch_arena, VkDescriptorImageInfo, rs->textures.size);
         for (uint32_t i = 0; i < rs->textures.size; ++i)
         {
             vkapi_texture_t* tex = DYN_ARRAY_GET_PTR(vkapi_texture_t, &rs->textures, i);
@@ -273,14 +269,13 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
             ii[i].imageLayout = tex->image_layout;
             ii[i].sampler = tex->sampler;
         }
-        VkWriteDescriptorSet ws = {};
-        ws.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        ws.dstSet = ds.desc_sets[VKAPI_PIPELINE_SAMPLER_SET_VALUE];
-        ws.pImageInfo = ii;
-        ws.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        ws.dstBinding = 1;
-        ws.descriptorCount = rs->textures.size;
-        write_sets[write_set_count++] = ws;
+        VkWriteDescriptorSet* ws = &write_sets[write_set_count++];
+        ws->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        ws->dstSet = ds.desc_sets[VKAPI_PIPELINE_SAMPLER_SET_VALUE];
+        ws->pImageInfo = ii;
+        ws->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        ws->dstBinding = 1;
+        ws->descriptorCount = rs->textures.size;
     }
 
     // Storage images.
@@ -293,14 +288,13 @@ vkapi_desc_set_t vkapi_desc_cache_create_desc_sets(
             ii->imageLayout = c->desc_requires.storage_images[bind].image_layout;
             ii->sampler = c->desc_requires.storage_images[bind].image_sampler;
 
-            VkWriteDescriptorSet ws = {};
-            ws.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            ws.dstSet = ds.desc_sets[VKAPI_PIPELINE_STORAGE_IMAGE_SET_VALUE];
-            ws.pImageInfo = ii;
-            ws.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-            ws.dstBinding = bind;
-            ws.descriptorCount = 1;
-            write_sets[write_set_count++] = ws;
+            VkWriteDescriptorSet* ws = &write_sets[write_set_count++];
+            ws->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            ws->dstSet = ds.desc_sets[VKAPI_PIPELINE_STORAGE_IMAGE_SET_VALUE];
+            ws->pImageInfo = ii;
+            ws->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            ws->dstBinding = bind;
+            ws->descriptorCount = 1;
         }
     }
 
@@ -334,8 +328,8 @@ void vkapi_desc_cache_create_pool(vkapi_desc_cache_t* c)
     ci.maxSets = c->current_desc_pool_size * VKAPI_PIPELINE_MAX_DESC_SET_COUNT;
     ci.poolSizeCount = VKAPI_PIPELINE_MAX_DESC_SET_COUNT;
     ci.pPoolSizes = pools;
-    VK_CHECK_RESULT(
-        vkCreateDescriptorPool(c->driver->context->device, &ci, VK_NULL_HANDLE, &c->descriptor_pool))
+    VK_CHECK_RESULT(vkCreateDescriptorPool(
+        c->driver->context->device, &ci, VK_NULL_HANDLE, &c->descriptor_pool))
 }
 
 void vkapi_desc_cache_increase_pool_capacity(vkapi_desc_cache_t* c)
@@ -369,7 +363,8 @@ void vkapi_desc_cache_create_layouts(
     // Create the descriptor set layouts as we have all the information. Will be used in the
     // caching of the pipeline layouts.
     shader_binding_t* sb = &shader->resource_binding;
-    VkDescriptorSetLayoutBinding desc_bindings[VKAPI_PIPELINE_MAX_DESC_SET_COUNT][VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT];
+    VkDescriptorSetLayoutBinding desc_bindings[VKAPI_PIPELINE_MAX_DESC_SET_COUNT]
+                                              [VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT];
     int desc_binding_counts[VKAPI_PIPELINE_MAX_DESC_SET_COUNT] = {0};
 
     for (uint32_t i = 0; i < sb->desc_layout_count; ++i)
@@ -409,7 +404,8 @@ void vkapi_desc_cache_create_layouts(
     for (uint32_t set_idx = 0; set_idx < VKAPI_PIPELINE_MAX_DESC_SET_COUNT; ++set_idx)
     {
         VkDescriptorSetLayoutBindingFlagsCreateInfoEXT ext_flags = {};
-        VkDescriptorBindingFlags bind_flag = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
+        VkDescriptorBindingFlags bind_flag =
+            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
         VkDescriptorSetLayoutCreateInfo layout_info = {0};
 
         if (set_idx == VKAPI_PIPELINE_SAMPLER_SET_VALUE)
@@ -506,7 +502,8 @@ void vkapi_desc_cache_destroy(vkapi_desc_cache_t* c)
         {
             if (set->layout[idx])
             {
-                vkDestroyDescriptorSetLayout(c->driver->context->device, set->layout[idx], VK_NULL_HANDLE);
+                vkDestroyDescriptorSetLayout(
+                    c->driver->context->device, set->layout[idx], VK_NULL_HANDLE);
             }
         }
     }

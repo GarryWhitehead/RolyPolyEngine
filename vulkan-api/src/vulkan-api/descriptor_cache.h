@@ -24,7 +24,6 @@
 #define __VKAPI_DESCRIPTOR_CACHE_H__
 
 #define VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT 6
-#define VKAPI_PIPELINE_MAX_PUSH_CONSTANT_COUNT 10
 // Bindless samplers used by graphics pipeline.
 #define VKAPI_PIPELINE_MAX_SAMPLER_BINDLESS_COUNT 1024
 // Bound samplers for compute shaders.

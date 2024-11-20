@@ -24,3 +24,5 @@
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 1
 #include <vk_mem_alloc.h>
+
+RENDERDOC_API_1_1_0 *rdoc_api = NULL;

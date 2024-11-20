@@ -200,11 +200,10 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
     VkSubmitInfo submit_info = {0};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = signal_idx;
-    submit_info.pWaitSemaphores = wait_signals;
+    submit_info.pWaitSemaphores = signal_idx > 0 ? wait_signals : NULL;
     submit_info.pWaitDstStageMask = flags;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &commands->curr_cmd_buffer->instance;
-    submit_info.waitSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &commands->curr_signal;
     VK_CHECK_RESULT(
         vkQueueSubmit(context->graphics_queue, 1, &submit_info, commands->curr_cmd_buffer->fence));

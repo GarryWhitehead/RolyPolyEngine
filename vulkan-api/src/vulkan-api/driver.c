@@ -37,6 +37,8 @@
 
 vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* error_code)
 {
+    RENDERDOC_CREATE_API_INSTANCE
+
     *error_code = VKAPI_SUCCESS;
 
     // Allocate the arena space.
@@ -109,6 +111,7 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     driver->sampler_cache = vkapi_sampler_cache_init(&driver->_perm_arena);
     driver->res_cache = vkapi_res_cache_init(driver, &driver->_perm_arena);
     driver->staging_pool = vkapi_staging_init(&driver->_perm_arena);
+    
     return VKAPI_SUCCESS;
 }
 
@@ -520,8 +523,13 @@ void vkapi_driver_dispatch_compute(
     uint32_t y_work_count,
     uint32_t z_work_count)
 {
+    RENDERDOC_START_CAPTURE(NULL, NULL)
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
+    // Note: potential memory issue here - if we don't push the pl layout instance to a local
+    // register, the `pl_layout` memory gets corrupted below along with the instance and things
+    // break.
+    VkPipelineLayout pl_instance = pl_layout->instance;
 
     // image storage
     struct DescriptorImage storage_images[VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT] = {0};
@@ -579,11 +587,11 @@ void vkapi_driver_dispatch_compute(
         driver->desc_cache,
         cmds->instance,
         bundle,
-        pl_layout->instance,
+        pl_instance,
         VK_PIPELINE_BIND_POINT_COMPUTE);
     vkapi_pline_cache_bind_compute_shader_modules(driver->pline_cache, bundle);
 
-    vkapi_pline_cache_bind_compute_pl_layout(driver->pline_cache, pl_layout->instance);
+    vkapi_pline_cache_bind_compute_pl_layout(driver->pline_cache, pl_instance);
     vkapi_pline_cache_bind_compute_pipeline(driver->pline_cache, cmds->instance);
 
     // Bind the push block.
@@ -601,7 +609,7 @@ void vkapi_driver_dispatch_compute(
     }
 
     vkCmdDispatch(cmds->instance, x_work_count, y_work_count, z_work_count);
-    vkapi_commands_flush(driver->context, driver->commands);
+    RENDERDOC_END_CAPTURE(NULL, NULL)
 }
 
 void vkapi_driver_gc(vkapi_driver_t* driver)

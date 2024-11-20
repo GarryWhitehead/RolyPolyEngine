@@ -123,7 +123,7 @@ TEST(RenderGraphGroup, RenderGraph_Tests1)
     TEST_ASSERT_TRUE(rg_node_is_culled((rg_node_t*)p->node));
     rg_execute(rg, p, driver, eng);
 
-    shutdown(driver, arena);
+    test_shutdown(driver, arena);
 }
 
 struct DataBasic
@@ -175,7 +175,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsBasic)
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
     rg_execute(rg, p, driver, NULL);
 
-    shutdown(driver, arena);
+    test_shutdown(driver, arena);
 }
 
 struct DataGBuffer
@@ -302,7 +302,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer)
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
     rg_execute(rg, p, driver, eng);
 
-    shutdown(driver, arena);
+    test_shutdown(driver, arena);
 }
 
 TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
@@ -345,5 +345,5 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
     rg_execute(rg, p, driver, NULL);
 
-    shutdown(driver, arena);
+    test_shutdown(driver, arena);
 }
