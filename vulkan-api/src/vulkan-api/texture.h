@@ -25,6 +25,7 @@
 #define VKAPI_TEXTURE_MAX_MIP_COUNT 12
 
 #include "common.h"
+
 #include <utility/compiler.h>
 
 // Forward declarations.
@@ -51,7 +52,8 @@ typedef struct Texture
     VkDeviceMemory image_memory;
 
     VkImageView image_views[VKAPI_TEXTURE_MAX_MIP_COUNT];
-    // Note: The sampler cache holds the main reference to the sampler and will destroy on termination.
+    // Note: The sampler cache holds the main reference to the sampler and will destroy on
+    // termination.
     VkSampler sampler;
     uint64_t frames_until_gc;
 
@@ -74,8 +76,7 @@ uint32_t vkapi_texture_format_comp_size(VkFormat format);
 void vkapi_texture_create_image(
     vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);
 
-VkImageView vkapi_texture_create_image_view(
-    vkapi_context_t* context, vkapi_texture_t* texture);
+VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture);
 
 void vkapi_texture_create_2d(
     vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);

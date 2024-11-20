@@ -29,9 +29,7 @@
 #include "shader.h"
 
 vkapi_graphics_pl_t vkapi_graph_pl_create(
-    vkapi_context_t* context,
-    graphics_pl_key_t* key,
-    struct SpecConstParams* spec_consts)
+    vkapi_context_t* context, graphics_pl_key_t* key, struct SpecConstParams* spec_consts)
 {
     vkapi_graphics_pl_t pl;
 
@@ -149,12 +147,12 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     return pl;
 }
 
-vkapi_compute_pl_t
-vkapi_compute_pl_create(vkapi_context_t* context, compute_pl_key_t* key)
+vkapi_compute_pl_t vkapi_compute_pl_create(vkapi_context_t* context, compute_pl_key_t* key)
 {
     assert(key);
+    assert(key->pl_layout);
 
-    vkapi_compute_pl_t pl;
+    vkapi_compute_pl_t pl = {0};
     VkComputePipelineCreateInfo ci = {0};
     ci.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     ci.layout = key->pl_layout;

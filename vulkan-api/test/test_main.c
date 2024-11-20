@@ -12,10 +12,16 @@ TEST_GROUP_RUNNER(ShaderGroup)
     RUN_TEST_CASE(ShaderGroup, Shader_CompilerTests)
 }
 
+TEST_GROUP_RUNNER(CacheGroup)
+{
+    RUN_TEST_CASE(CacheGroup, KeyCompare_Test)
+}
+
 static void run_all_tests()
 {
     RUN_TEST_GROUP(ProgramManagerGroup)
     RUN_TEST_GROUP(ShaderGroup)
+    RUN_TEST_GROUP(CacheGroup)
 }
 
 // clang-format on

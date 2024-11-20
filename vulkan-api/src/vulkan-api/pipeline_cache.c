@@ -80,35 +80,12 @@ vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* d
 
 bool vkapi_pline_cache_compare_graphic_keys(graphics_pl_key_t* lhs, graphics_pl_key_t* rhs)
 {
-    bool res = true;
-    res &=
-        memcmp(&lhs->ds_state, &rhs->ds_state, sizeof(VkPipelineDepthStencilStateCreateInfo)) == 0;
-    res &= memcmp(
-               &lhs->raster_state,
-               &rhs->raster_state,
-               sizeof(VkPipelineRasterizationStateCreateInfo)) == 0;
-    res &=
-        memcmp(&lhs->blend_state, &rhs->blend_state, sizeof(VkPipelineColorBlendAttachmentState)) ==
-        0;
-    res &= memcmp(&lhs->asm_state, &rhs->asm_state, sizeof(VkPipelineInputAssemblyStateCreateInfo));
-    res &= memcmp(&lhs->shaders, &rhs->shaders, sizeof(graphics_pl_key_t)) == 0;
-    res &=
-        memcmp(
-            &lhs->vert_attr_descs,
-            &rhs->vert_attr_descs,
-            sizeof(VkVertexInputAttributeDescription) * VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT) == 0;
-    res &= memcmp(
-               &lhs->vert_bind_descs,
-               &rhs->vert_bind_descs,
-               sizeof(VkVertexInputBindingDescription) * VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT) == 0;
-    res &= lhs->render_pass == rhs->render_pass;
-    res &= lhs->tesse_vert_count == rhs->tesse_vert_count;
-    return res;
+    return memcmp(lhs, rhs, sizeof(graphics_pl_key_t)) == 0;
 }
 
 bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_key_t* rhs)
 {
-    return memcmp(&lhs->shader, &rhs->shader, sizeof(VkPipelineShaderStageCreateInfo)) == 0;
+    return memcmp(lhs, rhs, sizeof(compute_pl_key_t)) == 0;
 }
 
 void vkapi_pline_cache_bind_graphics_pline(
@@ -149,15 +126,12 @@ vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
 
     // If we are in a threaded environment, then we can't add to the list until we are out of the
     // thread
-    vkapi_graphics_pl_t new_pl = vkapi_graph_pl_create(
-        c->driver->context,
-        &c->graphics_pline_requires,
-        spec_consts);
+    vkapi_graphics_pl_t new_pl =
+        vkapi_graph_pl_create(c->driver->context, &c->graphics_pline_requires, spec_consts);
     return HASH_SET_INSERT(&c->gfx_pipelines, &c->graphics_pline_requires, &new_pl);
 }
 
-void vkapi_pline_cache_bind_compute_pipeline(
-    vkapi_pipeline_cache_t* c, VkCommandBuffer cmd_buffer)
+void vkapi_pline_cache_bind_compute_pipeline(vkapi_pipeline_cache_t* c, VkCommandBuffer cmd_buffer)
 {
     assert(c);
     if (vkapi_pline_cache_compare_compute_keys(&c->bound_compute_pline, &c->compute_pline_requires))
@@ -172,8 +146,7 @@ void vkapi_pline_cache_bind_compute_pipeline(
     c->bound_compute_pline = c->compute_pline_requires;
 }
 
-vkapi_compute_pl_t*
-vkapi_pline_cache_find_or_create_compute_pline(vkapi_pipeline_cache_t* c)
+vkapi_compute_pl_t* vkapi_pline_cache_find_or_create_compute_pline(vkapi_pipeline_cache_t* c)
 {
     assert(c);
     vkapi_compute_pl_t* pl = HASH_SET_GET(&c->compute_pipelines, &c->compute_pline_requires);
@@ -188,12 +161,15 @@ vkapi_pline_cache_find_or_create_compute_pline(vkapi_pipeline_cache_t* c)
 
 void vkapi_pline_cache_bind_gfx_shader_modules(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
 {
-    shader_bundle_get_shader_stage_create_info_all(b, c->driver, c->graphics_pline_requires.shaders);
+    shader_bundle_get_shader_stage_create_info_all(
+        b, c->driver, c->graphics_pline_requires.shaders);
 }
 
-void vkapi_pline_cache_bind_compute_shader_modules(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
+void vkapi_pline_cache_bind_compute_shader_modules(
+    vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
 {
-    c->compute_pline_requires.shader = shader_bundle_get_shader_stage_create_info(b, c->driver, RPE_BACKEND_SHADER_STAGE_COMPUTE);
+    c->compute_pline_requires.shader =
+        shader_bundle_get_shader_stage_create_info(b, c->driver, RPE_BACKEND_SHADER_STAGE_COMPUTE);
 }
 
 void vkapi_pline_cache_bind_rpass(vkapi_pipeline_cache_t* c, VkRenderPass rpass)

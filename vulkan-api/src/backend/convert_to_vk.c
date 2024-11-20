@@ -410,4 +410,3 @@ VkSampleCountFlagBits samples_to_vk(uint32_t count)
     }
     return result;
 }
-

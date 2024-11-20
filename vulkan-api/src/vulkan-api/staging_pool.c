@@ -42,8 +42,8 @@ vkapi_staging_pool_t* vkapi_staging_init(arena_t* perm_arena)
     return instance;
 }
 
-vkapi_staging_instance_t* vkapi_staging_get(
-    vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, VkDeviceSize req_size)
+vkapi_staging_instance_t*
+vkapi_staging_get(vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, VkDeviceSize req_size)
 {
     // Check for a free staging space that is equal or greater than the required
     // size.
@@ -73,9 +73,7 @@ vkapi_staging_instance_t* vkapi_staging_get(
 }
 
 void vkapi_staging_gc(
-    vkapi_staging_pool_t* staging_pool,
-    VmaAllocator vma_alloc,
-    uint64_t current_frame)
+    vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, uint64_t current_frame)
 {
     // destroy buffers that have not been used in some time
     for (uint32_t i = 0; i < staging_pool->stages.size; ++i)

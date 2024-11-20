@@ -24,8 +24,8 @@
 #define __UTILITY_ARRAY_UTILITY_H__
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define ARRAY_UTIL_COUNT_OF(x)                                                                     \
     ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))

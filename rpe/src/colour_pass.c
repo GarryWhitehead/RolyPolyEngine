@@ -21,12 +21,14 @@
  */
 
 #include "colour_pass.h"
-#include "scene.h"
+
 #include "engine.h"
 #include "render_graph/render_graph.h"
 #include "render_graph/render_pass_node.h"
 #include "render_graph/rendergraph_resource.h"
 #include "render_queue.h"
+#include "scene.h"
+
 #include <vulkan-api/driver.h>
 
 void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
@@ -105,16 +107,17 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_backboard_add(bb, "gbufferDepth", d->depth);
 }
 
-void execute_gbuffer(vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
+void execute_gbuffer(
+    vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
 {
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     rg_resource_info_t info = rg_res_get_render_pass_info(res, d->rt);
 
-    vkapi_cmdbuffer_t* cmd_buffer =
-        vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
 
-    // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset into this buffer.
+    // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset
+    // into this buffer.
     vkapi_driver_bind_vertex_buffer(driver);
     vkapi_driver_bind_index_buffer(driver);
 
@@ -130,6 +133,6 @@ struct ColourPassInfo rpe_colour_pass_render(render_graph_t* rg)
     rg_pass_t* p =
         rg_add_pass(rg, "ColourPass", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer));
     struct DataGBuffer* d = (struct DataGBuffer*)p->data;
-    struct ColourPassInfo info = {.colour = d->colour, .pass = p };
+    struct ColourPassInfo info = {.colour = d->colour, .pass = p};
     return info;
 }

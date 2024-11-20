@@ -1,10 +1,11 @@
 #include "vk_setup.h"
+
+#include <engine.h>
 #include <render_graph/backboard.h>
 #include <render_graph/dependency_graph.h>
 #include <render_graph/render_graph.h>
 #include <render_graph/render_pass_node.h>
 #include <render_graph/rendergraph_resource.h>
-#include <engine.h>
 #include <unity_fixture.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
@@ -12,13 +13,9 @@
 
 TEST_GROUP(RenderGraphGroup);
 
-TEST_SETUP(RenderGraphGroup)
-{
-}
+TEST_SETUP(RenderGraphGroup) {}
 
-TEST_TEAR_DOWN(RenderGraphGroup)
-{
-}
+TEST_TEAR_DOWN(RenderGraphGroup) {}
 
 TEST(RenderGraphGroup, RenderGraph_DepGraph_Tests1)
 {
@@ -153,7 +150,8 @@ void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_node_declare_side_effect(node);
 }
 
-void execute_basic(vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
+void execute_basic(
+    vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
 {
     TEST_ASSERT_TRUE(data);
     struct DataBasic* d = (struct DataBasic*)data;
@@ -266,7 +264,8 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_backboard_add(bb, "gbufferDepth", d->depth);
 }
 
-void execute_gbuffer(vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
+void execute_gbuffer(
+    vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
 {
     TEST_ASSERT_TRUE(data);
     struct DataGBuffer* d = (struct DataGBuffer*)data;

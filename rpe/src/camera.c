@@ -49,6 +49,6 @@ void rpe_camera_set_proj_matrix(
 
     cam->aspect = aspect;
     cam->fov = fovy;
-    cam->n= n;
+    cam->n = n;
     cam->z = f;
 }

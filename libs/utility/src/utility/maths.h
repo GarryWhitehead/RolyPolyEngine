@@ -747,7 +747,8 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f* m)
         for (size_t j = i + 1; j < 4; ++j)
         {
             float tmp = fabsf(m->data[j][i]);
-            if (tmp > t) {
+            if (tmp > t)
+            {
                 pivot = j;
                 t = tmp;
             }
@@ -861,8 +862,12 @@ inline math_mat4f math_mat4f_projection(float fov_y, float aspect_ratio, float n
     float tan_half_fov_y = tanf(0.5f * fov_y);
 
     math_vec4f c1 = {1.0f / (aspect_ratio * tan_half_fov_y), 0.0f, 0.0f, 0.0f};
-    math_vec4f c2 = {0.0f, -1.0f / tan_half_fov_y, 0.0f, 0.0f };
-    math_vec4f c3 = {0.0f, 0.0f, (far_z + near_z) / (far_z - near_z), -(2.0f * far_z * near_z) / (far_z - near_z)};
+    math_vec4f c2 = {0.0f, -1.0f / tan_half_fov_y, 0.0f, 0.0f};
+    math_vec4f c3 = {
+        0.0f,
+        0.0f,
+        (far_z + near_z) / (far_z - near_z),
+        -(2.0f * far_z * near_z) / (far_z - near_z)};
     math_vec4f c4 = {0.0f, 0.0f, 1.0f, 0.0f};
     out.cols[0] = c1;
     out.cols[1] = c2;
@@ -917,7 +922,7 @@ static inline math_mat3f math_mat4f_to_rotation_matrix(math_mat4f* m)
 static inline math_vec3f math_mat4f_translation_vec(math_mat4f* m)
 {
     assert(m);
-    math_vec3f out = {.x = m->data[3][0], .y = m->data[3][1], .z = m->data[3][2] };
+    math_vec3f out = {.x = m->data[3][0], .y = m->data[3][1], .z = m->data[3][2]};
     return out;
 }
 

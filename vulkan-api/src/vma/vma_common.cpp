@@ -12,4 +12,3 @@
 #define VK_NO_PROTOTYPE 1
 #include <vk_mem_alloc.h>
 // clang-format on
-

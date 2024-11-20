@@ -25,10 +25,9 @@
 
 #include "common.h"
 
+#include <stdbool.h>
 #include <utility/arena.h>
 #include <utility/compiler.h>
-
-#include <stdbool.h>
 
 #define VKAPI_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
 

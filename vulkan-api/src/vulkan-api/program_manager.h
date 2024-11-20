@@ -24,10 +24,9 @@
 #define __VKAPI_PROGRAM_MANAGER_H__
 
 #include "common.h"
+#include "descriptor_cache.h"
 #include "driver.h"
 #include "pipeline.h"
-#include "descriptor_cache.h"
-
 
 #include <utility/arena.h>
 #include <utility/hash_set.h>
@@ -168,12 +167,10 @@ typedef struct ProgramCache
 shader_prog_bundle_t* shader_bundle_init(arena_t* arena);
 
 void shader_bundle_add_desc_binding(
-    shader_prog_bundle_t* bundle,
-    uint32_t size,
-    uint32_t binding,
-    VkDescriptorType type);
+    shader_prog_bundle_t* bundle, uint32_t size, uint32_t binding, VkDescriptorType type);
 
-void shader_bundle_update_desc_buffer(shader_prog_bundle_t* bundle, uint32_t binding, VkDescriptorType type, buffer_handle_t buffer);
+void shader_bundle_update_desc_buffer(
+    shader_prog_bundle_t* bundle, uint32_t binding, VkDescriptorType type, buffer_handle_t buffer);
 
 void shader_bundle_add_image_sampler(
     shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding, VkSampler sampler);
@@ -195,17 +192,19 @@ void shader_bundle_set_scissor(
     uint32_t y_offset);
 
 void shader_bundle_add_render_primitive(
-    shader_prog_bundle_t* bundle,
-    VkPrimitiveTopology topo,
-    VkBool32 prim_restart);
+    shader_prog_bundle_t* bundle, VkPrimitiveTopology topo, VkBool32 prim_restart);
 
-void shader_bundle_update_spec_const_data(shader_prog_bundle_t* bundle, uint32_t data_size, void* data, enum ShaderStage stage);
+void shader_bundle_update_spec_const_data(
+    shader_prog_bundle_t* bundle, uint32_t data_size, void* data, enum ShaderStage stage);
 
-void shader_bundle_get_shader_stage_create_info_all(shader_prog_bundle_t* b, vkapi_driver_t* driver, VkPipelineShaderStageCreateInfo* out);
+void shader_bundle_get_shader_stage_create_info_all(
+    shader_prog_bundle_t* b, vkapi_driver_t* driver, VkPipelineShaderStageCreateInfo* out);
 
-VkPipelineShaderStageCreateInfo shader_bundle_get_shader_stage_create_info(shader_prog_bundle_t* b, vkapi_driver_t* driver, enum ShaderStage stage);
+VkPipelineShaderStageCreateInfo shader_bundle_get_shader_stage_create_info(
+    shader_prog_bundle_t* b, vkapi_driver_t* driver, enum ShaderStage stage);
 
-void shader_bundle_update_descs_from_reflection(shader_prog_bundle_t* bundle, vkapi_driver_t* driver, shader_handle_t handle, arena_t* arena);
+void shader_bundle_update_descs_from_reflection(
+    shader_prog_bundle_t* bundle, vkapi_driver_t* driver, shader_handle_t handle, arena_t* arena);
 
 /* Program manager functions */
 
@@ -225,8 +224,7 @@ shader_handle_t program_cache_from_spirv(
     enum ShaderStage stage,
     arena_t* arena);
 
-shader_prog_bundle_t*
-program_cache_create_program_bundle(program_cache_t* c, arena_t* arena);
+shader_prog_bundle_t* program_cache_create_program_bundle(program_cache_t* c, arena_t* arena);
 
 shader_t* program_cache_get_shader(program_cache_t* c, shader_handle_t handle);
 

@@ -1,8 +1,7 @@
 
+#include <assert.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
-
-#include <assert.h>
 
 static inline vkapi_driver_t* setup_driver()
 {

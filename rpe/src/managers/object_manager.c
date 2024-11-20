@@ -21,9 +21,11 @@
  */
 
 #include "object_manager.h"
+
 #include "rpe/object.h"
-#include <utility/arena.h>
+
 #include <string.h>
+#include <utility/arena.h>
 
 rpe_obj_manager_t rpe_obj_manager_init(arena_t* arena)
 {
@@ -37,7 +39,7 @@ rpe_obj_manager_t rpe_obj_manager_init(arena_t* arena)
 
 rpe_object_t rpe_obj_manager_make_obj(uint8_t generation, uint32_t index)
 {
-    rpe_object_t o = {.id = ((generation << RPE_OBJ_MANAGER_INDEX_BITS) | index) };
+    rpe_object_t o = {.id = ((generation << RPE_OBJ_MANAGER_INDEX_BITS) | index)};
     return o;
 }
 

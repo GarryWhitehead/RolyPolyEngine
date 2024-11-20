@@ -68,7 +68,8 @@ void vkapi_buffer_map_to_stage(void* data, size_t data_size, vkapi_staging_insta
     memcpy(stage->alloc_info.pMappedData, data, data_size);
 }
 
-void vkapi_buffer_map_to_gpu_buffer(vkapi_buffer_t* buffer, void* data, size_t data_size, size_t offset)
+void vkapi_buffer_map_to_gpu_buffer(
+    vkapi_buffer_t* buffer, void* data, size_t data_size, size_t offset)
 {
     assert(buffer);
     assert(data);
@@ -171,10 +172,13 @@ void vkapi_buffer_download_to_host(
     assert(host_buffer);
     assert(data_size > 0);
 
+    RENDERDOC_START_CAPTURE(NULL, NULL)
     vkapi_cmdbuffer_t* cmd = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
 
     VkMemoryBarrier mem_barrier = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER, .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT, .dstAccessMask = VK_ACCESS_HOST_READ_BIT};
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_HOST_READ_BIT};
     vkCmdPipelineBarrier(
         cmd->instance,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -187,11 +191,11 @@ void vkapi_buffer_download_to_host(
         0,
         VK_NULL_HANDLE);
     vkapi_commands_flush(driver->context, driver->commands);
-    // TODO: Make thread blocking by this function optional.
-    VK_CHECK_RESULT(vkWaitForFences(
-       driver->context->device, 1, &cmd->fence, VK_TRUE, UINT64_MAX));
+
+    VK_CHECK_RESULT(vkWaitForFences(driver->context->device, 1, &cmd->fence, VK_TRUE, UINT64_MAX));
 
     memcpy(host_buffer, buffer->alloc_info.pMappedData, data_size);
+    RENDERDOC_END_CAPTURE(NULL, NULL)
 }
 
 void vkapi_buffer_destroy(vkapi_buffer_t* buffer, VmaAllocator vma_alloc)
@@ -201,10 +205,7 @@ void vkapi_buffer_destroy(vkapi_buffer_t* buffer, VmaAllocator vma_alloc)
 }
 
 void vkapi_vert_buffer_create(
-    vkapi_buffer_t* buffer,
-    vkapi_driver_t* driver,
-    void* data,
-    VkDeviceSize data_size)
+    vkapi_buffer_t* buffer, vkapi_driver_t* driver, void* data, VkDeviceSize data_size)
 {
     assert(buffer);
     assert(driver);
@@ -220,10 +221,7 @@ void vkapi_vert_buffer_create(
 }
 
 void vkapi_index_buffer_create(
-    vkapi_buffer_t* buffer,
-    vkapi_driver_t* driver,
-    void* data,
-    VkDeviceSize data_size)
+    vkapi_buffer_t* buffer, vkapi_driver_t* driver, void* data, VkDeviceSize data_size)
 {
     assert(buffer);
     assert(driver);
@@ -238,5 +236,3 @@ void vkapi_index_buffer_create(
     vkapi_buffer_alloc(buffer, driver->vma_allocator, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, data_size);
     vkapi_copy_staged_to_gpu(buffer, driver, data_size, stage, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 }
-
-

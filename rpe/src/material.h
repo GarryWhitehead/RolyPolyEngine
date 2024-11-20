@@ -25,13 +25,13 @@
 
 #include "backend/enums.h"
 
+#include <utility/maths.h>
+#include <vulkan-api/descriptor_cache.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/pipeline_cache.h>
-#include <vulkan-api/descriptor_cache.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/shader.h>
 #include <vulkan-api/texture.h>
-#include <utility/maths.h>
 
 #define VertexUboBindPoint 4
 #define FragmentUboBindPoint 5
@@ -106,7 +106,8 @@ struct MaterialPushData
 
 typedef struct Material
 {
-    // Handle created by the RenderableManager to ourself. Used for updating the shader push constant.
+    // Handle created by the RenderableManager to ourself. Used for updating the shader push
+    // constant.
     rpe_mat_handle_t handle;
 
     // Note: The order of constants must match that used by the material fragment shader.

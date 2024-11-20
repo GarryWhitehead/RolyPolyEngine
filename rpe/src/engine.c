@@ -21,8 +21,10 @@
  */
 
 #include "engine.h"
-#include "managers/transform_manager.h"
+
 #include "managers/renderable_manager.h"
+#include "managers/transform_manager.h"
+
 #include <log.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>

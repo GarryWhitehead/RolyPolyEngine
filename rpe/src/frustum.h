@@ -22,9 +22,8 @@
 #ifndef __RPE_FRUSTUM_H__
 #define __RPE_FRUSTUM_H__
 
-#include <utility/maths.h>
-
 #include <stdint.h>
+#include <utility/maths.h>
 
 // forward declarations
 typedef struct AABBox rpe_aabox_t;

@@ -24,11 +24,11 @@
 #define __RPE_COMMANDS_H__
 
 #include "render_queue.h"
-#include <vulkan-api/resource_cache.h>
-#include <backend/enums.h>
 
+#include <backend/enums.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <vulkan-api/resource_cache.h>
 
 // Forward declarations
 typedef struct Arena arena_t;

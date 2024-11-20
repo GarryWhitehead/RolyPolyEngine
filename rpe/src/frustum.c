@@ -68,7 +68,8 @@ void rpe_frustum_check_intersection(
         {
             const float dot = f->planes[j].x * centers[i].x - fabsf(f->planes[j].x) * extents[i].x +
                 f->planes[j].y * centers[i].y - fabsf(f->planes[j].y) * extents[i].y +
-                f->planes[j].z * centers[i].z - fabsf(f->planes[j].z) * extents[i].z + f->planes[j].w;
+                f->planes[j].z * centers[i].z - fabsf(f->planes[j].z) * extents[i].z +
+                f->planes[j].w;
 
             visible &= dot <= 0.0f;
         }

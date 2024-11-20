@@ -111,7 +111,7 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     driver->sampler_cache = vkapi_sampler_cache_init(&driver->_perm_arena);
     driver->res_cache = vkapi_res_cache_init(driver, &driver->_perm_arena);
     driver->staging_pool = vkapi_staging_init(&driver->_perm_arena);
-    
+
     return VKAPI_SUCCESS;
 }
 
@@ -324,7 +324,8 @@ void vkapi_driver_begin_rpass(
     fbo->last_used_frame_stamp = driver->current_frame;
 
     // Sort out the clear values for the pass - clear values required for each attachment.
-    VkClearValue* clear_values = ARENA_MAKE_ARRAY(&driver->_scratch_arena, VkClearValue, attach_count, 0);
+    VkClearValue* clear_values =
+        ARENA_MAKE_ARRAY(&driver->_scratch_arena, VkClearValue, attach_count, 0);
 
     for (int i = 0; i < attach_count; ++i)
     {
@@ -523,7 +524,6 @@ void vkapi_driver_dispatch_compute(
     uint32_t y_work_count,
     uint32_t z_work_count)
 {
-    RENDERDOC_START_CAPTURE(NULL, NULL)
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
     // Note: potential memory issue here - if we don't push the pl layout instance to a local
@@ -583,16 +583,14 @@ void vkapi_driver_dispatch_compute(
         }
     }
 
+    RENDERDOC_START_CAPTURE(NULL, NULL)
     vkapi_desc_cache_bind_descriptors(
-        driver->desc_cache,
-        cmds->instance,
-        bundle,
-        pl_instance,
-        VK_PIPELINE_BIND_POINT_COMPUTE);
+        driver->desc_cache, cmds->instance, bundle, pl_instance, VK_PIPELINE_BIND_POINT_COMPUTE);
     vkapi_pline_cache_bind_compute_shader_modules(driver->pline_cache, bundle);
 
     vkapi_pline_cache_bind_compute_pl_layout(driver->pline_cache, pl_instance);
     vkapi_pline_cache_bind_compute_pipeline(driver->pline_cache, cmds->instance);
+    RENDERDOC_END_CAPTURE(NULL, NULL)
 
     // Bind the push block.
     if (bundle->push_blocks[RPE_BACKEND_SHADER_STAGE_COMPUTE].range > 0)
@@ -608,6 +606,7 @@ void vkapi_driver_dispatch_compute(
             params->data);
     }
 
+    RENDERDOC_START_CAPTURE(NULL, NULL)
     vkCmdDispatch(cmds->instance, x_work_count, y_work_count, z_work_count);
     RENDERDOC_END_CAPTURE(NULL, NULL)
 }

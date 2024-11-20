@@ -27,7 +27,7 @@
 #include <utility/arena.h>
 #include <vulkan-api/driver.h>
 
-//rpe_commands_draw_t rpe_commands_draw_init(size_t size) {}
+// rpe_commands_draw_t rpe_commands_draw_init(size_t size) {}
 
 void rpe_cmd_dispatch_draw(vkapi_driver_t* driver, void* data)
 {

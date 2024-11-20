@@ -1,29 +1,30 @@
 /* Copyright (c) 2024 Garry Whitehead
-*
-* Permission is hereby granted, free of charge, to any person obtaining
-* a copy of this software and associated documentation files (the
-* "Software"), to deal in the Software without restriction, including
-* without limitation the rights to use, copy, modify, merge, publish,
-* distribute, sublicense, and/or sell copies of the Software, and to
-* permit persons to whom the Software is furnished to do so, subject to
-* the following conditions:
-*
-* The above copyright notice and this permission notice shall be
-* included in all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include "frame_buffer_cache.h"
-#include "renderpass.h"
+
 #include "driver.h"
 #include "pipeline.h"
+#include "renderpass.h"
 
 vkapi_rpass_key_t vkapi_rpass_key_init()
 {
@@ -47,7 +48,8 @@ vkapi_fb_cache_t* vkapi_fb_cache_init(arena_t* arena)
     return i;
 }
 
-vkapi_rpass_t* vkapi_fb_cache_find_or_create_rpass(vkapi_fb_cache_t* cache, vkapi_rpass_key_t* key, vkapi_driver_t* driver, arena_t* arena)
+vkapi_rpass_t* vkapi_fb_cache_find_or_create_rpass(
+    vkapi_fb_cache_t* cache, vkapi_rpass_key_t* key, vkapi_driver_t* driver, arena_t* arena)
 {
     assert(cache);
     assert(driver);
@@ -97,7 +99,8 @@ vkapi_rpass_t* vkapi_fb_cache_find_or_create_rpass(vkapi_fb_cache_t* cache, vkap
     return HASH_SET_INSERT(&cache->render_passes, key, &new_rpass);
 }
 
-vkapi_fbo_t* vkapi_fb_cache_find_or_create_fbo(vkapi_fb_cache_t* cache, vkapi_fbo_key_t* key, uint32_t count, vkapi_driver_t* driver)
+vkapi_fbo_t* vkapi_fb_cache_find_or_create_fbo(
+    vkapi_fb_cache_t* cache, vkapi_fbo_key_t* key, uint32_t count, vkapi_driver_t* driver)
 {
     assert(cache);
     vkapi_fbo_t* fbo = HASH_SET_GET(&cache->fbos, key);
@@ -107,7 +110,8 @@ vkapi_fbo_t* vkapi_fb_cache_find_or_create_fbo(vkapi_fb_cache_t* cache, vkapi_fb
     }
 
     vkapi_fbo_t new_fbo = vkapi_fbo_init();
-    vkapi_fbo_create(&new_fbo, driver, key->renderpass, key->views, count, key->width, key->height, key->layer);
+    vkapi_fbo_create(
+        &new_fbo, driver, key->renderpass, key->views, count, key->width, key->height, key->layer);
     return HASH_SET_INSERT(&cache->fbos, key, &new_fbo);
 }
 

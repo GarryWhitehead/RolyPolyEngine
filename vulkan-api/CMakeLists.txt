@@ -116,14 +116,6 @@ target_link_libraries(
 
 add_dependencies(VulkanApi Shaders)
 
-if (RPE_FOUND_RENDERDOC)
-    target_compile_definitions(
-        VulkanApi
-        PUBLIC
-        RPE_RENDERDOC_LIB_PATH="${RPE_RENDERDOC_LIB_PATH}"
-    )
-endif()
-
 # add common compiler flags
 rpe_add_compiler_flags(TARGET VulkanApi)
 
@@ -148,6 +140,7 @@ if (BUILD_TESTS)
         test/test_main.c
         test/test_program_manager.c
         test/test_shader.c
+        test/test_cache.c
     )
 
     add_executable(VulkanApiTest ${test_srcs})

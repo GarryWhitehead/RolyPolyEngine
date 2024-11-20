@@ -292,7 +292,7 @@ uint32_t hash_set_find_next(hash_set_t* set, uint32_t idx)
     }
     // Advance the index along by one item.
     uint32_t curr_idx = idx == 0 ? idx : idx + 1;
-    while(curr_idx < set->capacity)
+    while (curr_idx < set->capacity)
     {
         if (set->nodes[curr_idx].hash != HASH_NULL)
         {

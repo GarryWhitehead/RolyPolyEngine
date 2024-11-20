@@ -113,7 +113,12 @@ void rpe_renderer_render_single_scene(
 }
 
 void rpe_renderer_render(
-    rpe_renderer_t* rdr, vkapi_driver_t* driver, rpe_engine_t* engine, rpe_scene_t* scene, float dt, bool clearSwap)
+    rpe_renderer_t* rdr,
+    vkapi_driver_t* driver,
+    rpe_engine_t* engine,
+    rpe_scene_t* scene,
+    float dt,
+    bool clearSwap)
 {
     rg_clear(rdr->rg);
 

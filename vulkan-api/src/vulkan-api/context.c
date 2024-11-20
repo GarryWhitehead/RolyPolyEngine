@@ -151,7 +151,8 @@ void vkapi_context_shutdown(vkapi_context_t* context)
     vkDestroyDevice(context->device, VK_NULL_HANDLE);
     if (context->debug_messenger)
     {
-        vkDestroyDebugUtilsMessengerEXT(context->instance, context->debug_messenger, VK_NULL_HANDLE);
+        vkDestroyDebugUtilsMessengerEXT(
+            context->instance, context->debug_messenger, VK_NULL_HANDLE);
     }
     else if (context->debug_callback)
     {
@@ -221,7 +222,8 @@ int vkapi_context_prep_extensions(
         DYN_ARRAY_APPEND_CHAR(ext_array, VK_KHR_MULTIVIEW_EXTENSION_NAME);
         context->extensions.has_multi_view = true;
     }
-    if (vkapi_find_ext_props(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
+    if (vkapi_find_ext_props(
+            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
     {
         DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
         context->extensions.has_desc_indexing = true;

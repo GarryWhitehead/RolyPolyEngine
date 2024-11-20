@@ -50,8 +50,13 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     // Setup the culling compute shader.
     i->cull_compute = rpe_compute_init_from_file(engine->driver, "cull.comp", arena);
     i->cam_ubo = rpe_compute_bind_ubo(i->cull_compute, engine->driver, 0);
-    i->extents_buffer = rpe_compute_bind_ssbo(i->cull_compute, engine->driver, 0, RPE_SCENE_MAX_STATIC_MODEL_COUNT * sizeof(struct RenderableExtents));
-    i->vis_status_buffer = rpe_compute_bind_ssbo(i->cull_compute, engine->driver, 1, RPE_SCENE_MAX_STATIC_MODEL_COUNT * sizeof(int));
+    i->extents_buffer = rpe_compute_bind_ssbo(
+        i->cull_compute,
+        engine->driver,
+        0,
+        RPE_SCENE_MAX_STATIC_MODEL_COUNT * sizeof(struct RenderableExtents));
+    i->vis_status_buffer = rpe_compute_bind_ssbo(
+        i->cull_compute, engine->driver, 1, RPE_SCENE_MAX_STATIC_MODEL_COUNT * sizeof(int));
 
     return i;
 }

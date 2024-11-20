@@ -28,20 +28,14 @@
 #include <vma/vma_common.h>
 
 #ifndef NDEBUG
-#ifdef RPE_RENDERDOC_LIB_PATH
-#include <renderdoc_app.h>
-extern RENDERDOC_API_1_1_0 *rdoc_api;
+#include <external/renderdoc_app.h>
+extern RENDERDOC_API_1_1_0* rdoc_api;
 #if __linux__
 #include <dlfcn.h>
 #elif WIN32
 #include <Windows.h>
 #endif
 #endif
-#endif
-
-// threading info (not used at present)
-#define VULKAN_THREADED 1
-#define VULKAN_THREADED_GROUP_SIZE 512
 
 #define VK_CHECK_RESULT(f)                                                                         \
     {                                                                                              \
@@ -72,13 +66,13 @@ extern RENDERDOC_API_1_1_0 *rdoc_api;
 
 // RenderDoc API macros. Only defined in debug builds.
 #ifndef NDEBUG
-//#ifdef RPE_RENDERDOC_LIB_PATH
 #ifdef __linux__
 static inline void create_renderdoc_instance()
 {
-    void* mod = dlopen(RPE_RENDERDOC_LIB_PATH, RTLD_NOW);
+    void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
     if (mod)
     {
+        log_info("RenderDoc debugging enabled.");
         pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
         int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_0, (void**)&rdoc_api);
         assert(ret == 1);
@@ -98,7 +92,8 @@ static inline void create_renderdoc_instance()
     }
 }
 #endif
-static inline void renderdoc_start_capture(RENDERDOC_DevicePointer device, RENDERDOC_WindowHandle wnd_handle)
+static inline void
+renderdoc_start_capture(RENDERDOC_DevicePointer device, RENDERDOC_WindowHandle wnd_handle)
 {
     if (rdoc_api)
     {
@@ -106,7 +101,8 @@ static inline void renderdoc_start_capture(RENDERDOC_DevicePointer device, RENDE
     }
 }
 
-static inline void renderdoc_stop_capture(RENDERDOC_DevicePointer device, RENDERDOC_WindowHandle wnd_handle)
+static inline void
+renderdoc_stop_capture(RENDERDOC_DevicePointer device, RENDERDOC_WindowHandle wnd_handle)
 {
     if (rdoc_api)
     {
@@ -118,9 +114,8 @@ static inline void renderdoc_stop_capture(RENDERDOC_DevicePointer device, RENDER
 #define RENDERDOC_START_CAPTURE(device, win_handle) renderdoc_start_capture(device, win_handle);
 #define RENDERDOC_END_CAPTURE(device, win_handle) renderdoc_stop_capture(device, win_handle);
 #endif
-//#endif
-//#else
-//#define RENDERDOC_CREATE_API_INSTANCE
-//#define RENDERDOC_START_CAPTURE(device, win_handle)
-//#define RENDERDOC_END_CAPTURE(device, win_handle)
+#else
+#define RENDERDOC_CREATE_API_INSTANCE
+#define RENDERDOC_START_CAPTURE(device, win_handle)
+#define RENDERDOC_END_CAPTURE(device, win_handle)
 #endif

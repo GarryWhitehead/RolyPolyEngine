@@ -2,7 +2,6 @@
 
 #include <aabox.h>
 #include <frustum.h>
-
 #include <unity_fixture.h>
 
 TEST_GROUP(VisibilityGroup);

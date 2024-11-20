@@ -22,9 +22,10 @@
 
 #include "sampler_cache.h"
 
-#include "driver.h"
-#include "backend/enums.h"
 #include "backend/convert_to_vk.h"
+#include "backend/enums.h"
+#include "driver.h"
+
 #include <utility/arena.h>
 #include <utility/hash.h>
 
@@ -35,7 +36,8 @@ vkapi_sampler_cache_t* vkapi_sampler_cache_init(arena_t* arena)
     return c;
 }
 
-VkSampler* vkapi_sampler_cache_create(vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_driver_t* driver)
+VkSampler* vkapi_sampler_cache_create(
+    vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_driver_t* driver)
 {
     VkSampler* s = HASH_SET_GET(&c->samplers, params);
     if (s)
@@ -79,4 +81,3 @@ void vkapi_sampler_cache_destroy(vkapi_sampler_cache_t* c, vkapi_driver_t* drive
     }
     hash_set_clear(&c->samplers);
 }
-

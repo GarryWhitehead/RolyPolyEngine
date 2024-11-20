@@ -22,8 +22,8 @@
 
 #include "backend/enums.h"
 #include "common.h"
-#include "pipeline.h"
 #include "descriptor_cache.h"
+#include "pipeline.h"
 
 #include <utility/hash_set.h>
 
@@ -62,7 +62,8 @@ typedef struct GraphicsPipelineKey
     VkPipelineShaderStageCreateInfo shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
     VkVertexInputAttributeDescription vert_attr_descs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
     VkVertexInputBindingDescription vert_bind_descs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
-    VkSpecializationMapEntry spec_map_entries[RPE_BACKEND_SHADER_STAGE_MAX_COUNT][VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT];
+    VkSpecializationMapEntry spec_map_entries[RPE_BACKEND_SHADER_STAGE_MAX_COUNT]
+                                             [VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT];
     uint32_t spec_map_entry_count[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
     uint32_t tesse_vert_count;
     uint32_t colour_attach_count;
@@ -94,18 +95,18 @@ typedef struct PipelineCache
 
 vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* driver);
 
-void vkapi_pline_cache_bind_graphics_pline(vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts);
+void vkapi_pline_cache_bind_graphics_pline(
+    vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts);
 
-vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(vkapi_pipeline_cache_t* c, struct SpecConstParams* spec_consts);
+vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
+    vkapi_pipeline_cache_t* c, struct SpecConstParams* spec_consts);
 
-void vkapi_pline_cache_bind_compute_pipeline(
-    vkapi_pipeline_cache_t* c, VkCommandBuffer cmd_buffer);
+void vkapi_pline_cache_bind_compute_pipeline(vkapi_pipeline_cache_t* c, VkCommandBuffer cmd_buffer);
 
-vkapi_compute_pl_t* vkapi_pline_cache_find_or_create_compute_pline(
-    vkapi_pipeline_cache_t* c);
+vkapi_compute_pl_t* vkapi_pline_cache_find_or_create_compute_pline(vkapi_pipeline_cache_t* c);
 
-void vkapi_pline_cache_bind_gfx_pl_layout(vkapi_pipeline_cache_t* c,VkPipelineLayout layout);
-void vkapi_pline_cache_bind_compute_pl_layout(vkapi_pipeline_cache_t* c,VkPipelineLayout layout);
+void vkapi_pline_cache_bind_gfx_pl_layout(vkapi_pipeline_cache_t* c, VkPipelineLayout layout);
+void vkapi_pline_cache_bind_compute_pl_layout(vkapi_pipeline_cache_t* c, VkPipelineLayout layout);
 
 void vkapi_pline_cache_bind_gfx_shader_modules(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
 void vkapi_pline_cache_bind_rpass(vkapi_pipeline_cache_t* c, VkRenderPass rpass);
@@ -131,9 +132,12 @@ void vkapi_pline_cache_bind_vertex_input(
 vkapi_pl_layout_t*
 vkapi_pline_cache_get_pl_layout(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* bundle);
 
-void vkapi_pline_cache_bind_compute_shader_modules(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
+void vkapi_pline_cache_bind_compute_shader_modules(
+    vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
 
 void vkapi_pline_cache_destroy(vkapi_pipeline_cache_t* c);
 void vkapi_pline_cache_gc(vkapi_pipeline_cache_t* c, uint64_t current_frame);
 
+bool vkapi_pline_cache_compare_graphic_keys(graphics_pl_key_t* lhs, graphics_pl_key_t* rhs);
+bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_key_t* rhs);
 #endif

@@ -41,14 +41,19 @@ void rpe_render_queue_submit(rpe_render_queue_t* q, vkapi_driver_t* driver)
 {
     assert(q);
 
-    uint64_t* gbuffer_sorted_indices = ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint64_t, q->gbuffer_bucket->curr_index, 0);
+    uint64_t* gbuffer_sorted_indices =
+        ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint64_t, q->gbuffer_bucket->curr_index, 0);
     uint64_t* light_sorted_indices =
         ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint64_t, q->gbuffer_bucket->curr_index, 0);
     uint64_t* post_process_sorted_indices =
         ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint64_t, q->gbuffer_bucket->curr_index, 0);
 
     // Sort the queues first based upon their keys.
-    radix_sort(q->gbuffer_bucket->keys, q->gbuffer_bucket->curr_index, &driver->_scratch_arena, gbuffer_sorted_indices);
+    radix_sort(
+        q->gbuffer_bucket->keys,
+        q->gbuffer_bucket->curr_index,
+        &driver->_scratch_arena,
+        gbuffer_sorted_indices);
     radix_sort(
         q->lighting_bucket->keys,
         q->lighting_bucket->curr_index,

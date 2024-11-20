@@ -119,11 +119,8 @@ spirv_binary_t shader_load_spirv(const char* filename, arena_t* arena);
  @param arena An arena allocator.
  @return
  */
-spirv_binary_t shader_compile(
-    shader_t* shader,
-    const char* shader_code,
-    const char* filename,
-    arena_t* arena);
+spirv_binary_t
+shader_compile(shader_t* shader, const char* shader_code, const char* filename, arena_t* arena);
 
 void shader_create_vk_module(shader_t* shader, vkapi_context_t* context, spirv_binary_t bin);
 
@@ -144,7 +141,6 @@ VkShaderStageFlagBits shader_vk_stage_flag(enum ShaderStage stage);
  @param arena A arena allocator.
  */
 void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count, arena_t* arena);
-
 
 
 #endif

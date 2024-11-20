@@ -235,8 +235,7 @@ void vkapi_texture_create_image(
     vkBindImageMemory(context->device, texture->image, texture->image_memory, 0);
 }
 
-VkImageView vkapi_texture_create_image_view(
-    vkapi_context_t* context, vkapi_texture_t* texture)
+VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture)
 {
     // Work out the image view type.
     VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
@@ -285,8 +284,7 @@ VkImageView vkapi_texture_create_image_view(
     create_info.subresourceRange.aspectMask = aspect;
 
     VkImageView image_view;
-    VK_CHECK_RESULT(vkCreateImageView(
-        context->device, &create_info, VK_NULL_HANDLE, &image_view));
+    VK_CHECK_RESULT(vkCreateImageView(context->device, &create_info, VK_NULL_HANDLE, &image_view));
 
     return image_view;
 }

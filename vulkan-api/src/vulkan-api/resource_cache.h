@@ -23,13 +23,14 @@
 #ifndef __VKAPI_RESOURCE_CACHE_H__
 #define __VKAPI_RESOURCE_CACHE_H__
 
+#include "buffer.h"
+#include "common.h"
+
 #include <stdbool.h>
 #include <utility/arena.h>
-#include "common.h"
-#include "buffer.h"
 
-#define VKAPI_RES_CACHE_MAX_VERTEX_BUFFER_SIZE 1<<25
-#define VKAPI_RES_CACHE_MAX_INDEX_BUFFER_SIZE 1<<25
+#define VKAPI_RES_CACHE_MAX_VERTEX_BUFFER_SIZE 1 << 25
+#define VKAPI_RES_CACHE_MAX_INDEX_BUFFER_SIZE 1 << 25
 #define VKAPI_RES_CACHE_VERTEX_GPU_BUFFER_SIZE 165536
 #define VKAPI_RES_CACHE_INDEX_GPU_BUFFER_SIZE 165536
 

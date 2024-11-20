@@ -24,12 +24,11 @@
 #define __RPE_TRANSFORM_MANAGER_H__
 
 #include "component_manager.h"
-#include "component_manager.h"
 
-#include <vulkan-api/buffer.h>
-#include <utility/maths.h>
 #include <utility/arena.h>
+#include <utility/maths.h>
 #include <utility/string.h>
+#include <vulkan-api/buffer.h>
 
 #define RPE_TRANSFORM_MANAGER_MAX_BONE_COUNT 25
 #define RPE_TRANSFORM_MANAGER_MAX_NODE_COUNT 500
@@ -90,7 +89,8 @@ rpe_transform_manager_t* rpe_transform_manager_init(arena_t* arena);
 
 math_mat4f rpe_transform_manager_update_matrix(rpe_transform_node_t* n);
 
-void rpe_transform_manager_update_model_transform(rpe_transform_manager_t* m, rpe_transform_node_t* parent, rpe_transform_params_t* params);
+void rpe_transform_manager_update_model_transform(
+    rpe_transform_manager_t* m, rpe_transform_node_t* parent, rpe_transform_params_t* params);
 
 void rpe_transform_manager_update_model(rpe_transform_manager_t* m, rpe_object_t obj);
 

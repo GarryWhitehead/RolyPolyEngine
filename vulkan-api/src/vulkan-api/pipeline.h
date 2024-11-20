@@ -66,9 +66,7 @@ typedef struct ComputePipeline
  @param key A pipeline cache key, used for caching the pipeline in the map.
  */
 vkapi_graphics_pl_t vkapi_graph_pl_create(
-    vkapi_context_t* context,
-    graphics_pl_key_t* key,
-    struct SpecConstParams* spec_consts);
+    vkapi_context_t* context, graphics_pl_key_t* key, struct SpecConstParams* spec_consts);
 
 /**
  Create a Vulkan compute pipeline.
@@ -77,6 +75,4 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
  @param key A pipeline cache key.
  @param layout A pipeline layout associated with this compute pipeline.
  */
-vkapi_compute_pl_t vkapi_compute_pl_create(
-    vkapi_context_t* context,
-    compute_pl_key_t* key);
+vkapi_compute_pl_t vkapi_compute_pl_create(vkapi_context_t* context, compute_pl_key_t* key);

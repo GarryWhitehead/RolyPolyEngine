@@ -57,9 +57,7 @@ vkapi_staging_instance_t* vkapi_staging_get(
     vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, VkDeviceSize req_size);
 
 void vkapi_staging_gc(
-    vkapi_staging_pool_t* staging_pool,
-    VmaAllocator vma_alloc,
-    uint64_t current_frame);
+    vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, uint64_t current_frame);
 
 void vkapi_staging_destroy(vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc);
 

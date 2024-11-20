@@ -23,9 +23,8 @@
 #ifndef __BACKEND_BACKEND_ENUMS_H__
 #define __BACKEND_BACKEND_ENUMS_H__
 
-#include <vulkan-api/common.h>
-
 #include <stdint.h>
+#include <vulkan-api/common.h>
 
 enum BlendFactor
 {

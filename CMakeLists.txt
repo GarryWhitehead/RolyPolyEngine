@@ -62,33 +62,6 @@ if (BUILD_TESTS)
     enable_testing()
 endif()
 
-# Try and find the render-doc API library.
-if (NOT RPE_RENDERDOC_ROOT_PATH)
-    if (WIN32)
-        set (RPE_RENDERDOC_ROOT_PATH "C:/renderdoc")
-    else()
-        set (RPE_RENDERDOC_ROOT_PATH "/usr/local/renderdoc")
-    endif()
-endif()
-
-message("Looking for RenderDoc API libraries in ${RPE_RENDERDOC_ROOT_PATH}...")
-
-if (WIN32)
-    find_file(RPE_RENDERDOC_LIB_PATH renderdoc.dll 
-        PATHS "${RPE_RENDERDOC_ROOT_PATH}/lib" "${RPE_RENDERDOC_ROOT_PATH}"
-    )
-else()
-    find_library(RPE_RENDERDOC_LIB_PATH renderdoc
-        PATHS "${RPE_RENDERDOC_ROOT_PATH}/lib" "${RPE_RENDERDOC_ROOT_PATH}"
-    )
-endif()
-
-if (NOT RPE_RENDERDOC_LIB_PATH)
-    message("RenderDoc API library not found.")
-    set(RPE_FOUND_RENDERDOC 0)
-else()
-    set(RPE_FOUND_RENDERDOC 1)
-endif()
 
 # add libraries: 
 add_subdirectory(shaders)
