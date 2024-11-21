@@ -46,7 +46,7 @@ typedef struct AppWindow
     uint32_t width;
     uint32_t height;
 
-    /// A GLFW window context.
+    /// A GLFW window
     GLFWwindow* glfw_window;
     /// A GLFW window object. Is NULL if fullscreen mode selected.
     GLFWmonitor* glfw_monitor;

@@ -85,7 +85,7 @@ int app_window_init(
     // Create the window surface.
     VkSurfaceKHR surface;
     VkResult err = glfwCreateWindowSurface(
-        app->driver.context.instance, new_win->glfw_window, VK_NULL_HANDLE, &new_win->vk_surface);
+        app->driver.context->instance, new_win->glfw_window, VK_NULL_HANDLE, &new_win->vk_surface);
     if (err)
     {
         return APP_ERROR_NO_SURFACE;

@@ -102,6 +102,7 @@ void rg_render_pass_node_execute(
     render_graph_t* rg,
     rg_pass_t* rp,
     vkapi_driver_t* driver,
+    rpe_engine_t* engine,
     rg_render_graph_resource_t* r);
 
 rg_pass_info_t rg_render_pass_node_get_rt_info(rg_render_pass_node_t* node, rg_handle_t handle);

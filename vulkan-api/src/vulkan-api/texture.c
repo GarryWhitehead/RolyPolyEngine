@@ -235,8 +235,7 @@ void vkapi_texture_create_image(
     vkBindImageMemory(context->device, texture->image, texture->image_memory, 0);
 }
 
-void vkapi_texture_create_image_view(
-    vkapi_context_t* context, vkapi_texture_t* texture, int view_idx)
+VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture)
 {
     // Work out the image view type.
     VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
@@ -284,8 +283,10 @@ void vkapi_texture_create_image_view(
     create_info.subresourceRange.levelCount = 1;
     create_info.subresourceRange.aspectMask = aspect;
 
-    VK_CHECK_RESULT(vkCreateImageView(
-        context->device, &create_info, VK_NULL_HANDLE, &texture->image_views[view_idx]));
+    VkImageView image_view;
+    VK_CHECK_RESULT(vkCreateImageView(context->device, &create_info, VK_NULL_HANDLE, &image_view));
+
+    return image_view;
 }
 
 void vkapi_texture_create_2d(
@@ -301,7 +302,7 @@ void vkapi_texture_create_2d(
     // and a image view for each mip level
     for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
     {
-        vkapi_texture_create_image_view(context, texture, level);
+        texture->image_views[level] = vkapi_texture_create_image_view(context, texture);
     }
 
     texture->image_layout =
@@ -315,7 +316,7 @@ void vkapi_texture_map(
     vkapi_context_t* context,
     vkapi_staging_pool_t* staging_pool,
     vkapi_commands_t* commands,
-    VmaAllocator* vma_alloc,
+    VmaAllocator vma_alloc,
     vkapi_texture_t* texture,
     void* data,
     uint32_t data_size,
@@ -325,7 +326,7 @@ void vkapi_texture_map(
     vkapi_staging_instance_t* stage = vkapi_staging_get(staging_pool, vma_alloc, data_size);
 
     memcpy(stage->alloc_info.pMappedData, data, data_size);
-    vmaFlushAllocation(*vma_alloc, stage->mem, 0, data_size);
+    vmaFlushAllocation(vma_alloc, stage->mem, 0, data_size);
 
     if (!offsets)
     {

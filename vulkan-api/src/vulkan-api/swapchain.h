@@ -24,7 +24,7 @@
 #define __VKAPI_SWAPCHAIN_H__
 
 #include "common.h"
-#include "texture.h"
+#include "resource_cache.h"
 
 #define VKAPI_SWAPCHAIN_MAX_IMAGE_COUNT 3
 
@@ -33,7 +33,7 @@ typedef struct VkApiContext vkapi_context_t;
 
 typedef struct SwapchainContext
 {
-    vkapi_texture_t texture;
+    texture_handle_t texture;
     VkCommandBuffer cmdBuffer;
     VkFence fence;
 
@@ -53,10 +53,10 @@ typedef struct VkApiSwapchain
 
 vkapi_swapchain_t vkapi_swapchain_init();
 
-void vkapi_swapchain_destroy(vkapi_context_t* context, vkapi_swapchain_t* swapchain);
+void vkapi_swapchain_destroy(vkapi_driver_t* driver, vkapi_swapchain_t* swapchain);
 
 int vkapi_swapchain_create(
-    vkapi_context_t* context,
+    vkapi_driver_t* driver,
     vkapi_swapchain_t* swapchain,
     VkSurfaceKHR surface,
     uint32_t win_width,
@@ -65,7 +65,7 @@ int vkapi_swapchain_create(
 
 /// creates the image views for the swapchain
 void vkapi_swapchain_prepare_views(
-    vkapi_context_t* context,
+    vkapi_driver_t* driver,
     vkapi_swapchain_t* swapchain,
     VkSurfaceFormatKHR surface_format,
     arena_t* scratch_arena);

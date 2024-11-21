@@ -79,9 +79,11 @@ enum InsertResult
 };
 enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value)
 {
+    assert(set);
     assert(value);
 
     uint32_t idx = _index_from_hash(set, hash);
+    assert(idx < set->capacity);
 
     hash_set_node_t* node = &set->nodes[idx];
     if (node->hash == hash)
@@ -156,7 +158,7 @@ enum ResizeResult _set_resize(hash_set_t* set)
     set->nodes = new_nodes;
     set->size = 0;
 
-    for (int i = 0; i < set->capacity; ++i)
+    for (uint32_t i = 0; i < set->capacity; ++i)
     {
         hash_set_node_t* old_node = &old_nodes[i];
         if (old_node->hash != HASH_DELETED && old_node->hash != HASH_NULL)
@@ -279,4 +281,61 @@ void hash_set_clear(hash_set_t* set)
     memset(set->nodes, 0, sizeof(struct HashNode) * set->size);
     set->size = 0;
     set->_curr_node = NULL;
+}
+
+uint32_t hash_set_find_next(hash_set_t* set, uint32_t idx)
+{
+    assert(set);
+    if (!set->size)
+    {
+        return 0;
+    }
+    // Advance the index along by one item.
+    uint32_t curr_idx = idx == 0 ? idx : idx + 1;
+    while (curr_idx < set->capacity)
+    {
+        if (set->nodes[curr_idx].hash != HASH_NULL)
+        {
+            return curr_idx;
+        }
+        curr_idx++;
+    }
+    return set->capacity;
+}
+
+hash_set_iterator_t hash_set_iter_create(hash_set_t* set)
+{
+    assert(set);
+    hash_set_iterator_t it;
+    it.curr_idx = 0;
+    it.set = set;
+    return it;
+}
+
+void* hash_set_iter_next(hash_set_iterator_t* it)
+{
+    assert(it);
+    uint32_t idx = hash_set_find_next(it->set, it->curr_idx);
+    if (idx == it->set->capacity)
+    {
+        return NULL;
+    }
+    it->curr_idx = idx;
+    return it->set->nodes[idx].value;
+}
+
+hash_set_iterator_t hash_set_iter_erase(hash_set_iterator_t* it)
+{
+    assert(it);
+    hash_set_t* set = it->set;
+    hash_set_node_t* node = &set->nodes[it->curr_idx];
+
+    --set->size;
+    node->hash = HASH_DELETED;
+
+    // Return new iterator pointing at the next item in the set.
+    hash_set_iterator_t new_it;
+    new_it.set = set;
+    new_it.curr_idx = hash_set_find_next(set, it->curr_idx);
+    return new_it;
 }

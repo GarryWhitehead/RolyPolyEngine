@@ -20,27 +20,34 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_PRIVATE_ENGINE_H__
-#define __RPE_PRIVATE_ENGINE_H__
-
-#include "rpe/engine.h"
-#include "vulkan-api/swapchain.h"
+#ifndef __RPE_ENGINE_H__
+#define __RPE_ENGINE_H__
 
 #define RPE_ENGINE_MAX_SWAPCHAIN_COUNT 4
 #define RPE_ENGINE_SCRATCH_ARENA_SIZE 1 << 15
 #define RPE_ENGINE_PERM_ARENA_SIZE 1 << 30
+#define RPE_ENGINE_FRAME_ARENA_SIZE 1 << 30
 
-// Forward declarations.
+#include "managers/object_manager.h"
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <utility/arena.h>
+#include <vulkan-api/program_manager.h>
+#include <vulkan-api/swapchain.h>
+
 typedef struct VkApiDriver vkapi_driver_t;
-typedef struct VkApiSwapchain vkapi_swapchain_t;
+typedef struct RenderableManager rpe_rend_manager_t;
+typedef struct TransformManager rpe_transform_manager_t;
+typedef struct Scene rpe_scene_t;
 
-struct SwapchainHandle
+typedef struct SwapchainHandle
 {
     /// Index into the swap chain array.
     uint32_t idx;
-};
+} swapchain_handle_t;
 
-struct Engine
+typedef struct Engine
 {
     /// A Vulkan driver instance.
     vkapi_driver_t* driver;
@@ -52,6 +59,19 @@ struct Engine
     arena_t scratch_arena;
     /// A permanent arena - lasts the lifetime of the engine.
     arena_t perm_arena;
-};
+    /// Frame arena - scoped for the length of a frame.
+    arena_t frame_arena;
+
+    vkapi_swapchain_t* curr_swapchain;
+    rpe_scene_t* curr_scene;
+
+    rpe_obj_manager_t obj_manager;
+    rpe_rend_manager_t* rend_manager;
+    rpe_transform_manager_t* transform_manager;
+
+    // Material shader handles for each stage.
+    shader_handle_t mat_shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+
+} rpe_engine_t;
 
 #endif

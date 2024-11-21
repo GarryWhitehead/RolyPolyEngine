@@ -64,8 +64,57 @@ TEST(HashSetGroup, HashSet_ResizeTests)
     {
         int val = (int)xoro_rand_next(&rand);
         HASH_SET_INSERT(&set, &i, &val);
-        int* res = (int*)HASH_SET_GET(&set, &i);
+        int* res = HASH_SET_GET(&set, &i);
         TEST_ASSERT_NOT_NULL(res);
         TEST_ASSERT_EQUAL(val, *res);
     }
+}
+
+TEST(HashSetGroup, HashSet_IteratorTests)
+{
+    arena_t arena;
+    uint64_t arena_cap = 1 << 25;
+    int res = arena_new(arena_cap, &arena);
+    TEST_ASSERT(ARENA_SUCCESS == res);
+
+    hash_set_t set = HASH_SET_CREATE(int, int, &arena, murmur_hash3);
+    hash_set_iterator_t it = hash_set_iter_create(&set);
+    int* ret = hash_set_iter_next(&it);
+    TEST_ASSERT(ret == NULL);
+
+    int key = 0;
+    int val = 1;
+    HASH_SET_INSERT(&set, &key, &val);
+    ++key;
+    ++val;
+    HASH_SET_INSERT(&set, &key, &val);
+    key += 20;
+    val += 20;
+    HASH_SET_INSERT(&set, &key, &val);
+    it = hash_set_iter_create(&set);
+    ret = hash_set_iter_next(&it);
+    TEST_ASSERT(ret != NULL);
+    TEST_ASSERT_EQUAL_INT(1, *ret);
+    ret = hash_set_iter_next(&it);
+    TEST_ASSERT(ret != NULL);
+    TEST_ASSERT_EQUAL_INT(2, *ret);
+    ret = hash_set_iter_next(&it);
+    TEST_ASSERT(ret != NULL);
+    TEST_ASSERT_EQUAL_INT(22, *ret);
+    ret = hash_set_iter_next(&it);
+    TEST_ASSERT(ret == NULL);
+
+    // Test erasure using an iterator.
+    it = hash_set_iter_create(&set);
+    hash_set_iter_next(&it);
+    hash_set_iter_next(&it);
+    hash_set_iter_erase(&it);
+    int find_key = 2;
+    TEST_ASSERT(hash_set_find(&set, &find_key) == false);
+    find_key = 21;
+    TEST_ASSERT(hash_set_find(&set, &find_key) == true);
+    hash_set_iter_next(&it);
+    hash_set_iter_erase(&it);
+    TEST_ASSERT(hash_set_find(&set, &find_key) == false);
+    TEST_ASSERT_EQUAL_UINT(1, set.size);
 }

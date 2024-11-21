@@ -20,8 +20,9 @@ TEST_GROUP_RUNNER(ArenaGroup)
 
 TEST_GROUP_RUNNER(HashSetGroup)
 {
-    RUN_TEST_CASE(HashSetGroup, HashSet_GeneralTests);
+    RUN_TEST_CASE(HashSetGroup, HashSet_GeneralTests)
     RUN_TEST_CASE(HashSetGroup, HashSet_ResizeTests)
+    RUN_TEST_CASE(HashSetGroup, HashSet_IteratorTests)
 }
 
 TEST_GROUP_RUNNER(JobQueueGroup)
@@ -54,6 +55,11 @@ TEST_GROUP_RUNNER(FilesystemGroup)
     RUN_TEST_CASE(FilesystemGroup, Filesystem_Extension)
 }
 
+TEST_GROUP_RUNNER(SortGroup)
+{
+    RUN_TEST_CASE(SortGroup, RadixSortTest)
+}
+
 static void run_all_tests()
 {
     RUN_TEST_GROUP(ArrayGroup)
@@ -65,6 +71,7 @@ static void run_all_tests()
     RUN_TEST_GROUP(MathGroup)
     RUN_TEST_GROUP(StringGroup)
     RUN_TEST_GROUP(FilesystemGroup)
+    RUN_TEST_GROUP(SortGroup)
 }
 // clang-format on
 

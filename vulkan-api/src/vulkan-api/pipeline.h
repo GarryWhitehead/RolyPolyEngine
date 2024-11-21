@@ -24,62 +24,49 @@
 
 #include "backend/enums.h"
 #include "common.h"
-#include "pipeline_cache.h"
 
 #include <stdint.h>
 #include <utility/hash_set.h>
 
 #define VKAPI_PIPELINE_LIFETIME_FRAME_COUNT 10
 #define VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT 10
+#define VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT 10
+#define VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT 8
 
 // Forward declarations.
 typedef struct VkApiContext vkapi_context_t;
 typedef struct PipelineLayout vkapi_pl_layout_t;
 typedef struct GraphicsPipeline vkapi_graphics_pl_t;
 typedef struct ComputePipeline vkapi_compute_pl_t;
+typedef struct GraphicsPipelineKey graphics_pl_key_t;
+typedef struct ComputePipelineKey compute_pl_key_t;
+struct SpecConstParams;
 
-typedef struct PushBlockBindParams
+typedef struct GraphicsPipeline
 {
-    VkShaderStageFlags stage;
-    uint32_t size;
-    void* data;
-} push_block_bind_params_t;
+    // dynamic states to be used with this pipeline - by default the viewport
+    // and scissor dynamic states are set
+    VkDynamicState dyn_states[6];
+    uint32_t dyn_state_count;
 
-vkapi_pl_layout_t* vkapi_pl_layout_init(arena_t* arena);
+    VkPipeline instance;
+    uint64_t last_used_frame_stamp;
+} vkapi_graphics_pl_t;
 
-void vkapi_pl_layout_add_desc_layout(
-    vkapi_pl_layout_t* layout,
-    uint32_t set,
-    uint32_t binding,
-    VkDescriptorType desc_type,
-    VkShaderStageFlags stage,
-    arena_t* arena);
+typedef struct ComputePipeline
+{
+    VkPipeline instance;
 
-/* Pipeline layout functions */
-
-void vkapi_pl_layout_add_push_const(vkapi_pl_layout_t* layout, enum ShaderStage stage, size_t size);
-
-void vkapi_pl_layout_bind_push_block(
-    vkapi_pl_layout_t* layout, VkCommandBuffer cmdBuffer, push_block_bind_params_t* push_block);
-
-void vkapi_pl_clear_descs(vkapi_pl_layout_t* layout);
-
-/* Graphics pipeline functions */
+} vkapi_compute_pl_t;
 
 /**
  Create a Vulkan graphics pipeline.
  @param context A Vulkan context.
- @param [out] pipeline The newly create pipeline instamce. NULL if fails.
  @param layout A pipeline layout associated with this graphics pipeline.
  @param key A pipeline cache key, used for caching the pipeline in the map.
  */
-void vkapi_graph_pl_create(
-    vkapi_context_t* context,
-    vkapi_graphics_pl_t* pipeline,
-    vkapi_pl_layout_t* layout,
-    graphics_pl_key_t* key);
-
-/* Compute pipeline functions */
+vkapi_graphics_pl_t vkapi_graph_pl_create(
+    vkapi_context_t* context, graphics_pl_key_t* key, struct SpecConstParams* spec_consts);
 
 /**
  Create a Vulkan compute pipeline.
@@ -88,8 +75,4 @@ void vkapi_graph_pl_create(
  @param key A pipeline cache key.
  @param layout A pipeline layout associated with this compute pipeline.
  */
-void vkapi_compute_pl_create(
-    vkapi_compute_pl_t* pipeline,
-    vkapi_context_t* context,
-    compute_pl_key_t* key,
-    vkapi_pl_layout_t* layout);
+vkapi_compute_pl_t vkapi_compute_pl_create(vkapi_context_t* context, compute_pl_key_t* key);

@@ -40,11 +40,14 @@ set (util_files
     src/utility/work_stealing_queue.c
     src/utility/work_stealing_queue.h
     src/utility/hash.h
+    src/utility/hash.c
     src/utility/string.c
     src/utility/string.h
     src/utility/filesystem.h
     src/utility/filesystem.c
     src/utility/thread.h
+    src/utility/sort.c
+    src/utility/sort.h
 )
 
 if (MSVC)
@@ -91,6 +94,7 @@ if (BUILD_TESTS)
         test/test_main.c
         test/test_string.c
         test/test_filesystem.c
+        test/test_sort.c
     )
 
     add_executable(UtilityTest ${test_srcs})

@@ -20,58 +20,59 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __VKAPI_BACKEND_ENUMS_H__
-#define __VKAPI_BACKEND_ENUMS_H__
+#ifndef __BACKEND_BACKEND_ENUMS_H__
+#define __BACKEND_BACKEND_ENUMS_H__
 
 #include <stdint.h>
+#include <vulkan-api/common.h>
 
-enum lendFactor
+enum BlendFactor
 {
-    Zero,
-    One,
-    SrcColour,
-    OneMinusSrcColour,
-    DstColour,
-    OneMinusDstColour,
-    SrcAlpha,
-    OneMinusSrcAlpha,
-    DstAlpha,
-    OneMinusDstAlpha,
-    ConstantColour,
-    OneMinusConstantColour,
-    ConstantAlpha,
-    OneMinusConstantAlpha,
-    SrcAlphaSaturate
+    RPE_BLEND_FACTOR_ZERO,
+    RPE_BLEND_FACTOR_ONE,
+    RPE_BLEND_FACTOR_SRC_COL,
+    RPE_BLEND_FACTOR_ONE_MINUS_SRC_COL,
+    RPE_BLEND_FACTOR_DST_COL,
+    RPE_BLEND_FACTOR_ONE_MINUS_DST_COL,
+    RPE_BLEND_FACTOR_SRC_ALPHA,
+    RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+    RPE_BLEND_FACTOR_DST_ALPHA,
+    RPE_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+    RPE_BLEND_FACTOR_CONST_COL,
+    RPE_BLEND_FACTOR_ONE_MINUS_CONST_COL,
+    RPE_BLEND_FACTOR_CONST_ALPHA,
+    RPE_BLEND_FACTOR_ONE_MINUS_CONST_ALPHA,
+    RPE_BLEND_FACTOR_SRC_ALPHA_SATURATE
 };
 
 enum BlendOp
 {
-    Add,
-    Subtract,
-    ReverseSubtract,
-    Min,
-    Max,
+    RPE_BLEND_OP_ADD,
+    RPE_BLEND_OP_SUB,
+    RPE_BLEND_OP_REV_SUB,
+    RPE_BLEND_OP_MIN,
+    RPE_BLEND_OP_MAX,
 };
 
 enum BlendFactorPresets
 {
-    Translucent
+    RPE_BLEND_FACTOR_PRESET_TRANSLUCENT
 };
 
 enum SamplerAddressMode
 {
-    Repeat,
-    MirroredRepeat,
-    ClampToEdge,
-    ClampToBorder,
-    MirrorClampToEdge
+    RPE_SAMPLER_ADDR_MODE_REPEAT,
+    RPE_SAMPLER_ADDR_MODE_MIRRORED_REPEAT,
+    RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+    RPE_SAMPLER_ADDR_MODE_CLAMP_TO_BORDER,
+    RPE_SAMPLER_ADDR_MODE_MIRROR_CLAMP_TO_EDGE
 };
 
 enum SamplerFilter
 {
-    Nearest,
-    Linear,
-    Cubic
+    RPE_SAMPLER_FILTER_NEAREST,
+    RPE_SAMPLER_FILTER_LINEAR,
+    RPE_SAMPLER_FILTER_CUBIC
 };
 
 enum CullMode
@@ -83,14 +84,14 @@ enum CullMode
 
 enum CompareOp
 {
-    Never,
-    Less,
-    Equal,
-    LessOrEqual,
-    Greater,
-    NotEqual,
-    GreaterOrEqual,
-    Always
+    RPE_COMPARE_OP_NEVER,
+    RPE_COMPARE_OP_LESS,
+    RPE_COMPARE_OP_EQUAL,
+    RPE_COMPARE_OP_LESS_OR_EQUAL,
+    RPE_COMPARE_OP_GREATER,
+    RPE_COMPARE_OP_NOT_EQUAL,
+    RPE_COMPARE_OP_GREATER_OR_EQUAL,
+    RPE_COMPARE_OP_ALWAYS
 };
 
 enum PrimitiveTopology
@@ -110,18 +111,18 @@ enum PrimitiveTopology
 
 enum BufferElementType
 {
-    Uint,
-    Int,
-    Int2,
-    Int3,
-    Int4,
-    Float,
-    Float2,
-    Float3,
-    Float4,
-    Mat3,
-    Mat4,
-    Struct
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_UINT,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_INT,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_INT2,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_INT3,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_INT4,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_FLOAT,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_FLOAT2,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_FLOAT3,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_FLOAT4,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_MAT3,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_MAT4,
+    RPE_BACKEND_BUFFER_ELEMENT_TYPE_STRUCT
 };
 
 enum ShaderStage
@@ -182,5 +183,19 @@ enum StoreClearFlags
     RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE,
     RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE
 };
+
+typedef struct TextureSamplerParams
+{
+    enum SamplerFilter min;
+    enum SamplerFilter mag;
+    enum SamplerAddressMode addr_u;
+    enum SamplerAddressMode addr_v;
+    enum SamplerAddressMode addr_w;
+    VkBool32 enable_anisotropy;
+    float anisotropy;
+    VkBool32 enable_compare;
+    enum CompareOp compare_op;
+    uint32_t mip_levels;
+} sampler_params_t;
 
 #endif

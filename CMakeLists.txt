@@ -33,6 +33,7 @@ endif()
 # global variables
 set(RPE_ROOT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(RPE_SHADER_DIRECTORY "${RPE_ROOT_DIRECTORY}/shaders")
+set(RPE_SHADER_SIPRV_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 set(RPE_CMAKE_INCLUDE_DIRECTORY "${RPE_ROOT_DIRECTORY}/cmake")
 set(RPE_TEST_DIRECTORY "${CMAKE_BINARY_DIR}/Tests")
 
@@ -61,7 +62,9 @@ if (BUILD_TESTS)
     enable_testing()
 endif()
 
+
 # add libraries: 
+add_subdirectory(shaders)
 add_subdirectory(libs)
 add_subdirectory(vulkan-api)
 add_subdirectory(rpe)

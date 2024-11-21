@@ -1,5 +1,6 @@
 #pragma once
-#define VK_NO_PROTOTYPE
 
-#include <vk_mem_alloc.h>
+// clang-format off
 #include <volk.h>
+#include <vk_mem_alloc.h>
+// clang-format on

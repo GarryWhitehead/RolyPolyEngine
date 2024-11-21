@@ -61,57 +61,23 @@ typedef struct HashSet
     hash_set_node_t* _curr_node;
 } hash_set_t;
 
-/**
+typedef struct HashSetIterator
+{
+    hash_set_t* set;
+    uint32_t curr_idx;
+} hash_set_iterator_t;
 
- @param arena
- @param hash_func
- @param key_type_size
- @param value_type_size
- @return
- */
 hash_set_t hash_set_create(
     arena_t* arena, hast_func_t* hash_func, uint32_t key_type_size, uint32_t value_type_size);
 
-/**
-
- @param set
- @param key
- @param value
- @return
- */
 void* hash_set_set(hash_set_t* set, void* key, void* value);
 
-/**
-
- @param set
- @param key
- @return
- */
 void* hash_set_get(hash_set_t* set, void* key);
 
-/**
-
- @param set
- @param key
- @param value
- @return
- */
 void* hash_set_insert(hash_set_t* set, void* key, void* value);
 
-/**
-
- @param set
- @param key
- @return
- */
 bool hash_set_find(hash_set_t* set, void* key);
 
-/**
-
- @param set
- @param key
- @return
- */
 void* hash_set_erase(hash_set_t* set, void* key);
 
 uint32_t hash_set_default_hasher(void* key, uint32_t size);
@@ -175,4 +141,11 @@ void hash_set_clear(hash_set_t* set);
 
 #define HASH_SET_ERASE(set, key) hash_set_erase(set, key)
 #endif
+
+hash_set_iterator_t hash_set_iter_create(hash_set_t* set);
+
+void* hash_set_iter_next(hash_set_iterator_t* it);
+
+hash_set_iterator_t hash_set_iter_erase(hash_set_iterator_t* it);
+
 #endif

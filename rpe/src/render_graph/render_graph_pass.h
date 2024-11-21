@@ -32,8 +32,9 @@
 typedef struct RenderPassNode rg_render_pass_node_t;
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct RenderGraphResource rg_render_graph_resource_t;
+typedef struct Engine rpe_engine_t;
 
-typedef void(execute_func)(vkapi_driver_t*, rg_render_graph_resource_t*, void*);
+typedef void(execute_func)(vkapi_driver_t*, rpe_engine_t*, rg_render_graph_resource_t*, void*);
 
 typedef struct PassAttachment
 {

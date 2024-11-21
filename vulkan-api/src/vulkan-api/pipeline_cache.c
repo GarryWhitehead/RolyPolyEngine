@@ -21,3 +21,383 @@
  */
 
 #include "pipeline_cache.h"
+
+#include "buffer.h"
+#include "descriptor_cache.h"
+#include "driver.h"
+#include "program_manager.h"
+#include "shader.h"
+#include "texture.h"
+
+#include <utility/arena.h>
+#include <utility/hash.h>
+
+graphics_pl_key_t vkapi_graphics_pline_key_init()
+{
+    graphics_pl_key_t k = {0};
+
+    k.raster_state.cullMode = VK_CULL_MODE_BACK_BIT;
+    k.raster_state.polygonMode = VK_POLYGON_MODE_FILL;
+    k.raster_state.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    k.asm_state.primitiveRestartEnable = VK_FALSE;
+    k.ds_state.depthTestEnable = VK_FALSE;
+    k.ds_state.depthWriteEnable = VK_FALSE;
+    k.blend_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    k.blend_state.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    k.blend_state.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    k.blend_state.colorBlendOp = VK_BLEND_OP_ADD;
+    k.blend_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    k.blend_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    k.blend_state.alphaBlendOp = VK_BLEND_OP_ADD;
+    k.blend_state.blendEnable = VK_FALSE;
+
+    k.ds_state.stencilTestEnable = VK_FALSE;
+    k.ds_state.front.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    k.ds_state.front.depthFailOp = VK_STENCIL_OP_ZERO;
+    k.ds_state.front.passOp = VK_STENCIL_OP_ZERO;
+    k.ds_state.front.compareMask = 0;
+    k.ds_state.front.writeMask = 0;
+    k.ds_state.front.reference = 0;
+    k.ds_state.back = k.ds_state.front;
+
+    return k;
+}
+
+vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* driver)
+{
+    vkapi_pipeline_cache_t* c = ARENA_MAKE_ZERO_STRUCT(arena, vkapi_pipeline_cache_t);
+    c->graphics_pline_requires = vkapi_graphics_pline_key_init();
+    c->gfx_pipelines = HASH_SET_CREATE(graphics_pl_key_t, vkapi_graphics_pl_t, arena, murmur_hash3);
+    c->compute_pipelines =
+        HASH_SET_CREATE(compute_pl_key_t, vkapi_compute_pl_t, arena, murmur_hash3);
+    c->pipeline_layouts = HASH_SET_CREATE(pl_layout_key_t, vkapi_pl_layout_t, arena, murmur_hash3);
+    c->driver = driver;
+
+    return c;
+}
+
+bool vkapi_pline_cache_compare_graphic_keys(graphics_pl_key_t* lhs, graphics_pl_key_t* rhs)
+{
+    return memcmp(lhs, rhs, sizeof(graphics_pl_key_t)) == 0;
+}
+
+bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_key_t* rhs)
+{
+    return memcmp(lhs, rhs, sizeof(compute_pl_key_t)) == 0;
+}
+
+void vkapi_pline_cache_bind_graphics_pline(
+    vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts)
+{
+    assert(c);
+
+    // Check if the required pipeline is already bound. If so, nothing to do
+    // here.
+    if (vkapi_pline_cache_compare_graphic_keys(
+            &c->graphics_pline_requires, &c->bound_graphics_pline))
+    {
+        vkapi_graphics_pl_t* pl = HASH_SET_GET(&c->gfx_pipelines, &c->bound_graphics_pline);
+        pl->last_used_frame_stamp = c->driver->current_frame;
+        c->graphics_pline_requires = vkapi_graphics_pline_key_init();
+        return;
+    }
+
+    vkapi_graphics_pl_t* pl = vkapi_pline_cache_find_or_create_gfx_pline(c, spec_consts);
+    assert(pl);
+    pl->last_used_frame_stamp = c->driver->current_frame;
+    vkCmdBindPipeline(cmds, VK_PIPELINE_BIND_POINT_GRAPHICS, pl->instance);
+
+    c->bound_graphics_pline = c->graphics_pline_requires;
+    c->graphics_pline_requires = vkapi_graphics_pline_key_init();
+}
+
+vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
+    vkapi_pipeline_cache_t* c, struct SpecConstParams* spec_consts)
+{
+    assert(c);
+    assert(c->graphics_pline_requires.pl_layout);
+    vkapi_graphics_pl_t* pl = HASH_SET_GET(&c->gfx_pipelines, &c->graphics_pline_requires);
+    if (pl)
+    {
+        return pl;
+    }
+
+    // If we are in a threaded environment, then we can't add to the list until we are out of the
+    // thread
+    vkapi_graphics_pl_t new_pl =
+        vkapi_graph_pl_create(c->driver->context, &c->graphics_pline_requires, spec_consts);
+    return HASH_SET_INSERT(&c->gfx_pipelines, &c->graphics_pline_requires, &new_pl);
+}
+
+void vkapi_pline_cache_bind_compute_pipeline(vkapi_pipeline_cache_t* c, VkCommandBuffer cmd_buffer)
+{
+    assert(c);
+    if (vkapi_pline_cache_compare_compute_keys(&c->bound_compute_pline, &c->compute_pline_requires))
+    {
+        return;
+    }
+
+    vkapi_compute_pl_t* pline = vkapi_pline_cache_find_or_create_compute_pline(c);
+    assert(pline);
+
+    vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pline->instance);
+    c->bound_compute_pline = c->compute_pline_requires;
+}
+
+vkapi_compute_pl_t* vkapi_pline_cache_find_or_create_compute_pline(vkapi_pipeline_cache_t* c)
+{
+    assert(c);
+    vkapi_compute_pl_t* pl = HASH_SET_GET(&c->compute_pipelines, &c->compute_pline_requires);
+    if (pl)
+    {
+        return pl;
+    }
+    vkapi_compute_pl_t new_pl =
+        vkapi_compute_pl_create(c->driver->context, &c->compute_pline_requires);
+    return HASH_SET_INSERT(&c->compute_pipelines, &c->compute_pline_requires, &new_pl);
+}
+
+void vkapi_pline_cache_bind_gfx_shader_modules(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
+{
+    shader_bundle_get_shader_stage_create_info_all(
+        b, c->driver, c->graphics_pline_requires.shaders);
+}
+
+void vkapi_pline_cache_bind_compute_shader_modules(
+    vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
+{
+    c->compute_pline_requires.shader =
+        shader_bundle_get_shader_stage_create_info(b, c->driver, RPE_BACKEND_SHADER_STAGE_COMPUTE);
+}
+
+void vkapi_pline_cache_bind_rpass(vkapi_pipeline_cache_t* c, VkRenderPass rpass)
+{
+    assert(c);
+    c->graphics_pline_requires.render_pass = rpass;
+}
+
+void vkapi_pline_cache_bind_gfx_pl_layout(vkapi_pipeline_cache_t* c, VkPipelineLayout layout)
+{
+    assert(c);
+    c->graphics_pline_requires.pl_layout = layout;
+}
+
+void vkapi_pline_cache_bind_compute_pl_layout(vkapi_pipeline_cache_t* c, VkPipelineLayout layout)
+{
+    assert(c);
+    c->compute_pline_requires.pl_layout = layout;
+}
+
+void vkapi_pline_cache_bind_cull_mode(vkapi_pipeline_cache_t* c, VkCullModeFlagBits cullmode)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.cullMode = cullmode;
+}
+
+void vkapi_pline_cache_bind_polygon_mode(vkapi_pipeline_cache_t* c, VkPolygonMode polymode)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.polygonMode = polymode;
+}
+
+void vkapi_pline_cache_bind_front_face(vkapi_pipeline_cache_t* c, VkFrontFace face)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.frontFace = face;
+}
+
+void vkapi_pline_cache_bind_topology(vkapi_pipeline_cache_t* c, VkPrimitiveTopology topo)
+{
+    assert(c);
+    c->graphics_pline_requires.asm_state.topology = topo;
+}
+
+void vkapi_pline_cache_bind_prim_restart(vkapi_pipeline_cache_t* c, bool state)
+{
+    assert(c);
+    c->graphics_pline_requires.asm_state.primitiveRestartEnable = state;
+}
+
+void vkapi_pline_cache_bind_depth_stencil_block(
+    vkapi_pipeline_cache_t* c, VkPipelineDepthStencilStateCreateInfo* ds)
+{
+    assert(c);
+    c->graphics_pline_requires.ds_state = *ds;
+}
+
+void vkapi_pline_cache_bind_colour_attach_count(vkapi_pipeline_cache_t* c, uint32_t count)
+{
+    assert(c);
+    c->graphics_pline_requires.colour_attach_count = count;
+}
+
+void vkapi_pline_cache_bind_tess_vert_count(vkapi_pipeline_cache_t* c, size_t count)
+{
+    assert(c);
+    c->graphics_pline_requires.tesse_vert_count = count;
+}
+
+void vkapi_pline_cache_bind_blend_factor_block(
+    vkapi_pipeline_cache_t* c, VkPipelineColorBlendAttachmentState* state)
+{
+    assert(c);
+    c->graphics_pline_requires.blend_state = *state;
+}
+
+void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
+{
+    assert(c);
+    assert(b);
+    for (int i = 0; i < RPE_BACKEND_SHADER_STAGE_MAX_COUNT; ++i)
+    {
+        if (b->spec_const_params[i].entry_count > 0)
+        {
+            memcpy(
+                c->graphics_pline_requires.spec_map_entries[i],
+                b->spec_const_params[i].entries,
+                sizeof(VkSpecializationMapEntry) * b->spec_const_params[i].entry_count);
+            c->graphics_pline_requires.spec_map_entry_count[i] =
+                b->spec_const_params[i].entry_count;
+        }
+    }
+}
+
+void vkapi_pline_cache_bind_vertex_input(
+    vkapi_pipeline_cache_t* c,
+    VkVertexInputAttributeDescription* vert_attr_descs,
+    VkVertexInputBindingDescription* vert_bind_descs)
+{
+    assert(c);
+    assert(vert_attr_descs);
+    assert(vert_bind_descs);
+    memcpy(
+        c->graphics_pline_requires.vert_attr_descs,
+        vert_attr_descs,
+        sizeof(VkVertexInputAttributeDescription) * VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT);
+    memcpy(
+        c->graphics_pline_requires.vert_bind_descs,
+        vert_bind_descs,
+        sizeof(VkVertexInputBindingDescription) * VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT);
+}
+
+vkapi_pl_layout_t*
+vkapi_pline_cache_get_pl_layout(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* bundle)
+{
+    assert(c);
+    assert(bundle);
+
+    // Create the key and check if a pipeline layout fits the criteria in the cache.
+    pl_layout_key_t key = {0};
+    memcpy(
+        key.layouts,
+        bundle->desc_layouts,
+        sizeof(VkDescriptorSetLayout) * VKAPI_PIPELINE_MAX_DESC_SET_COUNT);
+    for (int i = 0; i < RPE_BACKEND_SHADER_STAGE_MAX_COUNT; ++i)
+    {
+        key.push_block_info[i].size = bundle->push_blocks[i].range;
+        key.push_block_info[i].stage = bundle->push_blocks[i].stage;
+    }
+
+    vkapi_pl_layout_t* l = HASH_SET_GET(&c->pipeline_layouts, &key);
+    if (l)
+    {
+        l->frame_last_used = c->driver->current_frame;
+        return l;
+    }
+
+    // Not in the cache, create a new instance then.
+    vkapi_pl_layout_t new_l = {0};
+
+    // create push constants - just the size for now. The data contents are set
+    // at draw time
+    VkPushConstantRange constant_ranges[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+    uint32_t cr_count = 0;
+
+    for (int i = 0; i < RPE_BACKEND_SHADER_STAGE_MAX_COUNT; ++i)
+    {
+        if (bundle->push_blocks[i].range > 0)
+        {
+            VkPushConstantRange pcr = {
+                .size = bundle->push_blocks[i].range,
+                .offset = 0,
+                .stageFlags = shader_vk_stage_flag(bundle->push_blocks[i].stage)};
+            constant_ranges[cr_count++] = pcr;
+        }
+    }
+
+    VkPipelineLayoutCreateInfo pl_info = {0};
+    pl_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pl_info.pushConstantRangeCount = cr_count;
+    pl_info.pPushConstantRanges = constant_ranges;
+    pl_info.setLayoutCount = VKAPI_PIPELINE_MAX_DESC_SET_COUNT;
+    pl_info.pSetLayouts = bundle->desc_layouts;
+
+    VK_CHECK_RESULT(vkCreatePipelineLayout(
+        c->driver->context->device, &pl_info, VK_NULL_HANDLE, &new_l.instance));
+
+    new_l.frame_last_used = c->driver->current_frame;
+    return HASH_SET_INSERT(&c->pipeline_layouts, &key, &new_l);
+}
+
+void vkapi_pline_cache_gc(vkapi_pipeline_cache_t* c, uint64_t current_frame)
+{
+    assert(c);
+    // Destroy any pipelines that have reached there lifetime after their last use.
+    hash_set_iterator_t it = hash_set_iter_create(&c->gfx_pipelines);
+    for (;;)
+    {
+        vkapi_graphics_pl_t* pl = hash_set_iter_next(&it);
+        if (!pl)
+        {
+            break;
+        }
+
+        uint64_t collection_frame = pl->last_used_frame_stamp + VKAPI_PIPELINE_LIFETIME_FRAME_COUNT;
+        if (collection_frame < current_frame)
+        {
+            vkDestroyPipeline(c->driver->context->device, pl->instance, VK_NULL_HANDLE);
+            it = hash_set_iter_erase(&it);
+        }
+    }
+}
+
+void vkapi_pline_cache_destroy(vkapi_pipeline_cache_t* c)
+{
+    assert(c);
+
+    // Destroy all graphics pipelines associated with this cache.
+    hash_set_iterator_t it = hash_set_iter_create(&c->gfx_pipelines);
+    for (;;)
+    {
+        vkapi_graphics_pl_t* pl = hash_set_iter_next(&it);
+        if (!pl)
+        {
+            break;
+        }
+
+        if (pl->instance)
+        {
+            vkDestroyPipeline(c->driver->context->device, pl->instance, VK_NULL_HANDLE);
+        }
+    }
+    hash_set_clear(&c->gfx_pipelines);
+
+    // Destroy all compute pipelines associated with this cache.
+    it = hash_set_iter_create(&c->compute_pipelines);
+    for (;;)
+    {
+        vkapi_compute_pl_t* pl = hash_set_iter_next(&it);
+        if (!pl)
+        {
+            break;
+        }
+
+        if (pl->instance)
+        {
+            vkDestroyPipeline(c->driver->context->device, pl->instance, VK_NULL_HANDLE);
+        }
+    }
+    hash_set_clear(&c->compute_pipelines);
+}
