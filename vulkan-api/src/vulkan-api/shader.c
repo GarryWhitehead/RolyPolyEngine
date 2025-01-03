@@ -32,9 +32,6 @@
 #include <string.h>
 #include <utility/arena.h>
 
-
-const size_t sizeof_shader_t = sizeof(struct Shader);
-
 glslang_resource_t* glslang_create_resource(arena_t* arena)
 {
     glslang_resource_t* resources = ARENA_MAKE_STRUCT(arena, glslang_resource_t, ARENA_ZERO_MEMORY);
@@ -281,7 +278,7 @@ string_t shader_stage_to_string(enum ShaderStage stage, arena_t* arena)
 
 VkShaderStageFlagBits shader_vk_stage_flag(enum ShaderStage stage)
 {
-    VkShaderStageFlagBits ret;
+    VkShaderStageFlagBits ret = 0;
     switch (stage)
     {
         case RPE_BACKEND_SHADER_STAGE_VERTEX:
@@ -333,7 +330,6 @@ VkFormat shader_format_from_width(uint32_t width, uint32_t vecSize, spvc_basetyp
             }
         }
     }
-
     // signed integers
     else if (base_type == SPVC_BASETYPE_INT32)
     {
@@ -357,6 +353,33 @@ VkFormat shader_format_from_width(uint32_t width, uint32_t vecSize, spvc_basetyp
             }
         }
     }
+    // Unsigned integers.
+    else if (base_type == SPVC_BASETYPE_UINT32)
+    {
+        if (width == 32)
+        {
+            if (vecSize == 1)
+            {
+                format = VK_FORMAT_R32_UINT;
+            }
+            if (vecSize == 2)
+            {
+                format = VK_FORMAT_R32G32_UINT;
+            }
+            if (vecSize == 3)
+            {
+                format = VK_FORMAT_R32G32B32_UINT;
+            }
+            if (vecSize == 4)
+            {
+                format = VK_FORMAT_R32G32B32A32_UINT;
+            }
+        }
+    }
+    else
+    {
+        log_warn("Unable to gather width from VkFormat: unsupported base type.");
+    }
     return format;
 }
 
@@ -364,8 +387,9 @@ uint32_t shader_stride_from_vec_size(uint32_t width, uint32_t vecSize, spvc_base
 {
     uint32_t size = 0;
 
-    // Floating 32-bit or 32-bit unsigned integers.
-    if (base_type == SPVC_BASETYPE_FP32 || base_type == SPVC_BASETYPE_INT32)
+    // Floating 32-bit or 32-bit un/signed integers.
+    if (base_type == SPVC_BASETYPE_FP32 || base_type == SPVC_BASETYPE_INT32 ||
+        base_type == SPVC_BASETYPE_UINT32)
     {
         if (width == 32)
         {
@@ -386,6 +410,12 @@ uint32_t shader_stride_from_vec_size(uint32_t width, uint32_t vecSize, spvc_base
                 size = 16;
             }
         }
+        else
+        {
+            log_warn(
+                "Unable to obtain stride size from vector size: invalid base type width of %i",
+                width);
+        }
     }
 
     return size;
@@ -402,7 +432,7 @@ spirv_binary_t shader_load_spirv(const char* filename, arena_t* arena)
 {
     spirv_binary_t bin = {.words = NULL, .size = 0};
     string_t shader_dir = string_init(RPE_SHADER_DIRECTORY, arena);
-    string_t shader_filename = string_append(&shader_dir, filename, arena);
+    string_t shader_filename = string_append3(&shader_dir, "/", filename, arena);
     FILE* fp = fopen(shader_filename.data, "rb");
     if (!fp)
     {
@@ -410,16 +440,17 @@ spirv_binary_t shader_load_spirv(const char* filename, arena_t* arena)
         return bin;
     }
     fseek(fp, 0, SEEK_END);
-    long file_size = ftell(fp);
+    unsigned long file_size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    if (bin.size <= 0)
+    if (file_size == 0)
     {
         log_error("Shader SPIRV file is empty: %s", shader_filename.data);
         return bin;
     }
     bin.size = file_size / sizeof(uint32_t);
     bin.words = ARENA_MAKE_ZERO_ARRAY(arena, uint32_t, bin.size);
-    if (fread(bin.words, bin.size, sizeof(uint32_t), fp) != bin.size)
+    unsigned long file_read = fread(bin.words, bin.size, sizeof(uint32_t), fp);
+    if (file_read != sizeof(uint32_t))
     {
         log_error("Error reading shader SPRIV: %s", shader_filename.data);
     }
@@ -464,9 +495,61 @@ void shader_create_vk_module(shader_t* shader, vkapi_context_t* context, spirv_b
     shader->create_info.pName = "main";
 }
 
+uint32_t size_from_base_type(spvc_type_id id)
+{
+    uint32_t size;
+    switch (id)
+    {
+        case SPVC_BASETYPE_INT32:
+        case SPVC_BASETYPE_UINT32:
+        case SPVC_BASETYPE_FP32:
+        case SPVC_BASETYPE_BOOLEAN:
+            size = 4;
+            break;
+        case SPVC_BASETYPE_INT64:
+        case SPVC_BASETYPE_UINT64:
+        case SPVC_BASETYPE_FP64:
+            size = 8;
+            break;
+        default:
+            size = 0;
+    }
+    return size;
+}
+
 void _error_callback(void* data, const char* msg)
 {
     log_error("Error during shader reflection: %s", msg);
+}
+
+int sort_inputs(const void* a, const void* b)
+{
+    shader_attr_t* sa_a = (shader_attr_t*)a;
+    shader_attr_t* sa_b = (shader_attr_t*)b;
+    if (sa_a->location > sa_b->location)
+    {
+        return 1;
+    }
+    if (sa_a->location < sa_b->location)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+int sort_spec_constants(const void* a, const void* b)
+{
+    struct SpecializationConst* sa_a = (struct SpecializationConst*)a;
+    struct SpecializationConst* sa_b = (struct SpecializationConst*)b;
+    if (sa_a->id > sa_b->id)
+    {
+        return 1;
+    }
+    if (sa_a->id < sa_b->id)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count, arena_t* arena)
@@ -488,19 +571,32 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
     spvc_compiler_create_shader_resources(compiler_glsl, &resources);
 
     // Input attributes.
-    spvc_resources_get_resource_list_for_type(
-        resources, SPVC_RESOURCE_TYPE_STAGE_INPUT, &list, &count);
-    for (size_t i = 0; i < count; ++i)
+    if (shader->stage == RPE_BACKEND_SHADER_STAGE_VERTEX)
     {
-        shader_attr_t* attr =
-            &shader->resource_binding.stage_inputs[shader->resource_binding.stage_input_count++];
-        attr->location =
-            spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationLocation);
-        spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, list[i].base_type_id);
-        attr->format = shader_format_from_width(
-            spvc_type_get_bit_width(t), spvc_type_get_vector_size(t), spvc_type_get_basetype(t));
-        attr->stride = shader_stride_from_vec_size(
-            spvc_type_get_bit_width(t), spvc_type_get_vector_size(t), spvc_type_get_basetype(t));
+        spvc_resources_get_resource_list_for_type(
+            resources, SPVC_RESOURCE_TYPE_STAGE_INPUT, &list, &count);
+        for (size_t i = 0; i < count; ++i)
+        {
+            shader_attr_t* attr = &shader->resource_binding
+                                       .stage_inputs[shader->resource_binding.stage_input_count++];
+            attr->location =
+                spvc_compiler_get_decoration(compiler_glsl, list[i].id, SpvDecorationLocation);
+            spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, list[i].base_type_id);
+            attr->format = shader_format_from_width(
+                spvc_type_get_bit_width(t),
+                spvc_type_get_vector_size(t),
+                spvc_type_get_basetype(t));
+            attr->stride = shader_stride_from_vec_size(
+                spvc_type_get_bit_width(t),
+                spvc_type_get_vector_size(t),
+                spvc_type_get_basetype(t));
+        }
+        // Sort the inputs based on their location so the offsets can be calculated correctly.
+        qsort(
+            shader->resource_binding.stage_inputs,
+            shader->resource_binding.stage_input_count,
+            sizeof(shader_attr_t),
+            sort_inputs);
     }
 
     // Output attributes.
@@ -534,6 +630,8 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         layout->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         layout->name = string_init(list[i].name, arena);
         layout->stage = shader_vk_stage_flag(shader->stage);
+        spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, list[i].type_id);
+        layout->bindless_sampler = (bool)spvc_type_get_num_array_dimensions(t);
     }
 
     // Storage images.
@@ -578,7 +676,7 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
             &layout->range);
     }
 
-    // Storage buffers. TODO: Add dynamic storage buffers.
+    // Storage buffers.
     spvc_resources_get_resource_list_for_type(
         resources, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, &list, &count);
     for (size_t i = 0; i < count; ++i)
@@ -605,28 +703,36 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         resources, SPVC_RESOURCE_TYPE_PUSH_CONSTANT, &list, &count);
     for (size_t i = 0; i < count; ++i)
     {
-        const spvc_buffer_range** ranges = NULL;
+        const spvc_buffer_range* ranges = NULL;
         size_t range_count;
-        spvc_compiler_get_active_buffer_ranges(compiler_glsl, list[i].id, ranges, &range_count);
+        spvc_compiler_get_active_buffer_ranges(compiler_glsl, list[i].id, &ranges, &range_count);
         for (size_t j = 0; j < range_count; ++j)
         {
-            shader->resource_binding.push_block_size += ranges[j]->range;
+            shader->resource_binding.push_block_size += ranges[j].range;
         }
     }
 
     // specialisation constants
     const spvc_specialization_constant* consts = NULL;
     spvc_compiler_get_specialization_constants(compiler_glsl, &consts, &count);
+    assert(count < VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT);
     for (size_t i = 0; i < count; ++i)
     {
         spvc_constant c = spvc_compiler_get_constant_handle(compiler_glsl, consts[i].id);
         spvc_type_id ti = spvc_constant_get_type(c);
-        spvc_type t = spvc_compiler_get_type_handle(compiler_glsl, ti);
+        spvc_basetype base_type =
+            spvc_type_get_basetype(spvc_compiler_get_type_handle(compiler_glsl, ti));
         shader->resource_binding.spec_consts[i].id = consts[i].constant_id;
-        // spvc_compiler_get_declared_struct_size(compiler_glsl, t,
-        // &shader->resource_binding.spec_consts[i].size);
+        shader->resource_binding.spec_consts[i].size = size_from_base_type(base_type);
         shader->resource_binding.spec_const_count = count;
     }
+    // Sort the specialisztion constants based on their ids so the offsets can be calculated
+    // correctly.
+    qsort(
+        shader->resource_binding.spec_consts,
+        shader->resource_binding.spec_const_count,
+        sizeof(struct SpecializationConst),
+        sort_spec_constants);
 
     spvc_context_destroy(context);
 }

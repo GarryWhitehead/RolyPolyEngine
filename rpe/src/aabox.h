@@ -44,25 +44,12 @@ static inline rpe_aabox_t rpe_aabox_init()
     return b;
 }
 
-static inline rpe_aabox_t rpe_aabox_calc_rigid_transform(rpe_aabox_t* box, math_mat4f* world)
-{
-    rpe_aabox_t out = rpe_aabox_init();
-    math_mat3f rot = math_mat4f_to_rotation_matrix(world);
-    math_vec3f t = math_mat4f_translation_vec(world);
-    out.min = math_mat3f_mul_vec(&rot, &box->min);
-    out.min = math_vec3f_add(&out.min, &t);
-    out.max = math_mat3f_mul_vec(&rot, &box->max);
-    out.max = math_vec3f_add(&out.max, &t);
-    return out;
-}
-
 /**
  Calculates the center position of the box
  */
 static inline math_vec3f rpe_aabox_get_center(rpe_aabox_t* b)
 {
-    math_vec3f c = math_vec3f_add(&b->max, &b->min);
-    return (math_vec3f_mul_sca(&c, 0.5f));
+    return (math_vec3f_mul_sca(math_vec3f_add(b->max, b->min), 0.5f));
 }
 
 /**
@@ -70,8 +57,24 @@ static inline math_vec3f rpe_aabox_get_center(rpe_aabox_t* b)
  */
 static inline math_vec3f rpe_aabox_get_half_extent(rpe_aabox_t* b)
 {
-    math_vec3f c = math_vec3f_sub(&b->max, &b->min);
-    return (math_vec3f_mul_sca(&c, 0.5f));
+    return (math_vec3f_mul_sca(math_vec3f_sub(b->max, b->min), 0.5f));
+}
+
+static inline rpe_aabox_t
+rpe_aabox_calc_rigid_transform(rpe_aabox_t* box, math_mat3f rot, math_vec3f t)
+{
+    rpe_aabox_t out = {.min = t, .max = t};
+    for (size_t col = 0; col < 3; ++col)
+    {
+        for (size_t row = 0; row < 3; ++row)
+        {
+            const float a = rot.data[col][row] * box->min.data[col];
+            const float b = rot.data[col][row] * box->max.data[col];
+            out.min.data[row] += a < b ? a : b;
+            out.max.data[row] += a < b ? b : a;
+        }
+    }
+    return out;
 }
 
 #endif

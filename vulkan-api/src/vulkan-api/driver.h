@@ -30,6 +30,8 @@
 #include "resource_cache.h"
 #include "staging_pool.h"
 
+#define VKAPI_DRIVER_MAX_DRAW_COUNT 1000
+
 #define VKAPI_SCRATCH_ARENA_SIZE 1 << 20
 #define VKAPI_PERM_ARENA_SIZE 1 << 30
 
@@ -44,6 +46,12 @@ typedef struct SamplerCache vkapi_sampler_cache_t;
 typedef struct VkApiSwapchain vkapi_swapchain_t;
 typedef struct ShaderProgramBundle shader_prog_bundle_t;
 
+enum BarrierType
+{
+    VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ,
+    VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE
+};
+
 typedef struct VkApiDriver
 {
     /// Current device context (instance, physical device, device).
@@ -56,7 +64,11 @@ typedef struct VkApiDriver
 
     vkapi_staging_pool_t* staging_pool;
 
+    // Graphic queue commands.
     vkapi_commands_t* commands;
+    // Compute queue commands (if the graphics and compute queue are the same, commited commands
+    // will be in the same queue).
+    vkapi_commands_t* compute_commands;
 
     /** Private **/
     /// Permanent arena space for the lifetime of this driver.
@@ -103,7 +115,7 @@ vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count,
  Deallocate all resources associated with the vulkan api.
  @param driver A pointer to the driver instance.
  */
-void vkapi_driver_shutdown(vkapi_driver_t* driver);
+void vkapi_driver_shutdown(vkapi_driver_t* driver, VkSurfaceKHR surface);
 
 /**
  Get the supported Vk depth format for this device.
@@ -116,7 +128,7 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_driver_t* driver,
     bool multiView,
     math_vec4f clear_col,
-    vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT],
+    vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
     vkapi_attach_info_t stencil);
 
@@ -130,8 +142,9 @@ void vkapi_driver_begin_rpass(
     vkapi_rt_handle_t* rt_handle);
 void vkapi_driver_end_rpass(VkCommandBuffer cmds);
 
-void vkapi_driver_bind_vertex_buffer(vkapi_driver_t* driver);
-void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver);
+void vkapi_driver_bind_vertex_buffer(
+    vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding);
+void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle);
 
 void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
 
@@ -144,6 +157,13 @@ void vkapi_driver_set_push_constant(
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset);
 void vkapi_driver_draw_indexed(
     vkapi_driver_t* driver, uint32_t index_count, int32_t vertex_offset, int32_t index_offset);
+void vkapi_driver_draw_indirect_indexed(
+    vkapi_driver_t* driver,
+    buffer_handle_t indirect_cmd_buffer,
+    uint32_t offset,
+    buffer_handle_t cmd_count_buffer,
+    uint32_t draw_count_offset,
+    uint32_t stride);
 
 void vkapi_driver_begin_cond_render(
     vkapi_driver_t* driver, buffer_handle_t cond_buffer, int32_t offset);
@@ -154,6 +174,27 @@ void vkapi_driver_dispatch_compute(
     uint32_t x_work_count,
     uint32_t y_work_count,
     uint32_t z_work_count);
+
+void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
+
+void vkapi_driver_clear_gpu_buffer(
+    vkapi_driver_t* driver, vkapi_cmdbuffer_t* cmd_buffer, buffer_handle_t handle);
+
+void vkapi_driver_apply_global_barrier(
+    vkapi_driver_t* driver,
+    VkPipelineStageFlags src_stage,
+    VkPipelineStageFlags dst_stage,
+    VkAccessFlags src_access,
+    VkAccessFlags dst_access);
+void vkapi_driver_acquire_buffer_barrier(
+    vkapi_driver_t* driver, vkapi_cmdbuffer_t*, buffer_handle_t handle, enum BarrierType type);
+void vkapi_driver_release_buffer_barrier(
+    vkapi_driver_t* driver, vkapi_cmdbuffer_t*, buffer_handle_t handle, enum BarrierType type);
+
+void vkapi_driver_flush_compute_cmds(vkapi_driver_t* driver);
+void vkapi_driver_flush_gfx_cmds(vkapi_driver_t* driver);
+vkapi_cmdbuffer_t* vkapi_driver_get_compute_cmds(vkapi_driver_t* driver);
+vkapi_cmdbuffer_t* vkapi_driver_get_gfx_cmds(vkapi_driver_t* driver);
 
 void vkapi_driver_gc(vkapi_driver_t* driver);
 

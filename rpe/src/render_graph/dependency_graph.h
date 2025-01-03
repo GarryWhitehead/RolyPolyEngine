@@ -27,8 +27,6 @@
 #include <utility/arena.h>
 #include <utility/string.h>
 
-// forward declarations
-typedef struct DependencyGraph rg_dep_graph_t;
 
 typedef struct Edge
 {
@@ -44,6 +42,19 @@ typedef struct Node
     string_t name;
     uint64_t id;
 } rg_node_t;
+
+typedef struct DependencyGraph
+{
+    // The nodes are not owned by the dependency graph so we only
+    // keep reference with a raw pointer. Thus, its imperative that
+    // the owner only destroys the node after finishing with the
+    // dependency graph.
+    arena_dyn_array_t nodes;
+
+    // As nodes, edges are not ownded by the dependency graph but the
+    // render graph, so be careful with the lifetime of the edge.
+    arena_dyn_array_t edges;
+} rg_dep_graph_t;
 
 rg_node_t* rg_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena);
 
@@ -74,9 +85,5 @@ void rg_dep_graph_add_edge(rg_dep_graph_t* dg, rg_edge_t* edge);
 void rg_dep_graph_cull(rg_dep_graph_t* dg, arena_t* scratch_arena);
 
 void rg_dep_graph_clear(rg_dep_graph_t* dg);
-
-void rg_dep_graph_export_graph_viz(rg_dep_graph_t* dg, string_t output, arena_t* arena);
-
-string_t rg_node_get_graph_viz(rg_node_t* n, arena_t* arena);
 
 #endif

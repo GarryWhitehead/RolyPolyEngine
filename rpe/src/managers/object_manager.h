@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_OBJECT_MANAGER_H__
-#define __RPE_OBJECT_MANAGER_H__
+#ifndef __RPE_PRIV_OBJECT_MANAGER_H__
+#define __RPE_PRIV_OBJECT_MANAGER_H__
 
 #define RPE_OBJ_MANAGER_INDEX_BITS 22
 #define RPE_OBJ_MANAGER_INDEX_MASK ((1 << RPE_OBJ_MANAGER_INDEX_BITS) - 1)
@@ -31,7 +31,6 @@
 #define RPE_OBJ_MANAGER_GENERATION_MASK ((1 << RPE_OBJ_MANAGER_GENERATION_BITS) - 1)
 
 #define RPE_OBJ_MANAGER_MIN_FREE_IDS 1024
-#define RPE_OBJ_MANAGER_MAX_OBJECTS 262144
 
 #include "rpe/object.h"
 
@@ -50,11 +49,9 @@ typedef struct ObjectManager
     uint8_t* generations;
 } rpe_obj_manager_t;
 
-rpe_obj_manager_t rpe_obj_manager_init(arena_t* arena);
+rpe_obj_manager_t* rpe_obj_manager_init(arena_t* arena);
 
 bool rpe_obj_manager_is_alive(rpe_obj_manager_t* m, rpe_object_t obj);
-
-rpe_object_t rpe_obj_manager_create(rpe_obj_manager_t* m);
 
 void rpe_obj_manager_destroy_obj(rpe_obj_manager_t* m, rpe_object_t obj);
 

@@ -30,7 +30,7 @@ foreach(source IN LISTS SHADERS)
   add_custom_command(
     COMMAND
       ${GLSLANG_EXE}
-      -V #-MD -MF ${SHADER_BINARY_DIR}/${FILENAME}.d
+      -V
       -o ${SHADER_BINARY_DIR}/${FILENAME}.spv
       ${source}
     OUTPUT ${SHADER_BINARY_DIR}/${FILENAME}.spv

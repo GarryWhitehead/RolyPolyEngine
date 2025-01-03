@@ -19,29 +19,25 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#ifndef __RPE_TRANSFORM_MANAGER_H__
+#define __RPE_TRANSFORM_MANAGER_H__
 
-#include <app/app.h>
+#include "object.h"
 
-int main()
+#include <utility/maths.h>
+
+typedef struct TransformManager rpe_transform_manager_t;
+
+typedef struct ModelTransform
 {
-    const uint32_t winWidth = 1920;
-    const uint32_t winHeight = 1080;
+    math_mat3f rot;
+    math_vec3f scale;
+    math_vec3f translation;
+} rpe_model_transform_t;
 
-    rpe_app_t app = {};
-    int error = rpe_app_init("model loader", winWidth, winHeight, &app);
-    if (error != APP_SUCCESS)
-    {
-        exit(1);
-    }
+rpe_model_transform_t rpe_model_transform_init();
 
-    swapchain_handle_t* sc =
-        rpe_engine_create_swapchain(app.engine, app.window.vk_surface, winWidth, winHeight);
-    if (!sc)
-    {
-        exit(1);
-    }
+void rpe_transform_manager_add_local_transform(
+    rpe_transform_manager_t* m, rpe_model_transform_t* local_transform, rpe_object_t obj);
 
-    rpe_app_run(&app);
-
-    exit(0);
-}
+#endif

@@ -160,7 +160,8 @@ vkapi_texture_t vkapi_texture_init(
     uint32_t mip_levels,
     uint32_t face_count,
     uint32_t array_count,
-    VkFormat format)
+    VkFormat format,
+    enum TextureType type)
 {
     assert(width > 0 && height > 0);
     assert(mip_levels > 0 && mip_levels < VKAPI_TEXTURE_MAX_MIP_COUNT);
@@ -175,6 +176,7 @@ vkapi_texture_t vkapi_texture_init(
         .info.format = format,
         .image_layout = VK_IMAGE_LAYOUT_UNDEFINED,
         .image = VK_NULL_HANDLE,
+        .type = type,
         .image_memory = VK_NULL_HANDLE,
         .frames_until_gc = 0};
 
@@ -184,10 +186,14 @@ vkapi_texture_t vkapi_texture_init(
 void vkapi_texture_destroy(vkapi_context_t* context, vkapi_texture_t* texture)
 {
     vkFreeMemory(context->device, texture->image_memory, VK_NULL_HANDLE);
-    vkDestroyImage(context->device, texture->image, VK_NULL_HANDLE);
     for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
     {
         vkDestroyImageView(context->device, texture->image_views[level], VK_NULL_HANDLE);
+    }
+    // Images associated with the swapchain are destroyed on calling vkDestroySwapchainKHR.
+    if (texture->type != VKAPI_TEXTURE_TYPE_SWAPCHAIN)
+    {
+        vkDestroyImage(context->device, texture->image, VK_NULL_HANDLE);
     }
 }
 

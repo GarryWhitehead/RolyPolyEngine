@@ -37,7 +37,7 @@
 
 vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* error_code)
 {
-    RENDERDOC_CREATE_API_INSTANCE
+    // RENDERDOC_CREATE_API_INSTANCE
 
     *error_code = VKAPI_SUCCESS;
 
@@ -82,7 +82,17 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
         return ret;
     }
 
-    driver->commands = vkapi_commands_init(driver->context, &driver->_perm_arena);
+    volkLoadDevice(driver->context->device);
+    driver->commands = vkapi_commands_init(
+        driver->context,
+        driver->context->queue_info.graphics,
+        driver->context->graphics_queue,
+        &driver->_perm_arena);
+    driver->compute_commands = vkapi_commands_init(
+        driver->context,
+        driver->context->queue_info.compute,
+        driver->context->compute_queue,
+        &driver->_perm_arena);
 
     // set up the memory allocator
     VmaVulkanFunctions vk_funcs = {0};
@@ -104,50 +114,52 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     VK_CHECK_RESULT(vkCreateSemaphore(
         driver->context->device, &sp_create_info, VK_NULL_HANDLE, &driver->image_ready_signal))
 
+    // The staging pool is needed by some of the other caches so init first.
+    driver->staging_pool = vkapi_staging_init(&driver->_perm_arena);
     driver->prog_manager = program_cache_init(&driver->_perm_arena);
     driver->framebuffer_cache = vkapi_fb_cache_init(&driver->_perm_arena);
     driver->pline_cache = vkapi_pline_cache_init(&driver->_perm_arena, driver);
     driver->desc_cache = vkapi_desc_cache_init(driver, &driver->_perm_arena);
     driver->sampler_cache = vkapi_sampler_cache_init(&driver->_perm_arena);
     driver->res_cache = vkapi_res_cache_init(driver, &driver->_perm_arena);
-    driver->staging_pool = vkapi_staging_init(&driver->_perm_arena);
 
     return VKAPI_SUCCESS;
 }
 
-void vkapi_driver_shutdown(vkapi_driver_t* driver)
+void vkapi_driver_shutdown(vkapi_driver_t* driver, VkSurfaceKHR surface)
 {
+    // Destroy the command buffers first to make sure they have executed all commands before
+    // destroying all other Vulkan objects.
+    vkapi_commands_destroy(driver->context, driver->commands);
+    vkapi_commands_destroy(driver->context, driver->compute_commands);
+
     vkapi_fb_cache_destroy(driver->framebuffer_cache, driver);
     vkapi_pline_cache_destroy(driver->pline_cache);
     vkapi_desc_cache_destroy(driver->desc_cache);
     vkapi_res_cache_destroy(driver->res_cache, driver);
     vkapi_sampler_cache_destroy(driver->sampler_cache, driver);
-    vkapi_commands_destroy(driver->context, driver->commands);
     vkapi_staging_destroy(driver->staging_pool, driver->vma_allocator);
     program_cache_destroy(driver->prog_manager, driver);
 
     vkDestroySemaphore(driver->context->device, driver->image_ready_signal, VK_NULL_HANDLE);
     vmaDestroyAllocator(driver->vma_allocator);
 
-    vkapi_context_shutdown(driver->context);
+    vkapi_context_shutdown(driver->context, surface);
     arena_release(&driver->_scratch_arena);
     arena_release(&driver->_perm_arena);
 }
 
 VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver)
 {
-    // in order of preference - TODO: allow user to define whether stencil
-    // format is required or not
     VkFormat formats[] = {
         VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT};
-    VkFormatFeatureFlags format_feature = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
     VkFormat output = VK_FORMAT_UNDEFINED;
     for (int i = 0; i < 3; ++i)
     {
-        VkFormatProperties* props = NULL;
-        vkGetPhysicalDeviceFormatProperties(driver->context->physical, formats[i], props);
-        if (format_feature == (props->optimalTilingFeatures & format_feature))
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(driver->context->physical, formats[i], &props);
+        if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
         {
             output = formats[i];
             break;
@@ -160,7 +172,7 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_driver_t* driver,
     bool multiView,
     math_vec4f clear_col,
-    vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT],
+    vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
     vkapi_attach_info_t stencil)
 {
@@ -195,6 +207,9 @@ void vkapi_driver_map_gpu_buffer(
 
 bool vkapi_driver_begin_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
 {
+    assert(driver);
+    assert(sc);
+
     // get the next image index which will be the framebuffer we draw too
     VkResult res = vkAcquireNextImageKHR(
         driver->context->device,
@@ -216,10 +231,17 @@ bool vkapi_driver_begin_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
 
 void vkapi_driver_end_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
 {
+    assert(driver);
+    assert(sc);
+
+    vkapi_driver_flush_compute_cmds(driver);
+
     vkapi_commands_set_ext_wait_signal(driver->commands, driver->image_ready_signal);
+    vkapi_commands_set_ext_wait_signal(
+        driver->commands, vkapi_commands_get_finished_signal(driver->compute_commands));
 
     // submit the present cmd buffer and send to the queue
-    vkapi_commands_flush(driver->context, driver->commands);
+    vkapi_driver_flush_gfx_cmds(driver);
     VkSemaphore render_complete_signal = vkapi_commands_get_finished_signal(driver->commands);
 
     VkPresentInfoKHR pi = {0};
@@ -229,12 +251,7 @@ void vkapi_driver_end_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
     pi.swapchainCount = 1;
     pi.pSwapchains = &sc->sc_instance;
     pi.pImageIndices = &driver->image_index;
-    VK_CHECK_RESULT(vkQueuePresentKHR(driver->context->present_queue, &pi));
-
-    log_debug(
-        "KHR Presentation (image index: %i) - render wait signal: {%lu}",
-        driver->image_index,
-        render_complete_signal);
+    VK_CHECK_RESULT(vkQueuePresentKHR(driver->context->present_queue, &pi))
 
     // Destroy any resources that have reached their use by date.
     vkapi_driver_gc(driver);
@@ -278,7 +295,7 @@ void vkapi_driver_begin_rpass(
             rpass_key.colour_formats[i] = tex->info.format;
             assert(data->final_layouts[i] != VK_IMAGE_LAYOUT_UNDEFINED);
             rpass_key.final_layout[i] = data->final_layouts[i];
-            rpass_key.initial_layout[i] = data->final_layouts[i];
+            rpass_key.initial_layout[i] = data->init_layouts[i];
             rpass_key.load_op[i] = data->load_clear_flags[i];
             rpass_key.store_op[i] = data->store_clear_flags[i];
             ++attach_count;
@@ -350,6 +367,7 @@ void vkapi_driver_begin_rpass(
         .offset.x = 0, .offset.y = 0, .extent.width = fbo->width, .extent.height = fbo->height};
 
     VkRenderPassBeginInfo bi = {0};
+    bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     bi.renderPass = rpass->instance;
     bi.framebuffer = fbo->instance;
     bi.renderArea = extents;
@@ -377,30 +395,26 @@ void vkapi_driver_begin_rpass(
 
     // bind the renderpass to the pipeline
     vkapi_pline_cache_bind_rpass(driver->pline_cache, rpass->instance);
-    vkapi_pline_cache_bind_colour_attach_count(driver->pline_cache, rpass->attach_descriptors.size);
+    vkapi_pline_cache_bind_colour_attach_count(
+        driver->pline_cache, vkapi_rpass_get_attach_count(rpass));
 }
 
 void vkapi_driver_end_rpass(VkCommandBuffer cmds) { vkCmdEndRenderPass(cmds); }
 
-void vkapi_driver_bind_vertex_buffer(vkapi_driver_t* driver)
+void vkapi_driver_bind_vertex_buffer(
+    vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding)
 {
-    // Map the vertex data first to the GPU.
-    vkapi_res_cache_upload_vertex_buffer(driver->res_cache);
-
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_buffer_t* vb = vkapi_res_cache_get_buffer(driver->res_cache, vb_handle);
     VkDeviceSize offset[1] = {0};
-    vkCmdBindVertexBuffers(
-        cmd_buffer->instance, 0, 1, &driver->res_cache->vertex_buffer.buffer, offset);
+    vkCmdBindVertexBuffers(cmd_buffer->instance, binding, 1, &vb->buffer, offset);
 }
 
-void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver)
+void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle)
 {
-    // Map the index data first to the GPU.
-    vkapi_res_cache_upload_index_buffer(driver->res_cache);
-
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkCmdBindIndexBuffer(
-        cmd_buffer->instance, driver->res_cache->index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkapi_buffer_t* ib = vkapi_res_cache_get_buffer(driver->res_cache, ib_handle);
+    vkCmdBindIndexBuffer(cmd_buffer->instance, ib->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
 void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
@@ -408,18 +422,46 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
 
+    bool bound_samplers = false;
+    struct DescriptorImage image_samplers[VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT] = {0};
+    for (int idx = 0; idx < VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT; ++idx)
+    {
+        texture_handle_t handle = bundle->image_samplers[idx].handle;
+        VkSampler sampler = bundle->image_samplers[idx].sampler;
+        if (vkapi_tex_handle_is_valid(handle))
+        {
+            vkapi_texture_t* tex = vkapi_res_cache_get_tex2d(driver->res_cache, handle);
+            image_samplers[idx].image_sampler = sampler;
+            image_samplers[idx].image_view = tex->image_views[0];
+            image_samplers[idx].image_layout = tex->image_layout;
+            bound_samplers = true;
+        }
+    }
+    if (bound_samplers)
+    {
+        vkapi_desc_cache_bind_sampler(driver->desc_cache, image_samplers);
+    }
+
     // Bind all the buffers associated with this pipeline
     for (size_t i = 0; i < VKAPI_PIPELINE_MAX_UBO_BIND_COUNT; ++i)
     {
         desc_bind_info_t* info = &bundle->ubos[i];
-        vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, info->buffer);
-        vkapi_desc_cache_bind_ubo(driver->desc_cache, info->binding, buffer->buffer, info->size);
+        if (vkapi_buffer_handle_is_valid(info->buffer))
+        {
+            vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, info->buffer);
+            vkapi_desc_cache_bind_ubo(
+                driver->desc_cache, info->binding, buffer->buffer, info->size);
+        }
     }
     for (size_t i = 0; i < VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT; ++i)
     {
         desc_bind_info_t* info = &bundle->ssbos[i];
-        vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, info->buffer);
-        vkapi_desc_cache_bind_ssbo(driver->desc_cache, info->binding, buffer->buffer, info->size);
+        if (vkapi_buffer_handle_is_valid(info->buffer))
+        {
+            vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, info->buffer);
+            vkapi_desc_cache_bind_ssbo(
+                driver->desc_cache, info->binding, buffer->buffer, info->size);
+        }
     }
 
     vkapi_desc_cache_bind_descriptors(
@@ -434,27 +476,29 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
     vkapi_pline_cache_bind_cull_mode(driver->pline_cache, bundle->raster_state.cull_mode);
     vkapi_pline_cache_bind_front_face(driver->pline_cache, bundle->raster_state.front_face);
     vkapi_pline_cache_bind_polygon_mode(driver->pline_cache, bundle->raster_state.polygon_mode);
+    vkapi_pline_cache_bind_depth_test_enable(driver->pline_cache, bundle->ds_state.test_enable);
+    vkapi_pline_cache_bind_depth_write_enable(driver->pline_cache, bundle->ds_state.write_enable);
 
     // TODO: Need to support differences in front/back stencil
-    VkPipelineDepthStencilStateCreateInfo ds_state = {0};
-    ds_state.front.compareOp = bundle->ds_state.front.compare_op;
-    ds_state.front.compareMask = bundle->ds_state.front.compare_mask;
-    ds_state.front.depthFailOp = bundle->ds_state.front.depth_fail_op;
-    ds_state.front.passOp = bundle->ds_state.front.pass_op;
-    ds_state.front.reference = bundle->ds_state.front.reference;
-    ds_state.front.failOp = bundle->ds_state.front.stencil_fail_op;
-    ds_state.stencilTestEnable = bundle->ds_state.stencil_test_enable;
+    struct DepthStencilBlock ds_state = {0};
+    ds_state.compare_op = bundle->ds_state.front.compare_op;
+    ds_state.compare_mask = bundle->ds_state.front.compare_mask;
+    ds_state.depth_fail_op = bundle->ds_state.front.depth_fail_op;
+    ds_state.pass_op = bundle->ds_state.front.pass_op;
+    ds_state.reference = bundle->ds_state.front.reference;
+    ds_state.stencil_fail_op = bundle->ds_state.front.stencil_fail_op;
+    ds_state.stencil_test_enable = bundle->ds_state.stencil_test_enable;
     vkapi_pline_cache_bind_depth_stencil_block(driver->pline_cache, &ds_state);
 
     // blend factors
-    VkPipelineColorBlendAttachmentState blend_state = {0};
-    blend_state.blendEnable = bundle->blend_state.blend_enable;
-    blend_state.srcColorBlendFactor = bundle->blend_state.src_colour;
-    blend_state.dstColorBlendFactor = bundle->blend_state.dst_colour;
-    blend_state.colorBlendOp = bundle->blend_state.colour;
-    blend_state.srcAlphaBlendFactor = bundle->blend_state.src_alpha;
-    blend_state.dstAlphaBlendFactor = bundle->blend_state.dst_alpha;
-    blend_state.alphaBlendOp = bundle->blend_state.alpha;
+    struct BlendFactorBlock blend_state = {0};
+    blend_state.blend_enable = bundle->blend_state.blend_enable;
+    blend_state.src_colour_blend_factor = bundle->blend_state.src_colour;
+    blend_state.dst_colour_blend_factor = bundle->blend_state.dst_colour;
+    blend_state.colour_blend_op = bundle->blend_state.colour;
+    blend_state.src_alpha_blend_factor = bundle->blend_state.src_alpha;
+    blend_state.dst_alpha_blend_factor = bundle->blend_state.dst_alpha;
+    blend_state.alpha_blend_op = bundle->blend_state.alpha;
     vkapi_pline_cache_bind_blend_factor_block(driver->pline_cache, &blend_state);
 
     // Bind primitive info
@@ -463,7 +507,8 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
     vkapi_pline_cache_bind_tess_vert_count(driver->pline_cache, bundle->tesse_vert_count);
 
     vkapi_pline_cache_bind_vertex_input(
-        driver->pline_cache, bundle->vert_attrs, &bundle->vert_bind_desc);
+        driver->pline_cache, bundle->vert_attrs, bundle->vert_bind_desc);
+    vkapi_pline_cache_bind_spec_constants(driver->pline_cache, bundle);
 
     // if the width and height are zero then ignore setting the scissors and/or
     // viewport and go with the extents set upon initiation of the renderpass
@@ -486,8 +531,7 @@ void vkapi_driver_set_push_constant(
 {
     assert(driver);
     assert(data);
-    assert(size > 0);
-    VkPipelineLayout l = driver->pline_cache->graphics_pline_requires.pl_layout;
+    VkPipelineLayout l = driver->pline_cache->bound_graphics_pline.pl_layout;
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkCmdPushConstants(cmd_buffer->instance, l, stage, 0, size, data);
 }
@@ -503,6 +547,27 @@ void vkapi_driver_draw_indexed(
 {
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkCmdDrawIndexed(cmd_buffer->instance, index_count, 1, index_offset, vertex_offset, 0);
+}
+
+void vkapi_driver_draw_indirect_indexed(
+    vkapi_driver_t* driver,
+    buffer_handle_t indirect_cmd_buffer,
+    uint32_t offset,
+    buffer_handle_t cmd_count_buffer,
+    uint32_t draw_count_offset,
+    uint32_t stride)
+{
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_buffer_t* ic_buffer = vkapi_res_cache_get_buffer(driver->res_cache, indirect_cmd_buffer);
+    vkapi_buffer_t* count_buffer = vkapi_res_cache_get_buffer(driver->res_cache, cmd_count_buffer);
+    vkCmdDrawIndexedIndirectCount(
+        cmd_buffer->instance,
+        ic_buffer->buffer,
+        offset,
+        count_buffer->buffer,
+        draw_count_offset,
+        VKAPI_DRIVER_MAX_DRAW_COUNT,
+        stride);
 }
 
 void vkapi_driver_begin_cond_render(
@@ -524,11 +589,9 @@ void vkapi_driver_dispatch_compute(
     uint32_t y_work_count,
     uint32_t z_work_count)
 {
-    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_cmdbuffer_t* cmds = vkapi_driver_get_compute_cmds(driver);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
-    // Note: potential memory issue here - if we don't push the pl layout instance to a local
-    // register, the `pl_layout` memory gets corrupted below along with the instance and things
-    // break.
+
     VkPipelineLayout pl_instance = pl_layout->instance;
 
     // image storage
@@ -549,7 +612,7 @@ void vkapi_driver_dispatch_compute(
     struct DescriptorImage image_samplers[VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT] = {0};
     for (int idx = 0; idx < VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT; ++idx)
     {
-        texture_handle_t handle = bundle->storage_images[idx];
+        texture_handle_t handle = bundle->image_samplers[idx].handle;
         VkSampler sampler = bundle->image_samplers[idx].sampler;
         if (vkapi_tex_handle_is_valid(handle))
         {
@@ -609,6 +672,188 @@ void vkapi_driver_dispatch_compute(
     RENDERDOC_START_CAPTURE(NULL, NULL)
     vkCmdDispatch(cmds->instance, x_work_count, y_work_count, z_work_count);
     RENDERDOC_END_CAPTURE(NULL, NULL)
+}
+
+void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
+{
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle);
+    vkCmdDraw(cmd_buffer->instance, 3, 1, 0, 0);
+}
+
+void vkapi_driver_apply_global_barrier(
+    vkapi_driver_t* driver,
+    VkPipelineStageFlags src_stage,
+    VkPipelineStageFlags dst_stage,
+    VkAccessFlags src_access,
+    VkAccessFlags dst_access)
+{
+    assert(driver);
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    VkMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .srcAccessMask = src_access,
+        .dstAccessMask = dst_access};
+    vkCmdPipelineBarrier(
+        cmd_buffer->instance,
+        src_stage,
+        dst_stage,
+        0,
+        1,
+        &barrier,
+        0,
+        VK_NULL_HANDLE,
+        0,
+        VK_NULL_HANDLE);
+}
+
+void vkapi_driver_acquire_buffer_barrier(
+    vkapi_driver_t* driver,
+    vkapi_cmdbuffer_t* cmd_buffer,
+    buffer_handle_t handle,
+    enum BarrierType type)
+{
+    // No sync required if the graphics and compute queues are the same.
+    if (driver->context->queue_info.graphics == driver->context->queue_info.compute)
+    {
+        return;
+    }
+
+    vkapi_buffer_t* b = vkapi_res_cache_get_buffer(driver->res_cache, handle);
+
+    VkPipelineStageFlags srcStage, dstStage;
+    VkAccessFlags srcAccess, dstAccess;
+    uint32_t srcQueueIndex, dstQueueIndex;
+
+    if (type == VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ)
+    {
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        dstStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        srcAccess = 0;
+        dstAccess = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        srcQueueIndex = driver->context->queue_info.compute;
+        dstQueueIndex = driver->context->queue_info.graphics;
+    }
+    else if (type == VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE)
+    {
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        srcAccess = 0;
+        dstAccess = VK_ACCESS_SHADER_WRITE_BIT;
+        srcQueueIndex = driver->context->queue_info.graphics;
+        dstQueueIndex = driver->context->queue_info.compute;
+    }
+
+    VkBufferMemoryBarrier barrier = {0};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.size = b->size;
+    barrier.buffer = b->buffer;
+    barrier.srcQueueFamilyIndex = srcQueueIndex;
+    barrier.dstQueueFamilyIndex = dstQueueIndex;
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstAccessMask = dstAccess;
+
+    vkCmdPipelineBarrier(
+        cmd_buffer->instance,
+        srcStage,
+        dstStage,
+        0,
+        0,
+        VK_NULL_HANDLE,
+        1,
+        &barrier,
+        0,
+        VK_NULL_HANDLE);
+}
+
+void vkapi_driver_release_buffer_barrier(
+    vkapi_driver_t* driver,
+    vkapi_cmdbuffer_t* cmd_buffer,
+    buffer_handle_t handle,
+    enum BarrierType type)
+{
+    // No sync required if the graphics and compute queues are the same.
+    if (driver->context->queue_info.graphics == driver->context->queue_info.compute)
+    {
+        return;
+    }
+
+    vkapi_buffer_t* b = vkapi_res_cache_get_buffer(driver->res_cache, handle);
+
+    VkPipelineStageFlags srcStage, dstStage;
+    VkAccessFlags srcAccess, dstAccess;
+    uint32_t srcQueueIndex, dstQueueIndex;
+
+    if (type == VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ)
+    {
+        srcStage = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        srcAccess = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        dstAccess = 0;
+        srcQueueIndex = driver->context->queue_info.graphics;
+        dstQueueIndex = driver->context->queue_info.compute;
+    }
+    else if (type == VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE)
+    {
+        srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        srcAccess = VK_ACCESS_SHADER_WRITE_BIT;
+        dstAccess = 0;
+        srcQueueIndex = driver->context->queue_info.compute;
+        dstQueueIndex = driver->context->queue_info.graphics;
+    }
+
+    VkBufferMemoryBarrier barrier = {0};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.size = b->size;
+    barrier.buffer = b->buffer;
+    barrier.srcQueueFamilyIndex = srcQueueIndex;
+    barrier.dstQueueFamilyIndex = dstQueueIndex;
+    barrier.srcAccessMask = srcAccess;
+    barrier.dstAccessMask = dstAccess;
+
+    vkCmdPipelineBarrier(
+        cmd_buffer->instance,
+        srcStage,
+        dstStage,
+        0,
+        0,
+        VK_NULL_HANDLE,
+        1,
+        &barrier,
+        0,
+        VK_NULL_HANDLE);
+}
+
+void vkapi_driver_clear_gpu_buffer(
+    vkapi_driver_t* driver, vkapi_cmdbuffer_t* cmd_buffer, buffer_handle_t handle)
+{
+    vkapi_buffer_t* b = vkapi_res_cache_get_buffer(driver->res_cache, handle);
+    vkCmdFillBuffer(cmd_buffer->instance, b->buffer, 0, VK_WHOLE_SIZE, 0);
+}
+
+void vkapi_driver_flush_gfx_cmds(vkapi_driver_t* driver)
+{
+    assert(driver);
+    vkapi_commands_flush(driver->context, driver->commands);
+}
+
+void vkapi_driver_flush_compute_cmds(vkapi_driver_t* driver)
+{
+    assert(driver);
+    vkapi_commands_flush(driver->context, driver->compute_commands);
+}
+
+vkapi_cmdbuffer_t* vkapi_driver_get_compute_cmds(vkapi_driver_t* driver)
+{
+    assert(driver);
+    return vkapi_commands_get_cmdbuffer(driver->context, driver->compute_commands);
+}
+
+vkapi_cmdbuffer_t* vkapi_driver_get_gfx_cmds(vkapi_driver_t* driver)
+{
+    assert(driver);
+    return vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
 }
 
 void vkapi_driver_gc(vkapi_driver_t* driver)

@@ -18,6 +18,15 @@ target_include_directories(
 set (public_headers 
     include/rpe/engine.h
     include/rpe/object.h
+    include/rpe/scene.h
+    include/rpe/mesh.h
+    include/rpe/material.h
+    include/rpe/renderable_manager.h
+    include/rpe/object_manager.h
+    include/rpe/transform_manager.h
+    include/rpe/light_manager.h
+    include/rpe/camera.h
+    include/rpe/renderer.h
 )
 
 set (src_files
@@ -26,11 +35,13 @@ set (src_files
     src/commands.c
     src/render_queue.c
     src/colour_pass.c
+    src/light_pass.c
     src/scene.c
     src/frustum.c
     src/renderer.c
     src/compute.c
     src/camera.c
+    src/vertex_buffer.c
     src/render_graph/render_graph.c
     src/render_graph/render_pass_node.c
     src/render_graph/resources.c
@@ -38,10 +49,12 @@ set (src_files
     src/render_graph/rendergraph_resource.c
     src/render_graph/dependency_graph.c
     src/render_graph/backboard.c
+    src/render_graph/graphviz.c
     src/managers/object_manager.c
     src/managers/renderable_manager.c
     src/managers/transform_manager.c
     src/managers/component_manager.c
+    src/managers/light_manager.c
 )
 
 set (hdr_files
@@ -49,6 +62,7 @@ set (hdr_files
     src/commands.h
     src/render_queue.h
     src/colour_pass.h
+    src/light_pass.h
     src/scene.h
     src/engine.h
     src/frustum.h
@@ -56,6 +70,7 @@ set (hdr_files
     src/renderer.h
     src/compute.h
     src/camera.h
+    src/vertex_buffer.h
     src/render_graph/render_graph.h
     src/render_graph/render_pass_node.h
     src/render_graph/resources.h
@@ -65,10 +80,12 @@ set (hdr_files
     src/render_graph/render_graph_pass.h
     src/render_graph/dependency_graph.h
     src/render_graph/backboard.h
+    src/render_graph/graphviz.h
     src/managers/object_manager.h
     src/managers/renderable_manager.h
     src/managers/transform_manager.h
     src/managers/component_manager.h
+    src/managers/light_manager.h
 )
 
 target_sources(

@@ -73,14 +73,13 @@ TEST(ShaderGroup, Shader_CompilerTests)
     TEST_ASSERT_EQUAL_UINT(2, resource_binding->stage_input_count);
 
     // Input attributes.
-    // Note: The shader reflection library places the bindings in an unsorted order.
-    TEST_ASSERT_EQUAL_UINT(1, resource_binding->stage_inputs[0].location);
-    TEST_ASSERT_EQUAL_UINT(8, resource_binding->stage_inputs[0].stride);
-    TEST_ASSERT(resource_binding->stage_inputs[0].format == VK_FORMAT_R32G32_SFLOAT);
+    TEST_ASSERT_EQUAL_UINT(0, resource_binding->stage_inputs[0].location);
+    TEST_ASSERT_EQUAL_UINT(12, resource_binding->stage_inputs[0].stride);
+    TEST_ASSERT(resource_binding->stage_inputs[0].format == VK_FORMAT_R32G32B32_SFLOAT);
 
-    TEST_ASSERT_EQUAL_UINT(0, resource_binding->stage_inputs[1].location);
-    TEST_ASSERT_EQUAL_UINT(12, resource_binding->stage_inputs[1].stride);
-    TEST_ASSERT(resource_binding->stage_inputs[1].format == VK_FORMAT_R32G32B32_SFLOAT);
+    TEST_ASSERT_EQUAL_UINT(1, resource_binding->stage_inputs[1].location);
+    TEST_ASSERT_EQUAL_UINT(8, resource_binding->stage_inputs[1].stride);
+    TEST_ASSERT(resource_binding->stage_inputs[1].format == VK_FORMAT_R32G32_SFLOAT);
 
     // Output attributes.
     TEST_ASSERT_EQUAL_UINT(0, resource_binding->stage_outputs[0].location);
@@ -106,5 +105,5 @@ TEST(ShaderGroup, Shader_CompilerTests)
     TEST_ASSERT(resource_binding->desc_layouts[1].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     TEST_ASSERT_EQUAL_UINT(64 * 3, resource_binding->desc_layouts[1].range);
 
-    vkapi_driver_shutdown(driver);
+    vkapi_driver_shutdown(driver, VK_NULL_HANDLE);
 }

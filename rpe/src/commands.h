@@ -40,7 +40,6 @@ typedef void (*DispatchFunction)(vkapi_driver_t*, void*);
 
 typedef struct CommandBucket
 {
-    void* keys;
     rpe_cmd_packet_t** packets;
     uint32_t curr_index;
 } rpe_cmd_bucket_t;
@@ -67,11 +66,20 @@ typedef struct DrawIndexCommand
     int32_t index_offset;
 } rpe_commands_draw_index_t;
 
+typedef struct DrawIndirectIndexCommand
+{
+    buffer_handle_t cmd_handle;
+    buffer_handle_t count_handle;
+    uint32_t offset;
+    uint32_t draw_count_offset;
+    uint32_t stride;
+} rpe_commands_draw_indirect_index_t;
+
 typedef struct PushConstantCommand
 {
     void* data;
     size_t size;
-    enum ShaderStage stage;
+    VkShaderStageFlags stage;
 } rpe_commands_copy_t;
 
 struct MapBufferCommand
@@ -97,7 +105,6 @@ rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena);
 
 rpe_cmd_packet_t* rpe_command_bucket_add_command(
     rpe_cmd_bucket_t* bucket,
-    uint64_t sort_key,
     size_t aux_mem_size,
     size_t cmd_size,
     arena_t* arena,
@@ -113,8 +120,7 @@ rpe_cmd_packet_t* rpe_command_bucket_append_command(
 
 /* ** Private functions. ** */
 
-void rpe_command_bucket_submit(
-    rpe_cmd_bucket_t* bucket, uint64_t* sorted_indices, vkapi_driver_t* driver);
+void rpe_command_bucket_submit(rpe_cmd_bucket_t* bucket, vkapi_driver_t* driver);
 
 void rpe_command_bucket_reset(rpe_cmd_bucket_t* bucket);
 
@@ -122,6 +128,7 @@ rpe_cmd_packet_t* rpe_cmd_packet_create(size_t aux_mem_size, size_t cmd_size, ar
 
 void rpe_cmd_dispatch_draw(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_index_draw(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_draw_indirect_indexed(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_push_constant(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_map_buffer(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_cond_render(vkapi_driver_t* driver, void* data);

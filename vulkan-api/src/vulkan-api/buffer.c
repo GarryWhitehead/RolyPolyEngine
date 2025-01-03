@@ -39,7 +39,8 @@ void vkapi_buffer_alloc(
     vkapi_buffer_t* buffer,
     VmaAllocator vma_alloc,
     VkDeviceSize buff_size,
-    VkBufferUsageFlags usage)
+    VkBufferUsageFlags usage,
+    enum BufferType type)
 {
     buffer->size = buff_size;
 
@@ -50,8 +51,20 @@ void vkapi_buffer_alloc(
 
     VmaAllocationCreateInfo allocCreateInfo = {};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocCreateInfo.flags =
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    if (type == VKAPI_BUFFER_HOST_TO_GPU)
+    {
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+            VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    }
+    else if (type == VKAPI_BUFFER_GPU_TO_HOST)
+    {
+        allocCreateInfo.flags =
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    }
+    else if (type == VKAPI_BUFFER_GPU_ONLY)
+    {
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    }
 
     VMA_CHECK_RESULT(vmaCreateBuffer(
         vma_alloc,
@@ -60,12 +73,6 @@ void vkapi_buffer_alloc(
         &buffer->buffer,
         &buffer->mem,
         &buffer->alloc_info));
-}
-
-void vkapi_buffer_map_to_stage(void* data, size_t data_size, vkapi_staging_instance_t* stage)
-{
-    assert(data);
-    memcpy(stage->alloc_info.pMappedData, data, data_size);
 }
 
 void vkapi_buffer_map_to_gpu_buffer(
@@ -77,34 +84,45 @@ void vkapi_buffer_map_to_gpu_buffer(
 }
 
 void vkapi_map_and_copy_to_gpu(
-    vkapi_buffer_t* buffer,
     vkapi_driver_t* driver,
+    vkapi_buffer_t* dst_buffer,
     VkDeviceSize size,
+    VkDeviceSize offset,
     VkBufferUsageFlags usage,
     void* data)
 {
     vkapi_staging_instance_t* stage =
         vkapi_staging_get(driver->staging_pool, driver->vma_allocator, size);
-    vkapi_buffer_map_to_stage(data, size, stage);
-    vkapi_copy_staged_to_gpu(buffer, driver, size, stage, usage);
+
+    void* mapped;
+    vmaMapMemory(driver->vma_allocator, stage->mem, &mapped);
+    assert(mapped);
+    memcpy(mapped, data, size);
+    vmaUnmapMemory(driver->vma_allocator, stage->mem);
+    vmaFlushAllocation(driver->vma_allocator, stage->mem, offset, size);
+
+    vkapi_copy_staged_to_gpu(driver, size, stage, dst_buffer, offset, offset, usage);
 }
 
 void vkapi_copy_staged_to_gpu(
-    vkapi_buffer_t* buffer,
     vkapi_driver_t* driver,
     VkDeviceSize size,
     vkapi_staging_instance_t* stage,
+    vkapi_buffer_t* dst_buffer,
+    uint32_t src_offset,
+    uint32_t dst_offset,
     VkBufferUsageFlags usage)
 {
     // copy from the staging area to the allocated GPU memory
     vkapi_commands_t* cmds = driver->commands;
     vkapi_cmdbuffer_t* cmd = vkapi_commands_get_cmdbuffer(driver->context, cmds);
 
-    VkBufferCopy copy_region = {.dstOffset = 0, .srcOffset = 0, .size = size};
-    vkCmdCopyBuffer(cmd->instance, stage->buffer, buffer->buffer, 1, &copy_region);
+    VkBufferCopy copy_region = {.dstOffset = dst_offset, .srcOffset = src_offset, .size = size};
+    vkCmdCopyBuffer(cmd->instance, stage->buffer, dst_buffer->buffer, 1, &copy_region);
 
-    VkBufferMemoryBarrier mem_barrier = {};
-    mem_barrier.buffer = buffer->buffer;
+    VkBufferMemoryBarrier mem_barrier = {0};
+    mem_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    mem_barrier.buffer = stage->buffer;
     mem_barrier.size = VK_WHOLE_SIZE;
 
     // ensure that the copy finishes before the next frames draw call
@@ -172,8 +190,8 @@ void vkapi_buffer_download_to_host(
     assert(host_buffer);
     assert(data_size > 0);
 
-    RENDERDOC_START_CAPTURE(NULL, NULL)
-    vkapi_cmdbuffer_t* cmd = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_cmdbuffer_t* cmd =
+        vkapi_commands_get_cmdbuffer(driver->context, driver->compute_commands);
 
     VkMemoryBarrier mem_barrier = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -190,12 +208,10 @@ void vkapi_buffer_download_to_host(
         VK_NULL_HANDLE,
         0,
         VK_NULL_HANDLE);
-    vkapi_commands_flush(driver->context, driver->commands);
 
-    VK_CHECK_RESULT(vkWaitForFences(driver->context->device, 1, &cmd->fence, VK_TRUE, UINT64_MAX));
-
+    vkapi_commands_flush(driver->context, driver->compute_commands);
+    VK_CHECK_RESULT(vkWaitForFences(driver->context->device, 1, &cmd->fence, VK_TRUE, UINT64_MAX))
     memcpy(host_buffer, buffer->alloc_info.pMappedData, data_size);
-    RENDERDOC_END_CAPTURE(NULL, NULL)
 }
 
 void vkapi_buffer_destroy(vkapi_buffer_t* buffer, VmaAllocator vma_alloc)
@@ -204,35 +220,35 @@ void vkapi_buffer_destroy(vkapi_buffer_t* buffer, VmaAllocator vma_alloc)
     vmaDestroyBuffer(vma_alloc, buffer->buffer, buffer->mem);
 }
 
-void vkapi_vert_buffer_create(
-    vkapi_buffer_t* buffer, vkapi_driver_t* driver, void* data, VkDeviceSize data_size)
+void vkapi_buffer_upload_vertex_data(
+    vkapi_buffer_t* dst_buffer,
+    vkapi_driver_t* driver,
+    void* data,
+    VkDeviceSize data_size,
+    uint32_t buffer_offset)
 {
-    assert(buffer);
+    assert(dst_buffer);
     assert(driver);
     assert(data);
 
-    // get a staging pool for hosting on the CPU side
-    vkapi_staging_instance_t* stage =
-        vkapi_staging_get(driver->staging_pool, driver->vma_allocator, data_size);
-
-    vkapi_buffer_map_to_stage(data, data_size, stage);
-    vkapi_buffer_alloc(buffer, driver->vma_allocator, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data_size);
-    vkapi_copy_staged_to_gpu(buffer, driver, data_size, stage, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    // TODO: If copying staging to GPU buffer, the first vertex is not copied for some reason. Need
+    // to investigate why, for now using the slower method of mapping to the buffer directly.
+    // vkapi_map_and_copy_to_gpu(driver, dst_buffer, data_size, buffer_offset,
+    // VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data);
+    memcpy(dst_buffer->alloc_info.pMappedData, data, data_size);
 }
 
-void vkapi_index_buffer_create(
-    vkapi_buffer_t* buffer, vkapi_driver_t* driver, void* data, VkDeviceSize data_size)
+void vkapi_buffer_upload_index_data(
+    vkapi_buffer_t* dst_buffer,
+    vkapi_driver_t* driver,
+    void* data,
+    VkDeviceSize data_size,
+    uint32_t buffer_offset)
 {
-    assert(buffer);
+    assert(dst_buffer);
     assert(driver);
     assert(data);
 
-    // get a staging pool for hosting on the CPU side
-    vkapi_staging_instance_t* stage =
-        vkapi_staging_get(driver->staging_pool, driver->vma_allocator, data_size);
-    assert(stage);
-
-    vkapi_buffer_map_to_stage(data, data_size, stage);
-    vkapi_buffer_alloc(buffer, driver->vma_allocator, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, data_size);
-    vkapi_copy_staged_to_gpu(buffer, driver, data_size, stage, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    vkapi_map_and_copy_to_gpu(
+        driver, dst_buffer, data_size, buffer_offset, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, data);
 }

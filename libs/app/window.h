@@ -23,10 +23,13 @@
 #ifndef __APP_WINDOW_H__
 #define __APP_WINDOW_H__
 
-#define GLFW_INCLUDE_VULKAN
+#include "camera.h"
+#include "camera_view.h"
+
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <volk.h>
 
 // Forward declarations.
 typedef struct Application rpe_app_t;
@@ -54,6 +57,9 @@ typedef struct AppWindow
     const GLFWvidmode* glfw_vmode;
     /// A Vulkan window surface obtained from GLFW. Will be NULL of running in headless mode.
     VkSurfaceKHR vk_surface;
+
+    rpe_camera_view_t cam_view;
+    rpe_camera_t camera;
 } app_window_t;
 
 /**
@@ -72,7 +78,7 @@ int app_window_init(
  Shutdown the resources for this window instance.
  @param win A pointer to the window instance to close.
  */
-void app_window_shutdown(app_window_t* win);
+void app_window_shutdown(app_window_t* win, rpe_app_t* app);
 
 /**
  Poll the window for input (from keyboard, mouse, gamepad, etc.).

@@ -20,15 +20,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_ENGINE_H__
-#define __RPE_ENGINE_H__
+#ifndef __RPE_PRIV_ENGINE_H__
+#define __RPE_PRIV_ENGINE_H__
 
-#define RPE_ENGINE_MAX_SWAPCHAIN_COUNT 4
-#define RPE_ENGINE_SCRATCH_ARENA_SIZE 1 << 15
+#define RPE_ENGINE_SCRATCH_ARENA_SIZE 1 << 25
 #define RPE_ENGINE_PERM_ARENA_SIZE 1 << 30
 #define RPE_ENGINE_FRAME_ARENA_SIZE 1 << 30
-
-#include "managers/object_manager.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -39,7 +36,11 @@
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
+typedef struct LightManager rpe_light_manager_t;
+typedef struct ObjectManager rpe_obj_manager_t;
 typedef struct Scene rpe_scene_t;
+typedef struct Renderer rpe_renderer_t;
+typedef struct VertexBuffer rpe_vertex_buffer_t;
 
 typedef struct SwapchainHandle
 {
@@ -51,10 +52,7 @@ typedef struct Engine
 {
     /// A Vulkan driver instance.
     vkapi_driver_t* driver;
-    /// A cache array of swapchains.
-    vkapi_swapchain_t swap_chains[RPE_ENGINE_MAX_SWAPCHAIN_COUNT];
-    /// The current number of swapchains that have been created.
-    uint32_t swap_chain_count;
+
     /// A scratch arena - used for function scope allocations.
     arena_t scratch_arena;
     /// A permanent arena - lasts the lifetime of the engine.
@@ -65,9 +63,17 @@ typedef struct Engine
     vkapi_swapchain_t* curr_swapchain;
     rpe_scene_t* curr_scene;
 
-    rpe_obj_manager_t obj_manager;
+    rpe_obj_manager_t* obj_manager;
     rpe_rend_manager_t* rend_manager;
     rpe_transform_manager_t* transform_manager;
+    rpe_light_manager_t* light_manager;
+
+    rpe_vertex_buffer_t* vbuffer;
+
+    arena_dyn_array_t renderers;
+    arena_dyn_array_t swapchains;
+    arena_dyn_array_t renderables;
+    arena_dyn_array_t primitives;
 
     // Material shader handles for each stage.
     shader_handle_t mat_shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];

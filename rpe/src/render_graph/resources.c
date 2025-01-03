@@ -22,9 +22,10 @@
 
 #include "resources.h"
 
-#include "render_graph/dependency_graph.h"
-#include "render_graph/render_pass_node.h"
-#include "render_graph/resource_node.h"
+#include "dependency_graph.h"
+#include "render_graph.h"
+#include "render_pass_node.h"
+#include "resource_node.h"
 
 #include <utility/string.h>
 #include <vulkan-api/driver.h>
@@ -89,7 +90,7 @@ bool rg_resource_connect_reader(
     else
     {
         rg_resource_edge_t* new_edge = rg_resource_edge_init(
-            dg, (rg_node_t*)pass_node, (rg_node_t*)resource_node, usage, arena);
+            dg, (rg_node_t*)resource_node, (rg_node_t*)pass_node, usage, arena);
         rg_res_node_set_reader_edge(resource_node, new_edge);
     }
     return true;
@@ -160,7 +161,8 @@ void rg_resource_bake(rg_resource_t* r, vkapi_driver_t* driver)
                 r_tex->desc.mip_levels,
                 1,
                 1,
-                r_tex->image_usage);
+                r_tex->image_usage,
+                VKAPI_TEXTURE_TYPE_SYSTEM);
             break;
         }
         case RG_RESOURCE_TYPE_IMPORTED:

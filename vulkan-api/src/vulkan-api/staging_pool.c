@@ -20,9 +20,7 @@ vkapi_staging_instance_t _vkapi_staging_create(VmaAllocator vma_alloc, VkDeviceS
 
     // cpu staging pool
     VmaAllocationCreateInfo create_info = {0};
-    create_info.usage = VMA_MEMORY_USAGE_AUTO;
-    create_info.flags =
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    create_info.usage = VMA_MEMORY_USAGE_CPU_ONLY;
     VMA_CHECK_RESULT(vmaCreateBuffer(
         vma_alloc,
         &bufferInfo,
@@ -45,6 +43,9 @@ vkapi_staging_pool_t* vkapi_staging_init(arena_t* perm_arena)
 vkapi_staging_instance_t*
 vkapi_staging_get(vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, VkDeviceSize req_size)
 {
+    assert(staging_pool);
+    assert(req_size > 0);
+
     // Check for a free staging space that is equal or greater than the required
     // size.
     uint32_t stage_idx = UINT32_MAX;
@@ -64,12 +65,13 @@ vkapi_staging_get(vkapi_staging_pool_t* staging_pool, VmaAllocator vma_alloc, Vk
     if (stage_idx != UINT32_MAX)
     {
         DYN_ARRAY_APPEND(&staging_pool->in_use_stages, &stage_idx);
-        return &DYN_ARRAY_GET(vkapi_staging_instance_t, &staging_pool->stages, stage_idx);
+        return DYN_ARRAY_GET_PTR(vkapi_staging_instance_t, &staging_pool->stages, stage_idx);
     }
 
+    stage_idx = staging_pool->stages.size - 1;
     vkapi_staging_instance_t new_instance = _vkapi_staging_create(vma_alloc, req_size);
-    DYN_ARRAY_APPEND(&staging_pool->stages, &new_instance);
-    return DYN_ARRAY_APPEND(&staging_pool->in_use_stages, &staging_pool->stages.size - 1);
+    DYN_ARRAY_APPEND(&staging_pool->in_use_stages, &stage_idx);
+    return DYN_ARRAY_APPEND(&staging_pool->stages, &new_instance);
 }
 
 void vkapi_staging_gc(

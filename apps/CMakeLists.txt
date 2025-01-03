@@ -37,8 +37,8 @@ function(create_app)
 
 endfunction()
 
-create_app(APP_NAME gltf_model FILES gltf_model.c)
+create_app(APP_NAME hello_triangles FILES hello_triangle.c)
 
-target_link_libraries(gltf_model PUBLIC UtilityLib)
+target_link_libraries(hello_triangles PUBLIC UtilityLib)
 
 

@@ -181,6 +181,13 @@ void dyn_array_grow(arena_dyn_array_t* arr)
     arr->data = data;
 }
 
+void dyn_array_shrink(arena_dyn_array_t* arr, size_t new_sz)
+{
+    assert(arr);
+    assert(new_sz <= arr->capacity);
+    arr->size = new_sz;
+}
+
 void dyn_array_remove(arena_dyn_array_t* arr, uint32_t idx)
 {
     assert(idx < arr->size);
@@ -274,4 +281,30 @@ void dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item)
     memcpy(ptr, item, arr->type_size);
 }
 
+bool dyn_array_find(arena_dyn_array_t* arr, void* item)
+{
+    assert(arr);
+    assert(item);
+
+    for (size_t i = 0; i < arr->size; ++i)
+    {
+        void* ptr = _offset_ptr(arr->data, i, arr->type_size);
+        if (memcmp(ptr, item, arr->type_size) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void dyn_array_clear(arena_dyn_array_t* dyn_array) { dyn_array->size = 0; }
+
+void dyn_array_clone(arena_dyn_array_t* old, arena_dyn_array_t* cloned)
+{
+    cloned->size = old->size;
+    cloned->capacity = old->capacity;
+    cloned->align_size = old->align_size;
+    cloned->arena = old->arena;
+    cloned->data = arena_alloc(old->arena, old->type_size, old->align_size, old->size, 0);
+    memcpy(cloned->data, old->data, old->size * old->type_size);
+}

@@ -38,4 +38,10 @@ VkSampleCountFlagBits samples_to_vk(uint32_t count);
 
 VkCompareOp compare_op_to_vk(enum CompareOp op);
 
+VkCullModeFlags cull_mode_to_vk(enum CullMode mode);
+
+VkFrontFace front_face_to_vk(enum FrontFace ff);
+
+VkPolygonMode polygon_mode_to_vk(enum PolygonMode mode);
+
 #endif

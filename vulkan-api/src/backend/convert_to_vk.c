@@ -150,24 +150,56 @@ VkFilter sampler_filter_to_vk(enum SamplerFilter filter)
     return output;
 }
 
-/*
-vk::CullModeFlagBits cullModeToVk(CullMode mode)
+VkCullModeFlags cull_mode_to_vk(enum CullMode mode)
 {
-    vk::CullModeFlagBits output;
+    VkCullModeFlags output;
     switch (mode)
     {
-        case backend::CullMode::Back:
-            output = vk::CullModeFlagBits::eBack;
+        case RPE_CULL_MODE_BACK:
+            output = VK_CULL_MODE_BACK_BIT;
             break;
-        case backend::CullMode::Front:
-            output = vk::CullModeFlagBits::eFront;
+        case RPE_CULL_MODE_FRONT:
+            output = VK_CULL_MODE_FRONT_BIT;
             break;
-        case backend::CullMode::None:
-            output = vk::CullModeFlagBits::eNone;
+        case RPE_CULL_MODE_NONE:
+            output = VK_CULL_MODE_NONE;
             break;
     }
     return output;
-}*/
+}
+
+VkFrontFace front_face_to_vk(enum FrontFace ff)
+{
+    VkFrontFace out;
+    switch (ff)
+    {
+        case RPE_FRONT_FACE_CLOCKWISE:
+            out = VK_FRONT_FACE_CLOCKWISE;
+            break;
+        case RPE_FRONT_FACE_COUNTER_CLOCKWISE:
+            out = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            break;
+    }
+    return out;
+}
+
+VkPolygonMode polygon_mode_to_vk(enum PolygonMode mode)
+{
+    VkPolygonMode out;
+    switch (mode)
+    {
+        case RPE_POLYGON_MODE_FILL:
+            out = VK_POLYGON_MODE_FILL;
+            break;
+        case RPE_POLYGON_MODE_LINE:
+            out = VK_POLYGON_MODE_LINE;
+            break;
+        case RPE_POLYGON_MODE_POINT:
+            out = VK_POLYGON_MODE_POINT;
+            break;
+    }
+    return out;
+}
 
 VkCompareOp compare_op_to_vk(enum CompareOp op)
 {

@@ -41,8 +41,8 @@ typedef struct Arena arena_t;
 
 enum SortKeyType
 {
-    MATERIAL_KEY_SORT_PROGRAM,
-    MATERIAL_KEY_SORT_DEPTH
+    RPE_MATERIAL_KEY_SORT_PROGRAM,
+    RPE_MATERIAL_KEY_SORT_DEPTH
 };
 
 /**
@@ -52,7 +52,7 @@ enum SortKeyType
   | v s dddddddddddd ppppppppppppppppppp |
 
  */
-typedef struct MaterialSortKey
+typedef struct SortKey
 {
     uint32_t program_id; // 4 bytes
     uint8_t screen_layer; // 1 byte
@@ -65,7 +65,6 @@ typedef struct RenderQueue
     rpe_cmd_bucket_t* gbuffer_bucket;
     rpe_cmd_bucket_t* lighting_bucket;
     rpe_cmd_bucket_t* post_process_bucket;
-
 } rpe_render_queue_t;
 
 rpe_render_queue_t* rpe_render_queue_init(arena_t* arena);
@@ -73,5 +72,7 @@ rpe_render_queue_t* rpe_render_queue_init(arena_t* arena);
 void rpe_render_queue_submit(rpe_render_queue_t* q, vkapi_driver_t* driver);
 
 void rpe_render_queue_clear(rpe_render_queue_t* q);
+
+uint64_t rpe_render_queue_create_sort_key(material_sort_key_t key, enum SortKeyType type);
 
 #endif

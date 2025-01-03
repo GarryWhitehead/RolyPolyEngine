@@ -25,8 +25,15 @@
 #include "vulkan-api/driver.h"
 
 typedef struct Engine rpe_engine_t;
+typedef struct Scene rpe_scene_t;
 typedef struct SwapchainHandle swapchain_handle_t;
 typedef struct ObjectManager rpe_obj_manager_t;
+typedef struct Renderer rpe_renderer_t;
+typedef struct RenderableManager rpe_rend_manager_t;
+typedef struct TransformManager rpe_transform_manager_t;
+typedef struct Renderable rpe_renderable_t;
+typedef struct Material rpe_material_t;
+typedef struct Mesh rpe_mesh_t;
 
 /**
  Create a new engine instance.
@@ -54,7 +61,15 @@ void rpe_engine_shutdown(rpe_engine_t* engine);
 swapchain_handle_t* rpe_engine_create_swapchain(
     rpe_engine_t* engine, VkSurfaceKHR surface, uint32_t width, uint32_t height);
 
+rpe_renderer_t* rpe_engine_create_renderer(rpe_engine_t* engine);
+rpe_renderable_t*
+rpe_engine_create_renderable(rpe_engine_t* engine, rpe_material_t* mat, rpe_mesh_t* mesh);
 
-rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* e);
+void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene);
+void rpe_engine_set_current_swapchain(rpe_engine_t* engine, swapchain_handle_t* handle);
+
+rpe_rend_manager_t* rpe_engine_get_rend_manager(rpe_engine_t* engine);
+rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* engine);
+rpe_transform_manager_t* rpe_engine_get_transform_manager(rpe_engine_t* engine);
 
 #endif

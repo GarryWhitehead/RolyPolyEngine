@@ -30,8 +30,9 @@
 
 #define VKAPI_PIPELINE_LIFETIME_FRAME_COUNT 10
 #define VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT 10
-#define VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT 10
+#define VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT 20
 #define VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT 8
+#define VKAPI_PIPELINE_MAX_INPUT_BIND_COUNT 4
 
 // Forward declarations.
 typedef struct VkApiContext vkapi_context_t;
@@ -66,7 +67,7 @@ typedef struct ComputePipeline
  @param key A pipeline cache key, used for caching the pipeline in the map.
  */
 vkapi_graphics_pl_t vkapi_graph_pl_create(
-    vkapi_context_t* context, graphics_pl_key_t* key, struct SpecConstParams* spec_consts);
+    vkapi_context_t* context, const graphics_pl_key_t* key, struct SpecConstParams* spec_consts);
 
 /**
  Create a Vulkan compute pipeline.

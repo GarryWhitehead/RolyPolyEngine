@@ -36,6 +36,8 @@ target_sources(
     window.h
     app.c
     app.h
+    camera_view.c
+    camera_view.h
 )
 
 # add common compiler flags

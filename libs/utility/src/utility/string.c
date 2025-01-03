@@ -12,7 +12,7 @@ string_t string_init(const char* str, arena_t* arena)
 
     string_t s;
     s.len = strlen(str);
-    s.data = arena_alloc(arena, s.len + 1, _Alignof(char), 1, 0);
+    s.data = arena_alloc(arena, sizeof(char), _Alignof(char), s.len + 1, 0);
     s.data[s.len - 1] = '\0';
     strcpy(s.data, str);
     return s;

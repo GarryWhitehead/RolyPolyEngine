@@ -19,6 +19,7 @@ TEST_GROUP_RUNNER(CommandsGroup)
 TEST_GROUP_RUNNER(VisibilityGroup)
 {
     RUN_TEST_CASE(VisibilityGroup, AABBox_Test)
+    RUN_TEST_CASE(VisibilityGroup, VisCompute_Test)
 }
 
 TEST_GROUP_RUNNER(ComputeGroup)

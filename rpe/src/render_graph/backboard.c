@@ -28,7 +28,7 @@
 rg_backboard_t rg_backboard_init(arena_t* arena)
 {
     rg_backboard_t i;
-    i.backboard = HASH_SET_CREATE(string_t, rg_handle_t, arena, murmur_hash3);
+    i.backboard = HASH_SET_CREATE(const char*, rg_handle_t, arena, murmur_hash3_string);
     i.arena = arena;
     return i;
 }
@@ -36,22 +36,21 @@ rg_backboard_t rg_backboard_init(arena_t* arena)
 void rg_backboard_add(rg_backboard_t* bb, const char* name, rg_handle_t handle)
 {
     assert(bb);
-    string_t str = string_init(name, bb->arena);
-    HASH_SET_INSERT(&bb->backboard, &str, &handle);
+    hash_set_insert(&bb->backboard, (void*)name, &handle);
 }
 
-rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name)
+rg_handle_t rg_backboard_get(rg_backboard_t* bb, const char* name)
 {
     assert(bb);
-    rg_handle_t* h = HASH_SET_GET(&bb->backboard, &name);
+    rg_handle_t* h = hash_set_get(&bb->backboard, (void*)name);
     assert(h);
     return *h;
 }
 
-void rg_backboard_remove(rg_backboard_t* bb, string_t name)
+void rg_backboard_remove(rg_backboard_t* bb, const char* name)
 {
     assert(bb);
-    rg_handle_t* h = HASH_SET_ERASE(&bb->backboard, &name);
+    rg_handle_t* h = hash_set_erase(&bb->backboard, (void*)name);
     assert(h);
 }
 

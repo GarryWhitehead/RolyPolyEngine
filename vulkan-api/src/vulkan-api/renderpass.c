@@ -39,7 +39,7 @@ vkapi_rpass_t vkapi_rpass_init(arena_t* arena)
 
 vkapi_attach_handle_t vkapi_rpass_add_attach(vkapi_rpass_t* rp, struct VkApiAttachment* attach)
 {
-    VkAttachmentDescription ad = {};
+    VkAttachmentDescription ad = {0};
     ad.format = attach->format;
     ad.initialLayout = attach->initial_layout;
     ad.finalLayout = attach->final_layout;
@@ -62,6 +62,8 @@ void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiVie
 {
     // create the attachment references
     bool surfacePass = false;
+    VkAttachmentReference refs[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT] = {0};
+
     for (size_t count = 0; count < rp->attach_descriptors.size; ++count)
     {
         VkAttachmentDescription* desc =
@@ -76,14 +78,15 @@ void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiVie
             vkapi_util_is_stencil(desc->format) || vkapi_util_is_depth(desc->format)
             ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
             : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        VkAttachmentReference ref = {.attachment = count, .layout = image_layout};
+        refs[count].attachment = count;
+        refs[count].layout = image_layout;
         if (vkapi_util_is_depth(desc->format) || vkapi_util_is_stencil(desc->format))
         {
-            rp->depth_attach_desc = &ref;
+            rp->depth_attach_desc = &refs[count];
         }
         else
         {
-            DYN_ARRAY_APPEND(&rp->colour_attach_refs, &ref);
+            DYN_ARRAY_APPEND(&rp->colour_attach_refs, &refs[count]);
         }
     }
 
@@ -205,4 +208,11 @@ void vkapi_fbo_create(
 
     VK_CHECK_RESULT(
         vkCreateFramebuffer(driver->context->device, &ci, VK_NULL_HANDLE, &fbo->instance));
+}
+
+uint32_t vkapi_rpass_get_attach_count(vkapi_rpass_t* rpass)
+{
+    assert(rpass);
+    return rpass->depth_attach_desc ? rpass->attach_descriptors.size - 1
+                                    : rpass->attach_descriptors.size;
 }

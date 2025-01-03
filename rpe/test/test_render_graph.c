@@ -90,7 +90,7 @@ struct DataRW
     rg_handle_t rw;
 };
 
-void setup1(render_graph_t* rg, rg_pass_node_t* node, void* data)
+void setup1(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local_data)
 {
     struct DataRW* d = (struct DataRW*)data;
     TEST_ASSERT_TRUE(d);
@@ -114,11 +114,11 @@ TEST(RenderGraphGroup, RenderGraph_Tests1)
 
     render_graph_t* rg = rg_init(arena);
     rpe_engine_t* eng = NULL;
-    rg_pass_t* p = rg_add_pass(rg, "Pass1", setup1, NULL, sizeof(struct DataRW));
+    rg_pass_t* p = rg_add_pass(rg, "Pass1", setup1, NULL, sizeof(struct DataRW), NULL);
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_TRUE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver, eng);
+    rg_execute(rg, driver, eng);
 
     test_shutdown(driver, arena);
 }
@@ -129,7 +129,7 @@ struct DataBasic
     rg_handle_t rt;
 };
 
-void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data)
+void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local_data)
 {
     struct DataBasic* d = (struct DataBasic*)data;
     TEST_ASSERT_TRUE(d);
@@ -147,7 +147,7 @@ void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data)
     rg_pass_desc_t desc = rg_pass_desc_init();
     desc.attachments.attach.depth = d->depth;
     d->rt = rg_rpass_node_create_rt((rg_render_pass_node_t*)node, rg, "DepthPass", desc);
-    rg_node_declare_side_effect(node);
+    rg_node_declare_side_effect((rg_node_t*)node);
 }
 
 void execute_basic(
@@ -167,11 +167,12 @@ TEST(RenderGraphGroup, RenderGraph_TestsBasic)
     vkapi_driver_t* driver = setup_driver();
 
     render_graph_t* rg = rg_init(arena);
-    rg_pass_t* p = rg_add_pass(rg, "Pass1", setup_basic, execute_basic, sizeof(struct DataBasic));
+    rg_pass_t* p =
+        rg_add_pass(rg, "Pass1", setup_basic, execute_basic, sizeof(struct DataBasic), NULL);
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver, NULL);
+    rg_execute(rg, driver, NULL);
 
     test_shutdown(driver, arena);
 }
@@ -187,7 +188,7 @@ struct DataGBuffer
     rg_handle_t rt;
 };
 
-void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
+void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local_data)
 {
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     TEST_ASSERT_TRUE(d);
@@ -196,41 +197,42 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data)
     t_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
     d->colour = rg_add_resource(
         rg,
-        rg_tex_resource_init(
+        (rg_resource_t*)rg_tex_resource_init(
             "Colour", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     t_desc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     d->pos = rg_add_resource(
         rg,
-        rg_tex_resource_init(
+        (rg_resource_t*)rg_tex_resource_init(
             "Position", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     t_desc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     d->normal = rg_add_resource(
         rg,
-        rg_tex_resource_init(
+        (rg_resource_t*)rg_tex_resource_init(
             "Normal", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     t_desc.format = VK_FORMAT_R16G16_SFLOAT;
     d->pbr = rg_add_resource(
         rg,
-        rg_tex_resource_init("PBR", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
+        (rg_resource_t*)rg_tex_resource_init(
+            "PBR", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     t_desc.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     d->emissive = rg_add_resource(
         rg,
-        rg_tex_resource_init(
+        (rg_resource_t*)rg_tex_resource_init(
             "Emissive", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
     t_desc.format = VK_FORMAT_D24_UNORM_S8_UINT;
     d->depth = rg_add_resource(
         rg,
-        rg_tex_resource_init(
+        (rg_resource_t*)rg_tex_resource_init(
             "Depth", VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, t_desc, rg_get_arena(rg)),
         NULL);
 
@@ -295,13 +297,27 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer)
     render_graph_t* rg = rg_init(arena);
     rpe_engine_t* eng = NULL;
     rg_pass_t* p =
-        rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer));
+        rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer), NULL);
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver, eng);
+    rg_execute(rg, driver, eng);
 
     test_shutdown(driver, arena);
+}
+
+void execute_gbuffer_present(
+    vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
+{
+    TEST_ASSERT_TRUE(data);
+    struct DataGBuffer* d = (struct DataGBuffer*)data;
+    TEST_ASSERT_TRUE(rg_handle_is_valid(d->rt));
+    rg_resource_info_t info = rg_res_get_render_pass_info(res, d->rt);
+    TEST_ASSERT_EQUAL_UINT(100, info.data.height);
+    TEST_ASSERT_EQUAL_UINT(100, info.data.width);
+
+    TEST_ASSERT_EQUAL(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, info.data.final_layouts[0]);
+    TEST_ASSERT_EQUAL(VK_FORMAT_UNDEFINED, info.data.init_layouts[0]);
 }
 
 TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
@@ -331,18 +347,18 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
     i_desc.clear_col.a = 1.0f;
 
     render_graph_t* rg = rg_init(arena);
-    rg_pass_t* p =
-        rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer));
+    rg_pass_t* p = rg_add_pass(
+        rg, "Pass1", setup_gbuffer, execute_gbuffer_present, sizeof(struct DataGBuffer), NULL);
     TEST_ASSERT_TRUE(p);
 
     struct DataGBuffer* d = (struct DataGBuffer*)p->data;
     rg_handle_t backbuffer_handle = rg_import_render_target(rg, "BackBuffer", i_desc, pp_handle);
     rg_move_resource(rg, d->colour, backbuffer_handle);
-    rg_add_present_pass(rg, backbuffer_handle, "BackBuffer");
+    rg_add_present_pass(rg, backbuffer_handle);
 
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
-    rg_execute(rg, p, driver, NULL);
+    rg_execute(rg, driver, NULL);
 
     test_shutdown(driver, arena);
 }

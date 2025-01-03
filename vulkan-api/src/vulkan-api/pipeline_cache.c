@@ -36,31 +36,30 @@ graphics_pl_key_t vkapi_graphics_pline_key_init()
 {
     graphics_pl_key_t k = {0};
 
-    k.raster_state.cullMode = VK_CULL_MODE_BACK_BIT;
-    k.raster_state.polygonMode = VK_POLYGON_MODE_FILL;
-    k.raster_state.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    k.asm_state.primitiveRestartEnable = VK_FALSE;
-    k.ds_state.depthTestEnable = VK_FALSE;
-    k.ds_state.depthWriteEnable = VK_FALSE;
-    k.blend_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+    k.raster_state.cull_mode = VK_CULL_MODE_BACK_BIT;
+    k.raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
+    k.raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    k.raster_state.prim_restart = VK_FALSE;
+    k.raster_state.depth_test_enable = VK_FALSE;
+    k.raster_state.depth_write_enable = VK_FALSE;
+    k.raster_state.colour_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-    k.blend_state.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    k.blend_state.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    k.blend_state.colorBlendOp = VK_BLEND_OP_ADD;
-    k.blend_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    k.blend_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    k.blend_state.alphaBlendOp = VK_BLEND_OP_ADD;
-    k.blend_state.blendEnable = VK_FALSE;
+    k.blend_factor_block.src_colour_blend_factor = VK_BLEND_FACTOR_ZERO;
+    k.blend_factor_block.dst_colour_blend_factor = VK_BLEND_FACTOR_ZERO;
+    k.blend_factor_block.colour_blend_op = VK_BLEND_OP_ADD;
+    k.blend_factor_block.src_alpha_blend_factor = VK_BLEND_FACTOR_ZERO;
+    k.blend_factor_block.dst_alpha_blend_factor = VK_BLEND_FACTOR_ZERO;
+    k.blend_factor_block.alpha_blend_op = VK_BLEND_OP_ADD;
+    k.blend_factor_block.blend_enable = VK_FALSE;
 
-    k.ds_state.stencilTestEnable = VK_FALSE;
-    k.ds_state.front.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    k.ds_state.front.depthFailOp = VK_STENCIL_OP_ZERO;
-    k.ds_state.front.passOp = VK_STENCIL_OP_ZERO;
-    k.ds_state.front.compareMask = 0;
-    k.ds_state.front.writeMask = 0;
-    k.ds_state.front.reference = 0;
-    k.ds_state.back = k.ds_state.front;
+    k.depth_stencil_block.stencil_test_enable = VK_FALSE;
+    k.depth_stencil_block.compare_op = VK_COMPARE_OP_LESS_OR_EQUAL;
+    k.depth_stencil_block.depth_fail_op = VK_STENCIL_OP_ZERO;
+    k.depth_stencil_block.pass_op = VK_STENCIL_OP_ZERO;
+    k.depth_stencil_block.compare_mask = 0;
+    k.depth_stencil_block.write_mask = 0;
+    k.depth_stencil_block.reference = 0;
 
     return k;
 }
@@ -134,10 +133,6 @@ vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
 void vkapi_pline_cache_bind_compute_pipeline(vkapi_pipeline_cache_t* c, VkCommandBuffer cmd_buffer)
 {
     assert(c);
-    if (vkapi_pline_cache_compare_compute_keys(&c->bound_compute_pline, &c->compute_pline_requires))
-    {
-        return;
-    }
 
     vkapi_compute_pl_t* pline = vkapi_pline_cache_find_or_create_compute_pline(c);
     assert(pline);
@@ -193,38 +188,50 @@ void vkapi_pline_cache_bind_compute_pl_layout(vkapi_pipeline_cache_t* c, VkPipel
 void vkapi_pline_cache_bind_cull_mode(vkapi_pipeline_cache_t* c, VkCullModeFlagBits cullmode)
 {
     assert(c);
-    c->graphics_pline_requires.raster_state.cullMode = cullmode;
+    c->graphics_pline_requires.raster_state.cull_mode = cullmode;
 }
 
 void vkapi_pline_cache_bind_polygon_mode(vkapi_pipeline_cache_t* c, VkPolygonMode polymode)
 {
     assert(c);
-    c->graphics_pline_requires.raster_state.polygonMode = polymode;
+    c->graphics_pline_requires.raster_state.polygon_mode = polymode;
 }
 
 void vkapi_pline_cache_bind_front_face(vkapi_pipeline_cache_t* c, VkFrontFace face)
 {
     assert(c);
-    c->graphics_pline_requires.raster_state.frontFace = face;
+    c->graphics_pline_requires.raster_state.front_face = face;
 }
 
 void vkapi_pline_cache_bind_topology(vkapi_pipeline_cache_t* c, VkPrimitiveTopology topo)
 {
     assert(c);
-    c->graphics_pline_requires.asm_state.topology = topo;
+    c->graphics_pline_requires.raster_state.topology = topo;
 }
 
 void vkapi_pline_cache_bind_prim_restart(vkapi_pipeline_cache_t* c, bool state)
 {
     assert(c);
-    c->graphics_pline_requires.asm_state.primitiveRestartEnable = state;
+    c->graphics_pline_requires.raster_state.prim_restart = state;
 }
 
 void vkapi_pline_cache_bind_depth_stencil_block(
-    vkapi_pipeline_cache_t* c, VkPipelineDepthStencilStateCreateInfo* ds)
+    vkapi_pipeline_cache_t* c, struct DepthStencilBlock* ds)
 {
     assert(c);
-    c->graphics_pline_requires.ds_state = *ds;
+    c->graphics_pline_requires.depth_stencil_block = *ds;
+}
+
+void vkapi_pline_cache_bind_depth_test_enable(vkapi_pipeline_cache_t* c, bool state)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.depth_test_enable = state;
+}
+
+void vkapi_pline_cache_bind_depth_write_enable(vkapi_pipeline_cache_t* c, bool state)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.depth_write_enable = state;
 }
 
 void vkapi_pline_cache_bind_colour_attach_count(vkapi_pipeline_cache_t* c, uint32_t count)
@@ -240,10 +247,10 @@ void vkapi_pline_cache_bind_tess_vert_count(vkapi_pipeline_cache_t* c, size_t co
 }
 
 void vkapi_pline_cache_bind_blend_factor_block(
-    vkapi_pipeline_cache_t* c, VkPipelineColorBlendAttachmentState* state)
+    vkapi_pipeline_cache_t* c, struct BlendFactorBlock* state)
 {
     assert(c);
-    c->graphics_pline_requires.blend_state = *state;
+    c->graphics_pline_requires.blend_factor_block = *state;
 }
 
 void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b)
@@ -279,7 +286,7 @@ void vkapi_pline_cache_bind_vertex_input(
     memcpy(
         c->graphics_pline_requires.vert_bind_descs,
         vert_bind_descs,
-        sizeof(VkVertexInputBindingDescription) * VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT);
+        sizeof(VkVertexInputBindingDescription) * VKAPI_PIPELINE_MAX_INPUT_BIND_COUNT);
 }
 
 vkapi_pl_layout_t*
@@ -287,6 +294,13 @@ vkapi_pline_cache_get_pl_layout(vkapi_pipeline_cache_t* c, shader_prog_bundle_t*
 {
     assert(c);
     assert(bundle);
+
+    // We create layouts for all supported sets even if they are not used - so its safe here
+    // just to check if the first layout has been created as the rest will be NULL also (i hope!!)
+    if (bundle->desc_layouts[0] == VK_NULL_HANDLE)
+    {
+        vkapi_desc_cache_create_pl_layouts(c->driver, bundle);
+    }
 
     // Create the key and check if a pipeline layout fits the criteria in the cache.
     pl_layout_key_t key = {0};
@@ -322,7 +336,7 @@ vkapi_pline_cache_get_pl_layout(vkapi_pipeline_cache_t* c, shader_prog_bundle_t*
             VkPushConstantRange pcr = {
                 .size = bundle->push_blocks[i].range,
                 .offset = 0,
-                .stageFlags = shader_vk_stage_flag(bundle->push_blocks[i].stage)};
+                .stageFlags = bundle->push_blocks[i].stage};
             constant_ranges[cr_count++] = pcr;
         }
     }
@@ -367,8 +381,23 @@ void vkapi_pline_cache_destroy(vkapi_pipeline_cache_t* c)
 {
     assert(c);
 
+    hash_set_iterator_t it = hash_set_iter_create(&c->pipeline_layouts);
+    for (;;)
+    {
+        vkapi_pl_layout_t* pl = hash_set_iter_next(&it);
+        if (!pl)
+        {
+            break;
+        }
+        if (pl->instance)
+        {
+            vkDestroyPipelineLayout(c->driver->context->device, pl->instance, VK_NULL_HANDLE);
+        }
+    }
+    hash_set_clear(&c->pipeline_layouts);
+
     // Destroy all graphics pipelines associated with this cache.
-    hash_set_iterator_t it = hash_set_iter_create(&c->gfx_pipelines);
+    it = hash_set_iter_create(&c->gfx_pipelines);
     for (;;)
     {
         vkapi_graphics_pl_t* pl = hash_set_iter_next(&it);

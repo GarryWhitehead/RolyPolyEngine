@@ -28,6 +28,7 @@
 #include "utility/compiler.h"
 
 #define VKAPI_MAX_COMMAND_BUFFER_SIZE 10
+#define VKAPI_COMMANDS_MAX_EXTERNAL_SIGNAL_COUNT 3
 
 // forward declarations
 typedef struct VkApiContext vkapi_context_t;
@@ -40,14 +41,8 @@ typedef struct CmdBuffer
 
 } vkapi_cmdbuffer_t;
 
-typedef struct ThreadedCmdBuffer
-{
-    VkCommandBuffer secondary;
-    VkCommandPool cmd_pool;
-    bool is_executed;
-} vkapi_threaded_cmdbuffer_t;
-
-vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena);
+vkapi_commands_t* vkapi_commands_init(
+    vkapi_context_t* context, uint32_t queue_index, VkQueue cmd_queue, arena_t* arena);
 
 void vkapi_commands_destroy(vkapi_context_t* context, vkapi_commands_t* commands);
 

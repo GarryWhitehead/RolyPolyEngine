@@ -41,11 +41,10 @@ void* _copy_value_to_set(hash_set_t* set, void* value)
     return new_val;
 }
 
-void _find(hash_set_t* set, void* key)
+void _find(hash_set_t* set, void* key, uint64_t hash)
 {
     set->_curr_node = NULL;
 
-    uint64_t hash = set->hash_func(key, set->key_type_size);
     uint32_t idx = _index_from_hash(set, hash);
 
     hash_set_node_t* node = &set->nodes[idx];
@@ -77,11 +76,12 @@ enum InsertResult
     InsertResult_OutOfSpace,
     InsertResult_Already
 };
-enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value)
+enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value, void** new_value)
 {
     assert(set);
     assert(value);
 
+    *new_value = NULL;
     uint32_t idx = _index_from_hash(set, hash);
     assert(idx < set->capacity);
 
@@ -94,6 +94,7 @@ enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value)
     {
         node->hash = hash;
         node->value = _copy_value_to_set(set, value);
+        *new_value = node->value;
         ++set->size;
         return InsertResult_Inserted;
     }
@@ -108,7 +109,6 @@ enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value)
         {
             return InsertResult_Already;
         }
-
         prev_delta = &set->nodes[idx].delta[1];
         delta = *prev_delta;
     }
@@ -117,12 +117,13 @@ enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value)
     uint16_t remaining = set->capacity - idx;
     assert(remaining >= 0);
     // Not found via leap-frogging, so revert to linear probing.
-    for (; idx < remaining; ++idx)
+    for (; idx < set->capacity; ++idx)
     {
         if (set->nodes[idx].hash == HASH_NULL || set->nodes[idx].hash == HASH_DELETED)
         {
             set->nodes[idx].hash = hash;
             set->nodes[idx].value = _copy_value_to_set(set, value);
+            *new_value = set->nodes[idx].value;
             *prev_delta = idx - begin_idx;
             ++set->size;
             return InsertResult_Inserted;
@@ -141,6 +142,7 @@ enum ResizeResult
 };
 enum ResizeResult _set_resize(hash_set_t* set)
 {
+    uint32_t old_capacity = set->capacity;
     uint32_t new_capacity = set->capacity * 2;
     hash_set_node_t* old_nodes = set->nodes;
 
@@ -157,21 +159,22 @@ enum ResizeResult _set_resize(hash_set_t* set)
 
     set->nodes = new_nodes;
     set->size = 0;
+    set->capacity = new_capacity;
 
-    for (uint32_t i = 0; i < set->capacity; ++i)
+    for (uint32_t i = 0; i < old_capacity; ++i)
     {
         hash_set_node_t* old_node = &old_nodes[i];
         if (old_node->hash != HASH_DELETED && old_node->hash != HASH_NULL)
         {
-            enum InsertResult res = _insert(set, old_node->hash, old_node->value);
+            void* out;
+            enum InsertResult res = _insert(set, old_node->hash, old_node->value, &out);
+            assert(res != InsertResult_Already);
             if (res == InsertResult_OutOfSpace)
             {
                 return ResizeResult_OutOfSpace;
             }
         }
     }
-
-    set->capacity = new_capacity;
     return ResizeResult_Ok;
 }
 
@@ -202,16 +205,16 @@ hash_set_t hash_set_create(
 void* hash_set_get(hash_set_t* set, void* key)
 {
     assert(key);
-
-    _find(set, key);
+    uint64_t hash = set->hash_func(key, set->key_type_size);
+    _find(set, key, hash);
     return !set->_curr_node ? NULL : set->_curr_node->value;
 }
 
 bool hash_set_find(hash_set_t* set, void* key)
 {
     assert(key);
-
-    _find(set, key);
+    uint64_t hash = set->hash_func(key, set->key_type_size);
+    _find(set, key, hash);
     return !set->_curr_node ? false : true;
 }
 
@@ -220,12 +223,29 @@ void* hash_set_set(hash_set_t* set, void* key, void* value)
     assert(key);
     assert(value);
 
-    _find(set, key);
-    assert(set->_curr_node);
-
-    void* old_value = set->_curr_node->value;
-    set->_curr_node->value = _copy_value_to_set(set, value);
-    return old_value;
+    uint64_t hash = set->hash_func(key, set->key_type_size);
+    _find(set, key, hash);
+    if (set->_curr_node)
+    {
+        void* old_value = set->_curr_node->value;
+        set->_curr_node->value = _copy_value_to_set(set, value);
+        return old_value;
+    }
+    // Key not in current hash set so insert.
+    void* out = NULL;
+    for (;;)
+    {
+        enum InsertResult res = _insert(set, hash, value, &out);
+        if (res != InsertResult_OutOfSpace)
+        {
+            return out;
+        }
+        enum ResizeResult r = _set_resize(set);
+        if (r == ResizeResult_NoMemory)
+        {
+            return NULL;
+        }
+    }
 }
 
 void* hash_set_insert(hash_set_t* set, void* key, void* value)
@@ -234,13 +254,13 @@ void* hash_set_insert(hash_set_t* set, void* key, void* value)
     assert(key);
 
     uint64_t hash = set->hash_func(key, set->key_type_size);
-
+    void* out = NULL;
     for (;;)
     {
-        enum InsertResult res = _insert(set, hash, value);
+        enum InsertResult res = _insert(set, hash, value, &out);
         if (res != InsertResult_OutOfSpace)
         {
-            return res == InsertResult_Already ? NULL : value;
+            return out;
         }
         enum ResizeResult r = _set_resize(set);
         if (r == ResizeResult_NoMemory)
@@ -253,8 +273,8 @@ void* hash_set_insert(hash_set_t* set, void* key, void* value)
 void* hash_set_erase(hash_set_t* set, void* key)
 {
     assert(key);
-
-    _find(set, key);
+    uint64_t hash = set->hash_func(key, set->key_type_size);
+    _find(set, key, hash);
     assert(set->_curr_node);
 
     --set->size;
@@ -291,11 +311,12 @@ uint32_t hash_set_find_next(hash_set_t* set, uint32_t idx)
         return 0;
     }
     // Advance the index along by one item.
-    uint32_t curr_idx = idx == 0 ? idx : idx + 1;
+    uint32_t curr_idx = idx;
     while (curr_idx < set->capacity)
     {
-        if (set->nodes[curr_idx].hash != HASH_NULL)
+        if (set->nodes[curr_idx].hash != HASH_NULL && set->nodes[curr_idx].hash != HASH_DELETED)
         {
+            assert(set->nodes[curr_idx].value);
             return curr_idx;
         }
         curr_idx++;
@@ -320,7 +341,7 @@ void* hash_set_iter_next(hash_set_iterator_t* it)
     {
         return NULL;
     }
-    it->curr_idx = idx;
+    it->curr_idx = idx + 1;
     return it->set->nodes[idx].value;
 }
 
@@ -328,7 +349,9 @@ hash_set_iterator_t hash_set_iter_erase(hash_set_iterator_t* it)
 {
     assert(it);
     hash_set_t* set = it->set;
-    hash_set_node_t* node = &set->nodes[it->curr_idx];
+    // We need to decrement the current index as the next function stores the current index + 1 to
+    // avoid pulling in the same bucket.
+    hash_set_node_t* node = &set->nodes[it->curr_idx - 1];
 
     --set->size;
     node->hash = HASH_DELETED;
@@ -336,6 +359,6 @@ hash_set_iterator_t hash_set_iter_erase(hash_set_iterator_t* it)
     // Return new iterator pointing at the next item in the set.
     hash_set_iterator_t new_it;
     new_it.set = set;
-    new_it.curr_idx = hash_set_find_next(set, it->curr_idx);
+    new_it.curr_idx = hash_set_find_next(set, it->curr_idx + 1);
     return new_it;
 }

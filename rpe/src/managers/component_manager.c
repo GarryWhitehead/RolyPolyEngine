@@ -29,13 +29,13 @@
 rpe_component_manager_t* rpe_comp_manager_init(arena_t* arena)
 {
     rpe_component_manager_t* m = ARENA_MAKE_ZERO_STRUCT(arena, rpe_component_manager_t);
-    m->objects = HASH_SET_CREATE(uint32_t, uint64_t, arena, murmur_hash3);
+    m->objects = HASH_SET_CREATE(uint64_t, uint64_t, arena, murmur_hash3);
     MAKE_DYN_ARRAY(uint64_t, arena, RPE_COMPONENT_MANAGER_MAX_FREE_ID_COUNT, &m->free_slots);
-    m->index = 1;
+    m->index = 0;
     return m;
 }
 
-rpe_obj_handle_t rpe_comp_manager_add_obj(rpe_component_manager_t* m, rpe_object_t obj)
+uint64_t rpe_comp_manager_add_obj(rpe_component_manager_t* m, rpe_object_t obj)
 {
     assert(m);
     uint64_t ret_idx = 0;
@@ -50,21 +50,19 @@ rpe_obj_handle_t rpe_comp_manager_add_obj(rpe_component_manager_t* m, rpe_object
     else
     {
         HASH_SET_INSERT(&m->objects, &obj.id, &m->index);
-        ret_idx = m->index;
+        ret_idx = m->index++;
     }
-    rpe_obj_handle_t h = {.id = ret_idx};
-    return h;
+    return ret_idx;
 }
 
-rpe_obj_handle_t rpe_comp_manager_get_obj_idx(rpe_component_manager_t* m, rpe_object_t obj)
+uint64_t rpe_comp_manager_get_obj_idx(rpe_component_manager_t* m, rpe_object_t obj)
 {
     uint64_t* obj_idx = HASH_SET_GET(&m->objects, &obj.id);
     if (!obj_idx)
     {
-        return rpe_obj_handle_invalid_handle();
+        return UINT64_MAX;
     }
-    rpe_obj_handle_t h = {.id = *obj_idx};
-    return h;
+    return *obj_idx;
 }
 
 bool rpe_comp_manager_has_obj(rpe_component_manager_t* m, rpe_object_t obj)

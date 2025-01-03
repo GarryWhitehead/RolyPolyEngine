@@ -40,7 +40,7 @@ TEST(CommandsGroup, BasicCommands_Test)
     rpe_cmd_bucket_t* bucket = rpe_command_bucket_init(10, arena);
     TEST_ASSERT_NOT_NULL(bucket);
     rpe_cmd_packet_t* pkt0 = rpe_command_bucket_add_command(
-        bucket, 0, 0, sizeof(struct BucketTestCommand1), arena, testBucketFunc1);
+        bucket, 0, sizeof(struct BucketTestCommand1), arena, testBucketFunc1);
     struct BucketTestCommand1* cmd = pkt0->cmds;
     cmd->add_val = 5;
 
@@ -56,8 +56,7 @@ TEST(CommandsGroup, BasicCommands_Test)
     int val = 2;
     memcpy(pkt2->data, &val, sizeof(int));
 
-    uint64_t ind[3] = {0, 1, 2};
-    rpe_command_bucket_submit(bucket, ind, NULL);
+    rpe_command_bucket_submit(bucket, NULL);
 
     TEST_ASSERT_EQUAL_UINT(30, bucket_test_val1);
 }

@@ -55,8 +55,25 @@ void rpe_compute_add_image_sampler(
     sampler_params_t sampler_params);
 
 buffer_handle_t rpe_compute_bind_ubo(rpe_compute_t* c, vkapi_driver_t* driver, uint32_t binding);
-buffer_handle_t
-rpe_compute_bind_ssbo(rpe_compute_t* c, vkapi_driver_t* driver, uint32_t binding, size_t count);
+
+buffer_handle_t rpe_compute_bind_ssbo_gpu_only(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags);
+buffer_handle_t rpe_compute_bind_ssbo_host_gpu(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags);
+buffer_handle_t rpe_compute_bind_ssbo_gpu_host(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags);
 
 void rpe_compute_download_ssbo_to_host(
     rpe_compute_t* c, vkapi_driver_t* driver, uint32_t binding, size_t size, void* host_buffer);

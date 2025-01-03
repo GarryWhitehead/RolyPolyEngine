@@ -25,6 +25,7 @@
 
 #include "arena.h"
 #include "compiler.h"
+#include "string.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -118,7 +119,7 @@ void hash_set_clear(hash_set_t* set);
         __auto_type _val = (value);                                                                \
         assert((set)->key_type_size == sizeof(*_key));                                             \
         assert((set)->value_type_size == sizeof(*_val));                                           \
-        hash_set_set(set, _key, value);                                                            \
+        hash_set_set(set, _key, _val);                                                             \
     })
 
 #define HASH_SET_ERASE(set, key)                                                                   \

@@ -34,6 +34,13 @@ typedef struct Arena arena_t;
 typedef struct Commands vkapi_commands_t;
 typedef struct VkApiStagingPool vkapi_staging_pool_t;
 
+enum TextureType
+{
+    VKAPI_TEXTURE_TYPE_MODEL,
+    VKAPI_TEXTURE_TYPE_SYSTEM,
+    VKAPI_TEXTURE_TYPE_SWAPCHAIN
+};
+
 typedef struct Texture
 {
     struct ImageInfo
@@ -47,7 +54,7 @@ typedef struct Texture
     } info;
 
     VkImageLayout image_layout;
-
+    enum TextureType type;
     VkImage image;
     VkDeviceMemory image_memory;
 
@@ -65,7 +72,8 @@ vkapi_texture_t vkapi_texture_init(
     uint32_t mip_levels,
     uint32_t face_count,
     uint32_t array_count,
-    VkFormat format);
+    VkFormat format,
+    enum TextureType type);
 
 void vkapi_texture_destroy(vkapi_context_t* context, vkapi_texture_t* texture);
 

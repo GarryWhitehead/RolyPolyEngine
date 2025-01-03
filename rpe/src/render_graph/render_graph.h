@@ -40,7 +40,7 @@ typedef struct DependencyGraph rg_dep_graph_t;
 typedef struct RenderPassNode rg_render_pass_node_t;
 typedef struct RenderGraphPass rg_pass_t;
 
-typedef void(setup_func)(render_graph_t*, rg_pass_node_t*, void*);
+typedef void(setup_func)(render_graph_t*, rg_pass_node_t*, void*, void*);
 
 typedef struct ResourceSlot
 {
@@ -48,12 +48,36 @@ typedef struct ResourceSlot
     size_t node_idx;
 } rg_resource_slot_t;
 
+typedef struct RenderGraph
+{
+    rg_dep_graph_t* dep_graph;
+
+    rg_backboard_t backboard;
+
+    /// a list of all the render passes
+    arena_dyn_array_t rg_passes;
+
+    /// a virtual list of all the resources associated with this graph
+    arena_dyn_array_t resources;
+
+    arena_dyn_array_t pass_nodes;
+    arena_dyn_array_t resource_nodes;
+
+    arena_dyn_array_t resource_slots;
+
+    /// Arena for memory allocations (frame scope).
+    arena_t* arena;
+    /// Number of active (non-culled) pass nodes set after a call to @sa rg_compile.
+    size_t active_idx;
+
+} render_graph_t;
+
 render_graph_t* rg_init(arena_t* arena);
 
 rg_render_pass_node_t*
 rg_create_pass_node(render_graph_t* rg, const char* name, rg_pass_t* rg_pass);
 
-void rg_add_present_pass(render_graph_t* rg, rg_handle_t handle, const char* name);
+void rg_add_present_pass(render_graph_t* rg, rg_handle_t handle);
 
 rg_handle_t rg_add_resource(render_graph_t* rg, rg_resource_t* r, rg_handle_t* parent);
 
@@ -74,10 +98,15 @@ rg_handle_t rg_add_write(
 
 render_graph_t* rg_compile(render_graph_t* rg);
 
-void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver, rpe_engine_t* engine);
+void rg_execute(render_graph_t* rg, vkapi_driver_t* driver, rpe_engine_t* engine);
 
 rg_pass_t* rg_add_pass(
-    render_graph_t* rg, const char* name, setup_func setup, execute_func execute, size_t data_size);
+    render_graph_t* rg,
+    const char* name,
+    setup_func setup,
+    execute_func execute,
+    size_t data_size,
+    void* local_data);
 
 void rg_add_executor_pass(render_graph_t* rg, const char* name, execute_func execute);
 

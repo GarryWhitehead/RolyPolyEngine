@@ -58,6 +58,10 @@ void count_sort(uint64_t* arr, size_t sz, int pos, arena_t* arena, uint64_t* out
 void radix_sort(uint64_t* arr, size_t sz, arena_t* arena, uint64_t* output)
 {
     assert(arr);
+    if (sz == 0)
+    {
+        return;
+    }
     uint64_t max = array_max_value(arr, sz);
 
     // Keep looping based upon the number of digits of the max value in the array.

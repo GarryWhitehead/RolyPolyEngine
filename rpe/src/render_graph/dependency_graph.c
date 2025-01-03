@@ -24,19 +24,6 @@
 
 #include "render_graph/render_pass_node.h"
 
-typedef struct DependencyGraph
-{
-    // The nodes are not owned by the dependency graph so we only
-    // keep reference with a raw pointer. Thus, its imperative that
-    // the owner only destroys the node after finishing with the
-    // dependency graph.
-    arena_dyn_array_t nodes;
-
-    // As nodes, edges are not ownded by the dependency graph but the
-    // render graph, so be careful with the lifetime of the edge.
-    arena_dyn_array_t edges;
-} rg_dep_graph_t;
-
 rg_node_t* rg_node_init(rg_dep_graph_t* dg, const char* name, arena_t* arena)
 {
     assert(dg);
@@ -197,80 +184,4 @@ void rg_dep_graph_clear(rg_dep_graph_t* dg)
     assert(dg);
     dyn_array_clear(&dg->nodes);
     dyn_array_clear(&dg->edges);
-}
-
-void rg_dep_graph_export_graph_viz(rg_dep_graph_t* dg, string_t output, arena_t* arena)
-{
-    assert(dg);
-    output = string_append(&output, "digraph \"rendergraph\" { \n", arena);
-    output = string_append(&output, "bgcolor = white\n", arena);
-    output =
-        string_append(&output, "node [shape=rectangle, fontname=\"arial\", fontsize=12]\n", arena);
-
-    // add each node
-    for (size_t i = 0; i < dg->nodes.size; ++i)
-    {
-        rg_node_t* n = DYN_ARRAY_GET_PTR(rg_node_t, &dg->nodes, i);
-        string_t node_str = rg_node_get_graph_viz(n, arena);
-        sprintf(output.data, "\"N %lu \" %s \n", n->id, node_str.data);
-    }
-    output = string_append(&output, "\n", arena);
-
-    for (size_t i = 0; i < dg->nodes.size; ++i)
-    {
-        rg_node_t* n = DYN_ARRAY_GET_PTR(rg_node_t, &dg->nodes, i);
-        arena_dyn_array_t writer_edges = rg_dep_graph_get_writer_edges(dg, n, arena);
-        string_t valid_str = {.len = 0};
-        string_t invalid_str = {.len = 0};
-
-        for (size_t j = 0; j < writer_edges.size; ++j)
-        {
-            rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &writer_edges, j);
-            rg_node_t* link = rg_dep_graph_get_node(dg, edge->to_id);
-            if (rg_dep_graph_is_valid_edge(dg, edge))
-            {
-                if (!valid_str.len)
-                {
-                    sprintf(valid_str.data, "N%lu -> { ", n->id);
-                }
-                sprintf(valid_str.data, "N%lu ", link->id);
-            }
-            else
-            {
-                if (!invalid_str.len)
-                {
-                    sprintf(invalid_str.data, "N%lu -> { ", n->id);
-                }
-                sprintf(invalid_str.data, "N%lu ", link->id);
-            }
-        }
-        if (!valid_str.len)
-        {
-            valid_str = string_append(&valid_str, "} [color=red4]\n", arena);
-            output = string_append(&output, valid_str.data, arena);
-        }
-
-        if (!invalid_str.len)
-        {
-            invalid_str = string_append(&invalid_str, "} [color=red4 style=dashed]\n", arena);
-            output = string_append(&output, invalid_str.data, arena);
-        }
-    }
-
-    output = string_append(&output, "}\n", arena);
-}
-
-string_t rg_node_get_graph_viz(rg_node_t* n, arena_t* arena)
-{
-    assert(n);
-    string_t out;
-    out.data = ARENA_MAKE_ARRAY(arena, char, 1024, ARENA_ZERO_MEMORY);
-    sprintf(
-        out.data,
-        "[label=\"node\\n name: %s id: %i, refCount: %i\",",
-        n->name.data,
-        n->id,
-        n->ref_count);
-    out = string_append(&out, " style=filled, fillcolor=green]", arena);
-    return out;
 }

@@ -29,48 +29,72 @@
 #include "shader.h"
 
 vkapi_graphics_pl_t vkapi_graph_pl_create(
-    vkapi_context_t* context, graphics_pl_key_t* key, struct SpecConstParams* spec_consts)
+    vkapi_context_t* context, const graphics_pl_key_t* key, struct SpecConstParams* spec_consts)
 {
-    vkapi_graphics_pl_t pl;
+    vkapi_graphics_pl_t pl = {0};
 
-    // sort the vertex attribute descriptors so only ones that are used
-    // are applied to the pipeline
-    VkVertexInputAttributeDescription input_decs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT] = {0};
+    // Sort the vertex attribute descriptors so only ones that are used
+    // are applied to the pipeline.
     int input_desc_count = 0;
+    int input_bind_count = 0;
     for (int i = 0; i < VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT; ++i)
     {
         if (key->vert_attr_descs[i].format != VK_FORMAT_UNDEFINED)
         {
-            input_decs[input_desc_count++] = key->vert_attr_descs[i];
+            input_desc_count++;
+        }
+    }
+    for (int i = 0; i < VKAPI_PIPELINE_MAX_INPUT_BIND_COUNT; ++i)
+    {
+        if (key->vert_bind_descs[i].stride > 0)
+        {
+            input_bind_count++;
         }
     }
 
-    bool hasInputState = !input_desc_count;
+    bool hasInputState = input_desc_count > 0;
     VkPipelineVertexInputStateCreateInfo vis = {0};
+    vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vis.vertexAttributeDescriptionCount = input_desc_count;
-    vis.pVertexAttributeDescriptions = hasInputState ? input_decs : VK_NULL_HANDLE;
-    vis.vertexBindingDescriptionCount = hasInputState ? 1 : 0;
+    vis.pVertexAttributeDescriptions = hasInputState ? key->vert_attr_descs : VK_NULL_HANDLE;
+    vis.vertexBindingDescriptionCount = hasInputState ? input_bind_count : 0;
     vis.pVertexBindingDescriptions = hasInputState ? key->vert_bind_descs : VK_NULL_HANDLE;
 
-    key->asm_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    VkPipelineInputAssemblyStateCreateInfo asm_state = {0};
+    asm_state.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    asm_state.topology = key->raster_state.topology;
+    asm_state.primitiveRestartEnable = key->raster_state.prim_restart;
 
-    key->ds_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    key->ds_state.depthBoundsTestEnable = VK_FALSE;
-    key->ds_state.minDepthBounds = 0.0f;
-    key->ds_state.maxDepthBounds = 0.0f;
+    VkPipelineRasterizationStateCreateInfo raster_state = {0};
+    raster_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    raster_state.lineWidth = 1.0f;
+    raster_state.polygonMode = key->raster_state.polygon_mode;
+    raster_state.cullMode = key->raster_state.cull_mode;
+    raster_state.frontFace = key->raster_state.front_face;
 
-    key->raster_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    key->raster_state.lineWidth = 1.0f;
-    key->raster_state.depthClampEnable = VK_FALSE;
-    key->raster_state.depthBiasConstantFactor = 0.0f;
-    key->raster_state.rasterizerDiscardEnable = VK_FALSE;
-    key->raster_state.depthBiasSlopeFactor = 0.0f;
+    VkPipelineDepthStencilStateCreateInfo ds_state = {0};
+    ds_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds_state.stencilTestEnable = key->depth_stencil_block.stencil_test_enable;
+    ds_state.depthWriteEnable = key->raster_state.depth_write_enable;
+    ds_state.depthTestEnable = key->raster_state.depth_test_enable;
+    // TODO: Add to the pipeline key.
+    ds_state.depthCompareOp = VK_COMPARE_OP_LESS;
+    ds_state.front.compareOp = key->depth_stencil_block.compare_op;
+    ds_state.front.failOp = key->depth_stencil_block.depth_fail_op;
+    ds_state.front.reference = key->depth_stencil_block.reference;
+    ds_state.front.depthFailOp = key->depth_stencil_block.depth_fail_op;
+    ds_state.front.passOp = key->depth_stencil_block.pass_op;
+    ds_state.front.compareMask = key->depth_stencil_block.compare_mask;
+    ds_state.front.writeMask = key->depth_stencil_block.write_mask;
+    ds_state.back = ds_state.front;
 
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms.rasterizationSamples = 1;
 
     // ============ dynamic states ====================
     VkPipelineDynamicStateCreateInfo dcs = {0};
+    dcs.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     VkDynamicState states[2] = {VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT};
     dcs.dynamicStateCount = 2;
     dcs.pDynamicStates = states;
@@ -78,6 +102,7 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     // =============== viewport state ====================
     // scissor and viewport are set at draw time
     VkPipelineViewportStateCreateInfo vs = {0};
+    vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vs.viewportCount = 1;
     vs.scissorCount = 1;
 
@@ -86,12 +111,23 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     tsc.patchControlPoints = key->tesse_vert_count;
 
     // ============= colour attachment =================
+    VkPipelineColorBlendAttachmentState blend_state = {0};
+    blend_state.blendEnable = key->blend_factor_block.blend_enable;
+    blend_state.alphaBlendOp = key->blend_factor_block.alpha_blend_op;
+    blend_state.srcAlphaBlendFactor = key->blend_factor_block.src_alpha_blend_factor;
+    blend_state.dstAlphaBlendFactor = key->blend_factor_block.dst_alpha_blend_factor;
+    blend_state.srcColorBlendFactor = key->blend_factor_block.src_colour_blend_factor;
+    blend_state.dstColorBlendFactor = key->blend_factor_block.dst_colour_blend_factor;
+    blend_state.colorBlendOp = key->blend_factor_block.colour_blend_op;
+    blend_state.colorWriteMask = key->raster_state.colour_write_mask;
+
     // all blend attachments are the same for each pass
     VkPipelineColorBlendStateCreateInfo cbs = {0};
+    cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     VkPipelineColorBlendAttachmentState bas[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT] = {0};
     for (uint32_t i = 0; i < key->colour_attach_count; ++i)
     {
-        bas[i] = key->blend_state;
+        bas[i] = blend_state;
     }
     cbs.attachmentCount = key->colour_attach_count;
     cbs.pAttachments = bas;
@@ -108,8 +144,7 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     {
         if (key->shaders[i].pName)
         {
-            shaders[shader_count] = shaders[i];
-
+            shaders[shader_count] = key->shaders[i];
             if (key->spec_map_entry_count[i] > 0)
             {
                 spi[i].dataSize = spec_consts[i].data_size;
@@ -119,8 +154,9 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
                 spi[i].pData = spec_consts[i].data;
 
                 // Add the specialisation constant info to the shader module.
-                key->shaders[shader_count++].pSpecializationInfo = &spi[i];
+                shaders[shader_count].pSpecializationInfo = &spi[i];
             }
+            ++shader_count;
         }
     }
     assert(shader_count);
@@ -130,12 +166,12 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     ci.stageCount = shader_count;
     ci.pStages = shaders;
     ci.pVertexInputState = &vis;
-    ci.pInputAssemblyState = &key->asm_state;
+    ci.pInputAssemblyState = &asm_state;
     ci.pTessellationState = key->tesse_vert_count > 0 ? &tsc : VK_NULL_HANDLE;
     ci.pViewportState = &vs;
-    ci.pRasterizationState = &key->raster_state;
+    ci.pRasterizationState = &raster_state;
     ci.pMultisampleState = &ms;
-    ci.pDepthStencilState = &key->ds_state;
+    ci.pDepthStencilState = &ds_state;
     ci.pColorBlendState = &cbs;
     ci.pDynamicState = &dcs;
     ci.layout = key->pl_layout;

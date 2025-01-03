@@ -30,7 +30,7 @@
 #define VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT 6
 #define VKAPI_PIPELINE_MAX_UBO_BIND_COUNT 8
 #define VKAPI_PIPELINE_MAX_DYNAMIC_UBO_BIND_COUNT 4
-#define VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT 4
+#define VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT 6
 
 // Shader set values for each descriptor type.
 #define VKAPI_PIPELINE_UBO_SET_VALUE 0
@@ -96,8 +96,7 @@ typedef struct DescriptorCache
     // waiting to be destroyed once they reach their lifetime.
     arena_dyn_array_t desc_pools_for_deletion;
     arena_dyn_array_t desc_sets_for_deletion;
-    // Set if samplers are explicitly bound - otherwise assumes bindless textures.
-    bool use_bound_samplers;
+
 } vkapi_desc_cache_t;
 
 void vkapi_desc_cache_bind_descriptors(
@@ -128,8 +127,7 @@ void vkapi_desc_cache_increase_pool_capacity(vkapi_desc_cache_t* c);
 void vkapi_desc_cache_gc(vkapi_desc_cache_t* c, uint64_t current_frame);
 void vkapi_desc_cache_destroy(vkapi_desc_cache_t* c);
 
-void vkapi_desc_cache_create_layouts(
-    shader_t* shader, vkapi_driver_t* driver, shader_prog_bundle_t* bundle, arena_t* arena);
+void vkapi_desc_cache_create_pl_layouts(vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
 
 bool vkapi_desc_cache_compare_desc_keys(desc_key_t* lhs, desc_key_t* rhs);
 void vkapi_desc_cache_reset_keys(vkapi_desc_cache_t* c);

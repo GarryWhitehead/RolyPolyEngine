@@ -111,7 +111,7 @@ void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_dr
         return;
     }
 
-    vkapi_attach_info_t col_info[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT];
+    vkapi_attach_info_t col_info[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT] = {0};
     for (size_t i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
     {
         if (rg_handle_is_valid(info->desc.attachments.attach_array[i]))
@@ -133,9 +133,13 @@ void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_dr
                 info->vkapi_rpass_data.final_layouts[i] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             }
         }
+        else
+        {
+            col_info[i].handle.id = UINT32_MAX;
+        }
     }
 
-    vkapi_attach_info_t depthStencilInfo[2];
+    vkapi_attach_info_t depthStencilInfo[2] = {0};
     for (size_t i = 0; i < 2; ++i)
     {
         rg_handle_t attachment =
@@ -145,6 +149,10 @@ void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_dr
             rg_texture_resource_t* r = (rg_texture_resource_t*)rg_get_resource(rg, attachment);
             depthStencilInfo[i].handle = r->handle;
             // TODO: also fill the layer and level from the subresource of the texture
+        }
+        else
+        {
+            depthStencilInfo[i].handle.id = UINT32_MAX;
         }
     }
 
@@ -204,8 +212,6 @@ rg_handle_t rg_rpass_node_create_rt(
 {
     rg_pass_info_t info = rg_pass_info_init(name, rg_get_arena(rg));
 
-    arena_dyn_array_t writers =
-        rg_dep_graph_get_writer_edges(rg_get_dep_graph(rg), (rg_node_t*)node, rg_get_arena(rg));
     arena_dyn_array_t readers =
         rg_dep_graph_get_reader_edges(rg_get_dep_graph(rg), (rg_node_t*)node, rg_get_arena(rg));
 
@@ -323,11 +329,11 @@ void rg_render_pass_node_build(rg_render_pass_node_t* node, render_graph_t* rg)
             memcpy(
                 pass_data->final_layouts,
                 i_target->desc.final_layouts,
-                sizeof(pass_data->final_layouts));
+                sizeof(VkImageLayout) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
             memcpy(
                 pass_data->init_layouts,
                 i_target->desc.init_layouts,
-                sizeof(pass_data->init_layouts));
+                sizeof(VkImageLayout) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
             info->desc.rt_handle = i_target->rt_handle;
             info->imported = true;
 
@@ -336,13 +342,13 @@ void rg_render_pass_node_build(rg_render_pass_node_t* node, render_graph_t* rg)
                 if (pass_data->final_layouts[j] != VK_IMAGE_LAYOUT_UNDEFINED)
                 {
                     pass_data->load_clear_flags[j] = i_target->desc.load_clear_flags[j];
-                    pass_data->store_clear_flags[i] = i_target->desc.store_clear_flags[j];
+                    pass_data->store_clear_flags[j] = i_target->desc.store_clear_flags[j];
                 }
                 else
                 {
                     pass_data->load_clear_flags[j] =
                         RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_DONTCARE;
-                    pass_data->store_clear_flags[i] =
+                    pass_data->store_clear_flags[j] =
                         RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE;
                 }
             }
@@ -353,7 +359,6 @@ void rg_render_pass_node_build(rg_render_pass_node_t* node, render_graph_t* rg)
 void rg_render_pass_node_execute(
     rg_render_pass_node_t* node,
     render_graph_t* rg,
-    rg_pass_t* rp,
     vkapi_driver_t* driver,
     rpe_engine_t* engine,
     rg_render_graph_resource_t* r)
@@ -364,7 +369,7 @@ void rg_render_pass_node_execute(
         rg_render_pass_info_bake(rg, info, driver);
     }
 
-    rp->func(driver, engine, r, rp->data);
+    node->rg_pass->func(driver, engine, r, node->rg_pass->data);
     // TODO: and delete the targets.
 }
 

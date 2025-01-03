@@ -51,17 +51,48 @@ typedef struct PipelineLayout
     uint64_t frame_last_used;
 } vkapi_pl_layout_t;
 
-typedef struct GraphicsPipelineKey
+RPE_PACKED typedef struct GraphicsPipelineKey
 {
-    VkPipelineInputAssemblyStateCreateInfo asm_state;
-    VkPipelineDepthStencilStateCreateInfo ds_state;
-    VkPipelineRasterizationStateCreateInfo raster_state;
-    VkPipelineColorBlendAttachmentState blend_state;
-    VkRenderPass render_pass;
+    struct RasterStateBlock
+    {
+        VkCullModeFlagBits cull_mode;
+        VkPolygonMode polygon_mode;
+        VkFrontFace front_face;
+        VkPrimitiveTopology topology;
+        VkColorComponentFlags colour_write_mask;
+        VkBool32 prim_restart;
+        VkBool32 depth_test_enable;
+        VkBool32 depth_write_enable;
+    } raster_state;
+
+    struct DepthStencilBlock
+    {
+        VkCompareOp compare_op;
+        VkStencilOp stencil_fail_op;
+        VkStencilOp depth_fail_op;
+        VkStencilOp pass_op;
+        uint32_t compare_mask;
+        uint32_t write_mask;
+        uint32_t reference;
+        VkBool32 stencil_test_enable;
+    } depth_stencil_block;
+
+    struct BlendFactorBlock
+    {
+        VkBool32 blend_enable;
+        VkBlendFactor src_colour_blend_factor;
+        VkBlendFactor dst_colour_blend_factor;
+        VkBlendOp colour_blend_op;
+        VkBlendFactor src_alpha_blend_factor;
+        VkBlendFactor dst_alpha_blend_factor;
+        VkBlendOp alpha_blend_op;
+    } blend_factor_block;
+
     VkPipelineLayout pl_layout;
+    VkRenderPass render_pass;
     VkPipelineShaderStageCreateInfo shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
     VkVertexInputAttributeDescription vert_attr_descs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
-    VkVertexInputBindingDescription vert_bind_descs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
+    VkVertexInputBindingDescription vert_bind_descs[VKAPI_PIPELINE_MAX_INPUT_BIND_COUNT];
     VkSpecializationMapEntry spec_map_entries[RPE_BACKEND_SHADER_STAGE_MAX_COUNT]
                                              [VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT];
     uint32_t spec_map_entry_count[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
@@ -116,11 +147,13 @@ void vkapi_pline_cache_bind_front_face(vkapi_pipeline_cache_t* c, VkFrontFace fa
 void vkapi_pline_cache_bind_topology(vkapi_pipeline_cache_t* c, VkPrimitiveTopology topo);
 void vkapi_pline_cache_bind_prim_restart(vkapi_pipeline_cache_t* c, bool state);
 void vkapi_pline_cache_bind_depth_stencil_block(
-    vkapi_pipeline_cache_t* c, VkPipelineDepthStencilStateCreateInfo* ds);
+    vkapi_pipeline_cache_t* c, struct DepthStencilBlock* ds);
 void vkapi_pline_cache_bind_colour_attach_count(vkapi_pipeline_cache_t* c, uint32_t count);
 void vkapi_pline_cache_bind_tess_vert_count(vkapi_pipeline_cache_t* c, size_t count);
 void vkapi_pline_cache_bind_blend_factor_block(
-    vkapi_pipeline_cache_t* c, VkPipelineColorBlendAttachmentState* state);
+    vkapi_pipeline_cache_t* c, struct BlendFactorBlock* state);
+void vkapi_pline_cache_bind_depth_test_enable(vkapi_pipeline_cache_t* c, bool state);
+void vkapi_pline_cache_bind_depth_write_enable(vkapi_pipeline_cache_t* c, bool state);
 
 void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
 

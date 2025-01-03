@@ -20,11 +20,9 @@ TEST(CacheGroup, KeyCompare_Test)
     TEST_ASSERT(vkapi_pline_cache_compare_graphic_keys(&gfx_key1, &gfx_key2) == false);
     gfx_key2.tesse_vert_count = 200;
     gfx_key2.colour_attach_count = 5;
-    gfx_key2.asm_state.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-    gfx_key2.raster_state.depthClampEnable = VK_TRUE;
+    gfx_key2.raster_state.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
     TEST_ASSERT(vkapi_pline_cache_compare_graphic_keys(&gfx_key1, &gfx_key2) == false);
-    gfx_key1.asm_state.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-    gfx_key1.raster_state.depthClampEnable = VK_TRUE;
+    gfx_key1.raster_state.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
     TEST_ASSERT(vkapi_pline_cache_compare_graphic_keys(&gfx_key1, &gfx_key2) == true);
 
     // Compute pipeline keys.
