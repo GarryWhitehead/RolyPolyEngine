@@ -26,6 +26,7 @@
 #include "compiler.h"
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -228,6 +229,8 @@ int dyn_array_init(
  */
 void dyn_array_grow(arena_dyn_array_t* dyn_array);
 
+void dyn_array_shrink(arena_dyn_array_t* arr, size_t new_sz);
+
 /**
  Append an item to the dynamic array.
  @param dyn_array A pointer to the dynamic array which the item will be pushed to.
@@ -262,7 +265,11 @@ void dyn_array_remove(arena_dyn_array_t* dyn_array, uint32_t idx);
  */
 void dyn_array_swap(arena_dyn_array_t* dyn_array_dst, arena_dyn_array_t* dyn_array_src);
 
+bool dyn_array_find(arena_dyn_array_t* arr, void* item);
+
 void dyn_array_clear(arena_dyn_array_t* dyn_array);
+
+void dyn_array_clone(arena_dyn_array_t* old, arena_dyn_array_t* cloned);
 
 /* ====================== Pool allocator ========================== */
 

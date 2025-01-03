@@ -25,6 +25,8 @@
 
 #include "render_graph/render_graph_handle.h"
 
+#include <vulkan-api/common.h>
+
 // Forward declarations.
 typedef struct RenderGraph render_graph_t;
 typedef struct RenderGraphPass rg_pass_t;
@@ -40,12 +42,14 @@ struct DataGBuffer
     rg_handle_t rt;
 };
 
-struct ColourPassInfo
+struct GBufferLocalData
 {
-    rg_pass_t* pass;
-    rg_handle_t colour;
+    uint32_t width;
+    uint32_t height;
+    VkFormat depth_format;
 };
 
-struct ColourPassInfo rpe_colour_pass_render(render_graph_t* rg);
+rg_handle_t
+rpe_colour_pass_render(render_graph_t* rg, uint32_t width, uint32_t height, VkFormat depth_format);
 
 #endif

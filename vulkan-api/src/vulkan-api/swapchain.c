@@ -184,11 +184,11 @@ void vkapi_swapchain_prepare_views(
     arena_t* scratch_arena)
 {
     // Get the image locations created when creating the swap chain.
-    vkGetSwapchainImagesKHR(
-        driver->context->device, swapchain->sc_instance, &swapchain->image_count, VK_NULL_HANDLE);
+    VK_CHECK_RESULT(vkGetSwapchainImagesKHR(
+        driver->context->device, swapchain->sc_instance, &swapchain->image_count, VK_NULL_HANDLE));
     VkImage* images = ARENA_MAKE_ARRAY(scratch_arena, VkImage, swapchain->image_count, 0);
-    vkGetSwapchainImagesKHR(
-        driver->context->device, swapchain->sc_instance, &swapchain->image_count, images);
+    VK_CHECK_RESULT(vkGetSwapchainImagesKHR(
+        driver->context->device, swapchain->sc_instance, &swapchain->image_count, images));
 
     for (uint32_t i = 0; i < swapchain->image_count; ++i)
     {
@@ -196,11 +196,12 @@ void vkapi_swapchain_prepare_views(
             driver->res_cache,
             driver->context,
             images[i],
+            surface_format.format,
             swapchain->extent.width,
             swapchain->extent.height,
             1,
             1,
-            0,
-            surface_format.format);
+            1,
+            VKAPI_TEXTURE_TYPE_SWAPCHAIN);
     }
 }

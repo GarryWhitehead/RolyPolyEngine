@@ -24,6 +24,7 @@
 #define __BACKEND_BACKEND_ENUMS_H__
 
 #include <stdint.h>
+#include <utility/compiler.h>
 #include <vulkan-api/common.h>
 
 enum BlendFactor
@@ -77,9 +78,22 @@ enum SamplerFilter
 
 enum CullMode
 {
-    Back,
-    Front,
-    None
+    RPE_CULL_MODE_BACK,
+    RPE_CULL_MODE_FRONT,
+    RPE_CULL_MODE_NONE
+};
+
+enum FrontFace
+{
+    RPE_FRONT_FACE_CLOCKWISE,
+    RPE_FRONT_FACE_COUNTER_CLOCKWISE
+};
+
+enum PolygonMode
+{
+    RPE_POLYGON_MODE_FILL,
+    RPE_POLYGON_MODE_LINE,
+    RPE_POLYGON_MODE_POINT
 };
 
 enum CompareOp
@@ -184,18 +198,18 @@ enum StoreClearFlags
     RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE
 };
 
-typedef struct TextureSamplerParams
+typedef RPE_PACKED struct TextureSamplerParams
 {
     enum SamplerFilter min;
     enum SamplerFilter mag;
     enum SamplerAddressMode addr_u;
     enum SamplerAddressMode addr_v;
     enum SamplerAddressMode addr_w;
-    VkBool32 enable_anisotropy;
-    float anisotropy;
-    VkBool32 enable_compare;
     enum CompareOp compare_op;
+    float anisotropy;
     uint32_t mip_levels;
+    VkBool32 enable_compare;
+    VkBool32 enable_anisotropy;
 } sampler_params_t;
 
 #endif

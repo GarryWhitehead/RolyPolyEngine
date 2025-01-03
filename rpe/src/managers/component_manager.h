@@ -30,28 +30,20 @@
 
 #define RPE_COMPONENT_MANAGER_MAX_FREE_ID_COUNT 1024
 
-#define ADD_OBJECT_TO_MANAGER(arr, handle, obj)                                                    \
-    if (handle >= arr.size)                                                                        \
-    {                                                                                              \
-        dyn_array_append(arr, obj);                                                                \
-    }                                                                                              \
-    else                                                                                           \
-    {                                                                                              \
-        dyn_array_set(arr, handle, obj);                                                           \
-    }
-
-typedef struct ObjectHandle
-{
-    uint64_t id;
-} rpe_obj_handle_t;
-
-static inline bool rpe_obj_handle_is_valid(rpe_obj_handle_t h) { return h.id != UINT64_MAX; }
-
-static inline rpe_obj_handle_t rpe_obj_handle_invalid_handle()
-{
-    rpe_obj_handle_t out = {.id = UINT64_MAX};
-    return out;
-}
+#define ADD_OBJECT_TO_MANAGER(arr, idx, obj)                                                       \
+    ({                                                                                             \
+        __typeof__(arr) _arr = arr;                                                                \
+        __typeof__(idx) _idx = idx;                                                                \
+        __typeof__(obj) _obj = obj;                                                                \
+        if (_idx >= _arr->size)                                                                    \
+        {                                                                                          \
+            dyn_array_append(_arr, _obj);                                                          \
+        }                                                                                          \
+        else                                                                                       \
+        {                                                                                          \
+            dyn_array_set(_arr, _idx, _obj);                                                       \
+        }                                                                                          \
+    })
 
 typedef struct ComponentManager
 {
@@ -70,9 +62,9 @@ typedef struct ComponentManager
 
 rpe_component_manager_t* rpe_comp_manager_init(arena_t* arena);
 
-rpe_obj_handle_t rpe_comp_manager_add_obj(rpe_component_manager_t* m, rpe_object_t obj);
+uint64_t rpe_comp_manager_add_obj(rpe_component_manager_t* m, rpe_object_t obj);
 
-rpe_obj_handle_t rpe_comp_manager_get_obj_idx(rpe_component_manager_t* m, rpe_object_t obj);
+uint64_t rpe_comp_manager_get_obj_idx(rpe_component_manager_t* m, rpe_object_t obj);
 
 bool rpe_comp_manager_has_obj(rpe_component_manager_t* m, rpe_object_t obj);
 

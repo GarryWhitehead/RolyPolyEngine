@@ -55,6 +55,7 @@ typedef struct DescriptorLayout
     size_t range;
     VkDescriptorType type;
     VkShaderStageFlags stage;
+    bool bindless_sampler;
 } shader_desc_layout_t;
 
 /**

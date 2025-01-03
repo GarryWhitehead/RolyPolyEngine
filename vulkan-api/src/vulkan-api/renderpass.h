@@ -124,7 +124,6 @@ typedef struct VkApiFbo
     uint64_t last_used_frame_stamp;
 
     VkFramebuffer instance;
-
     uint32_t width;
     uint32_t height;
 } vkapi_fbo_t;
@@ -146,5 +145,7 @@ void vkapi_fbo_create(
     uint32_t width,
     uint32_t height,
     uint8_t layers);
+
+uint32_t vkapi_rpass_get_attach_count(vkapi_rpass_t* rpass);
 
 #endif

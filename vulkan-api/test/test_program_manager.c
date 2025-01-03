@@ -28,5 +28,5 @@ TEST(ProgramManagerGroup, PM_ShaderProgram_Tests)
     TEST_ASSERT(error_code == VKAPI_SUCCESS);
 
 
-    vkapi_driver_shutdown(driver);
+    vkapi_driver_shutdown(driver, VK_NULL_HANDLE);
 }

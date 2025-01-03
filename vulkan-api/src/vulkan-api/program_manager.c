@@ -58,6 +58,12 @@ shader_prog_bundle_t* shader_bundle_init(arena_t* arena)
     {
         vkapi_invalidate_shader_handle(&out->shaders[i]);
     }
+
+    // Default rasterisation settings.
+    out->raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
+    out->render_prim.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    out->render_prim.prim_restart = VK_FALSE;
+
     return out;
 }
 
@@ -65,9 +71,8 @@ void shader_bundle_add_desc_binding(
     shader_prog_bundle_t* bundle, uint32_t size, uint32_t binding, VkDescriptorType type)
 {
     assert(bundle);
-    assert(size > 0);
-    assert(type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER || type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    desc_bind_info_t info = {.binding = binding, .size = size, .type = type};
+    // NOTE: The buffer is set by a call to the update function below.
+    desc_bind_info_t info = {.binding = binding, .size = size, .type = type, .buffer = UINT32_MAX};
     if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
     {
         assert(binding < VKAPI_PIPELINE_MAX_UBO_BIND_COUNT);
@@ -78,22 +83,25 @@ void shader_bundle_add_desc_binding(
         assert(binding < VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT);
         bundle->ssbos[binding] = info;
     }
+    // TODO: Can we use the sampled and storage image reflected info?
 }
 
-void shader_bundle_update_desc_buffer(
-    shader_prog_bundle_t* bundle, uint32_t binding, VkDescriptorType type, buffer_handle_t buffer)
+void shader_bundle_update_ubo_desc(
+    shader_prog_bundle_t* bundle, uint32_t binding, buffer_handle_t buffer)
 {
     assert(bundle);
-    if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-    {
-        assert(binding < VKAPI_PIPELINE_MAX_UBO_BIND_COUNT);
-        bundle->ubos[binding].buffer = buffer;
-    }
-    else if (type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-    {
-        assert(binding < VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT);
-        bundle->ssbos[binding].buffer = buffer;
-    }
+    assert(binding < VKAPI_PIPELINE_MAX_UBO_BIND_COUNT);
+    bundle->ubos[binding].buffer = buffer;
+}
+
+void shader_bundle_update_ssbo_desc(
+    shader_prog_bundle_t* bundle, uint32_t binding, buffer_handle_t buffer, uint32_t count)
+{
+    assert(bundle);
+    assert(binding < VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT);
+    assert(bundle->ssbos[binding].size > 0);
+    bundle->ssbos[binding].buffer = buffer;
+    bundle->ssbos[binding].size *= count;
 }
 
 void shader_bundle_add_image_sampler(
@@ -102,6 +110,7 @@ void shader_bundle_add_image_sampler(
     assert(binding < VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT && "Binding of is out of bounds.");
     bundle->image_samplers[binding].handle = handle;
     bundle->image_samplers[binding].sampler = sampler;
+    bundle->use_bound_samplers = true;
 }
 
 void shader_bundle_add_storage_image(
@@ -109,13 +118,6 @@ void shader_bundle_add_storage_image(
 {
     assert(binding < VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT);
     bundle->storage_images[binding] = handle;
-}
-
-void shader_bundle_set_push_block_data(
-    shader_prog_bundle_t* bundle, enum ShaderStage stage, void* data)
-{
-    assert(data);
-    bundle->push_blocks[stage].data = data;
 }
 
 void shader_bundle_add_render_primitive(
@@ -182,7 +184,8 @@ void shader_bundle_update_spec_const_data(
     assert(data);
     assert(
         bundle->spec_const_params[stage].entry_count > 0 &&
-        "Specialisation constant for this stage has no entries.");
+        "Specialisation constant for this stage has no entries. Upadte descriptors from reflection "
+        "must be called before this function to fill in the reflection properties.");
 
     bundle->spec_const_params[stage].data_size = data_size;
     bundle->spec_const_params[stage].data = data;
@@ -209,6 +212,40 @@ VkPipelineShaderStageCreateInfo shader_bundle_get_shader_stage_create_info(
     return shader->create_info;
 }
 
+void shader_bundle_add_vertex_input_binding(
+    shader_prog_bundle_t* bundle,
+    shader_handle_t handle,
+    vkapi_driver_t* driver,
+    uint32_t firstIndex,
+    uint32_t lastIndex,
+    uint32_t binding,
+    VkVertexInputRate input_rate)
+{
+    assert(bundle);
+    assert(firstIndex < lastIndex);
+    assert(lastIndex < VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT);
+
+    shader_t* shader = program_cache_get_shader(driver->prog_manager, handle);
+    assert(lastIndex < shader->resource_binding.stage_input_count);
+
+    uint32_t offset = 0;
+    for (uint32_t i = firstIndex; i <= lastIndex; ++i)
+    {
+        shader_attr_t* attr = &shader->resource_binding.stage_inputs[i];
+        VkVertexInputAttributeDescription ad = {
+            .location = attr->location,
+            .format = attr->format,
+            .binding = binding,
+            .offset = offset};
+        bundle->vert_attrs[i] = ad;
+        offset += attr->stride;
+    }
+
+    bundle->vert_bind_desc[binding].stride = offset;
+    bundle->vert_bind_desc[binding].binding = binding;
+    bundle->vert_bind_desc[binding].inputRate = input_rate;
+}
+
 void shader_bundle_update_descs_from_reflection(
     shader_prog_bundle_t* bundle, vkapi_driver_t* driver, shader_handle_t handle, arena_t* arena)
 {
@@ -222,22 +259,12 @@ void shader_bundle_update_descs_from_reflection(
         shader_bundle_add_desc_binding(bundle, l->range, l->binding, l->type);
     }
 
-    // Vertex input attributes.
-    uint32_t input_stride = 0;
-    for (uint32_t i = 0; i < shader->resource_binding.stage_input_count; ++i)
+    // Push constants.
+    if (shader->resource_binding.push_block_size > 0)
     {
-        shader_attr_t* attr = &shader->resource_binding.stage_inputs[i];
-        VkVertexInputAttributeDescription ad = {
-            .location = attr->location,
-            .format = attr->format,
-            .binding = 0,
-            .offset = attr->stride};
-        bundle->vert_attrs[i] = ad;
-        input_stride += attr->stride;
+        shader_bundle_create_push_block(
+            bundle, shader->resource_binding.push_block_size, shader->stage);
     }
-    bundle->vert_bind_desc.stride = input_stride;
-    bundle->vert_bind_desc.binding = 0;
-    bundle->vert_bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     // Specialization constants.
     uint32_t offset = 0;
@@ -252,8 +279,47 @@ void shader_bundle_update_descs_from_reflection(
         bundle->spec_const_params[shader->stage].entries[i] = entry;
     }
 
-    // Create the pipeline layouts.
-    vkapi_desc_cache_create_layouts(shader, driver, bundle, arena);
+    // Create the set layouts required for creating a pipeline layout.
+    for (uint32_t i = 0; i < shader->resource_binding.desc_layout_count; ++i)
+    {
+        shader_desc_layout_t* l = &shader->resource_binding.desc_layouts[i];
+
+        assert(l->set < VKAPI_PIPELINE_MAX_DESC_SET_COUNT);
+        VkDescriptorSetLayoutBinding set_binding = {0};
+        set_binding.binding = l->binding;
+        set_binding.descriptorType = l->type;
+        set_binding.descriptorCount =
+            l->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && l->bindless_sampler
+            ? VKAPI_PIPELINE_MAX_SAMPLER_BINDLESS_COUNT
+            : 1;
+        set_binding.stageFlags = l->stage;
+
+        VkDescriptorSetLayoutBinding* slb = bundle->desc_bindings[l->set];
+
+        if (bundle->desc_binding_counts[l->set] > 0)
+        {
+            // Do a check to see if a set already has the same binding already added - buffers can
+            // be used across different shader stages, so just OR the stage flags.
+            int bind_idx = INT32_MAX;
+            for (int j = 0; j < bundle->desc_binding_counts[l->set]; ++j)
+            {
+                if (slb[j].binding == l->binding)
+                {
+                    bind_idx = j;
+                    break;
+                }
+            }
+            if (bind_idx != INT32_MAX)
+            {
+                assert(slb[bind_idx].descriptorType == l->type);
+                slb[bind_idx].stageFlags |= l->stage;
+                continue;
+            }
+        }
+        assert(
+            bundle->desc_binding_counts[l->set] < VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT);
+        slb[bundle->desc_binding_counts[l->set]++] = set_binding;
+    }
 
     bundle->shaders[shader->stage] = handle;
 }
@@ -327,6 +393,20 @@ void program_cache_destroy(program_cache_t* c, vkapi_driver_t* driver)
         vkDestroyShaderModule(driver->context->device, s->module, VK_NULL_HANDLE);
     }
     dyn_array_clear(&c->shaders);
+
+    for (size_t i = 0; i < c->program_bundles.size; ++i)
+    {
+        shader_prog_bundle_t* b = DYN_ARRAY_GET_PTR(shader_prog_bundle_t, &c->program_bundles, i);
+        for (size_t j = 0; j < VKAPI_PIPELINE_MAX_DESC_SET_COUNT; ++j)
+        {
+            if (b->desc_layouts[j])
+            {
+                vkDestroyDescriptorSetLayout(
+                    driver->context->device, b->desc_layouts[j], VK_NULL_HANDLE);
+            }
+        }
+    }
+    dyn_array_clear(&c->program_bundles);
 }
 
 shader_t* program_cache_get_shader(program_cache_t* c, shader_handle_t handle)

@@ -57,7 +57,6 @@ typedef struct VkApiContext
         bool has_external_capabilities;
         bool has_debug_utils;
         bool has_multi_view;
-        bool has_desc_indexing;
     } extensions;
 
     VkInstance instance;
@@ -116,7 +115,7 @@ vkapi_context_select_mem_type(vkapi_context_t* context, uint32_t flags, VkMemory
  Destroy the resource used by a Vulkan context.
  @param context A pointer to an initialised context struct.
  */
-void vkapi_context_shutdown(vkapi_context_t* context);
+void vkapi_context_shutdown(vkapi_context_t* context, VkSurfaceKHR surface);
 
 /** Private functions **/
 

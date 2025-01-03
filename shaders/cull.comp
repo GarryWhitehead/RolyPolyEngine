@@ -1,12 +1,15 @@
 #version 460
 
-layout (binding = 0, set = 0) buffer CameraUbo
+struct IndexedIndirectCommand 
 {
-    mat4 proj;
-    mat4 view;
-    mat4 model;
-    vec4 fustrums[6];
-} camera_ubo;
+	uint indexCount;
+	uint instanceCount;
+	uint firstIndex;
+	uint vertexOffset;
+	uint firstInstance;
+    uint objectId;
+    uint batchId;
+};
 
 struct Instance
 {
@@ -14,38 +17,97 @@ struct Instance
     vec4 extent;
 };
 
-layout (binding = 0, set = 1) readonly buffer InstanceUbo
+struct ModelDrawData
+{
+    uint drawDataIndex;
+    uint objectId;
+};
+
+layout (binding = 0, set = 0) uniform CameraUBO
+{
+    mat4 mvp;
+    mat4 proj;
+    mat4 view;
+    mat4 model;
+    vec4 fustrums[6];
+} camera_ubo;
+
+layout (binding = 1, set = 0) uniform SceneUbo
+{
+    uint modelCount;
+} scene_ubo;
+
+layout (std430, binding = 0, set = 2) readonly buffer InstanceUBO
 {
     Instance instances[];
 };
 
-layout (binding = 1, set = 1) writeonly buffer VisOut
+layout (std430, binding = 1, set = 2) readonly buffer InIndirectDrawSSBO
 {
-    uint visibility[];
+    IndexedIndirectCommand inputIndirectCmds[];
 };
 
-layout (local_size_x = 16) in;
+layout (std430, binding = 2, set = 2) buffer ModelDrawDataSSBO
+{
+    ModelDrawData modelDrawData[];
+};
+
+layout (std430, binding = 3, set = 2) writeonly buffer OutIndirectDrawSSBO
+{
+    IndexedIndirectCommand outIndirectCmds[];
+};
+
+layout (std430, binding = 4, set = 2) buffer BatchDrawCountSSBO
+{
+    uint batchDrawCounts[];
+};
+
+layout (std430, binding = 5, set = 2) buffer TotalDrawCountSSBO
+{
+    uint totalDrawCount;
+};
+
+layout (local_size_x = 128, local_size_y = 1) in;
 
 bool checkIntersection(vec4 center, vec4 extent)
 {
-    uint is_vis = 1;
+    int visible = 1;
     for (uint i = 0; i < 6; ++i)
     {
-        
-        float v = camera_ubo.fustrums[i].x * center.x - abs(camera_ubo.fustrums[i].x) * extent.x +
+        float d = camera_ubo.fustrums[i].x * center.x - abs(camera_ubo.fustrums[i].x) * extent.x +
                   camera_ubo.fustrums[i].y * center.y - abs(camera_ubo.fustrums[i].y) * extent.y +
                   camera_ubo.fustrums[i].z * center.z - abs(camera_ubo.fustrums[i].z) * extent.z + 
                   camera_ubo.fustrums[i].w;
 
-        is_vis = v <= 0.0f ? is_vis & 1 : is_vis & 0;
+       visible = d <= 0.0 ? visible & 1 : visible & 0;
     }
-    return bool(is_vis);
+    return bool(visible);
 }
 
 void main()
 {
-	uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+	uint idx = gl_GlobalInvocationID.x;
+    if (idx >= scene_ubo.modelCount)
+    {
+        return;
+    }
 
     Instance i = instances[idx];
-    visibility[idx] = uint(checkIntersection(i.center, i.extent));
+    IndexedIndirectCommand indirectCmd = inputIndirectCmds[idx];
+
+    bool isVis = checkIntersection(i.center, i.extent);
+    if (isVis)
+    {
+        atomicAdd(batchDrawCounts[inputIndirectCmds[idx].batchId], 1);
+        uint di = atomicAdd(totalDrawCount, 1);
+
+        modelDrawData[di].drawDataIndex = idx;
+        modelDrawData[di].objectId = indirectCmd.objectId;
+
+        outIndirectCmds[di].firstInstance = di; //inputIndirectCmds[idx].firstInstance;
+        outIndirectCmds[di].indexCount = inputIndirectCmds[idx].indexCount;
+        outIndirectCmds[di].instanceCount = 1;
+        outIndirectCmds[di].vertexOffset = inputIndirectCmds[idx].vertexOffset;
+        outIndirectCmds[di].firstIndex = inputIndirectCmds[idx].firstIndex;
+    }
 }

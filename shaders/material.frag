@@ -18,7 +18,7 @@ struct DrawData
     float alphaMask;
     float roughnessFactor;
     float metallicFactor;
-
+    // Texture indices into the bindless samppler.
     uint colour;
     uint normal;
     uint mr;
@@ -30,8 +30,8 @@ struct DrawData
 layout(location = 0) in vec2 inUv;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec4 inColour;
-layout(location = 3) in vec3 inPos;
-//layout(location = 4) flat in int meshIdx;
+layout(location = 3) flat in uint inModelDrawIdx;
+layout(location = 4) in vec3 inPos;
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec4 outPos;
@@ -51,16 +51,16 @@ layout (constant_id = 8) const int HAS_NORMAL_SAMPLER = 0;
 layout (constant_id = 9) const int HAS_OCCLUSION_SAMPLER = 0;
 layout (constant_id = 10) const int HAS_EMISSIVE_SAMPLER = 0;
 layout (constant_id = 11) const int HAS_EMISSIVE_FACTOR = 0;
+layout (constant_id = 12) const int HAS_UV = 0;
+layout (constant_id = 13) const int HAS_NORMAL = 0;
+layout (constant_id = 14) const int HAS_COLOUR_ATTR = 0;
 
-layout(set = 0, binding = 0) uniform sampler2D textures[];
-layout(set = 0, binding = 0) uniform samplerCube texCubes[];
 
-layout (set = 1, binding = 0) uniform Push
-{
-    uint drawIdx;
-} push;
+layout(set = 3, binding = 0) uniform sampler2D textures[];
+//layout(set = 3, binding = 0) uniform samplerCube texCubes[];
 
-layout (set = 2, binding = 0) buffer MeshDataSsbo
+
+layout (set = 2, binding = 2) buffer MeshDataSsbo
 {
     DrawData drawData[];
 };
@@ -109,8 +109,32 @@ vec3 peturbNormal(vec2 tex_coord, vec3 tangentNormal)
 
 void main()
 {
-    DrawData iData = drawData[push.drawIdx];
+    DrawData iData = drawData[inModelDrawIdx];
 
+    outPos = vec4(inPos, 1.0);
+
+    // Normal.
+    if (HAS_NORMAL_SAMPLER == 1 && HAS_UV == 1)
+    {
+        // convert normal to -1, 1 coord system
+        vec3 tangentNormal = texture(textures[nonuniformEXT(iData.normal)], inUv).xyz * 2.0 - 1.0;
+        outNormal = vec4(peturbNormal(inUv, tangentNormal), 1.0);
+    }
+    else if (HAS_NORMAL == 1)
+    {
+        outNormal = vec4(normalize(inNormal), 1.0);
+    }
+    else
+    {
+        outNormal = vec4(normalize(cross(dFdx(inPos), dFdy(inPos))), 1.0);
+    }
+    if (HAS_COLOUR_ATTR == 1)
+    {   
+        outColour = inColour;
+        // Early return as we don't care about PBR if using vertex colour.
+        return;
+    }
+    
     // albedo
     vec4 baseColour = vec4(1.0);
     float alphaMask = 1.0;
@@ -126,7 +150,7 @@ void main()
 
     if (alphaMask == 1.0)
     {
-        if (HAS_BASECOLOUR_SAMPLER == 1)
+        if (HAS_BASECOLOUR_SAMPLER == 1 && HAS_UV == 1)
         {
             baseColour = texture(textures[nonuniformEXT(iData.colour)], inUv);
 
@@ -142,20 +166,9 @@ void main()
     }
     
     // default values for output attachments
-    vec3 normal = vec3(0.0);
     float roughness = 1.0;
     float metallic = 1.0;
 
-    if (HAS_NORMAL_SAMPLER == 1)
-    {
-        // convert normal to -1, 1 coord system
-        vec3 tangentNormal = texture(textures[nonuniformEXT(iData.normal)], inUv).xyz * 2.0 - 1.0;
-        normal = peturbNormal(inUv, tangentNormal);
-    }
-    else 
-    {
-        normal = normalize(inNormal);
-    }
 
     switch(PIPELINE_WORKFLOW)
     {
@@ -164,7 +177,7 @@ void main()
             roughness = draw_data.roughnessFactor;
             metallic = draw_data.metallicFactor;
 
-            if (HAS_MR_SAMPLER == 1)
+            if (HAS_MR_SAMPLER == 1 && HAS_UV == 1)
             {
                 vec4 mrSample = texture(textures[nonuniformEXT(iData.mr)], inUv);
                 roughness = clamp(mrSample.g * roughness, 0.0, 1.0);
@@ -184,7 +197,7 @@ void main()
             vec4 diffuse;
             vec3 specular;
 
-            if (HAS_MR_SAMPLER == 1)
+            if (HAS_MR_SAMPLER == 1  && HAS_UV == 1)
             {
                 roughness = 1.0 - texture(textures[nonuniformEXT(iData.mr)], inUv).a;
                 specular = texture(textures[nonuniformEXT(iData.mr)], inUv).rgb;
@@ -196,7 +209,7 @@ void main()
             }
         
 
-            if (HAS_DIFFUSE_SAMPLER == 1)
+            if (HAS_DIFFUSE_SAMPLER == 1  && HAS_UV == 1)
             {
                 diffuse = texture(textures[nonuniformEXT(iData.diffuse)], inUv);
             }
@@ -228,16 +241,11 @@ void main()
     // =========== fragment outputs ====================
 
     outColour = baseColour;
-
-    // At the moment the definition is used when rendering materials which only require
-    // a colour component though will not use the lighting stage (single scene draws into framebuffers for example). 
-    // This should be fully implemented at some stage to support forward rendering.
-    outNormal = vec4(normal, 1.0);
     outPbr = vec2(metallic, roughness);
 
     // ao
     float ambient = 0.4;
-    if (HAS_OCCLUSION_SAMPLER == 1)
+    if (HAS_OCCLUSION_SAMPLER == 1 && HAS_UV == 1)
     {
         ambient = texture(textures[nonuniformEXT(iData.occlusion)], inUv).x;
     }
@@ -245,7 +253,7 @@ void main()
 
     // emmisive
     vec3 emissive = vec3(0.2);
-    if (HAS_EMISSIVE_SAMPLER == 1)
+    if (HAS_EMISSIVE_SAMPLER == 1 && HAS_UV == 1)
     {
         emissive = texture(textures[nonuniformEXT(iData.emissive)], inUv).rgb;
         emissive *= draw_data.emissiveFactor.rgb;
@@ -255,6 +263,4 @@ void main()
         emissive = draw_data.emissiveFactor.rgb;
     }
     outEmissive = vec4(emissive, 1.0);
-
-    outPos = vec4(inPos, 1.0);
 }

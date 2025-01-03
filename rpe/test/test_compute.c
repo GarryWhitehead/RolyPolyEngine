@@ -50,18 +50,20 @@ TEST(ComputeGroup, TestComputePipeline)
     {
         in_data[i] = i * 2;
     }
+    RENDERDOC_START_CAPTURE(NULL, NULL)
 
-    buffer_handle_t in_ssbo_handle = rpe_compute_bind_ssbo(compute, driver, 0, data_size);
-    buffer_handle_t out_ssbo_handle = rpe_compute_bind_ssbo(compute, driver, 1, data_size);
+    buffer_handle_t in_ssbo_handle =
+        rpe_compute_bind_ssbo_host_gpu(compute, driver, 0, data_size, 0);
+    rpe_compute_bind_ssbo_gpu_host(compute, driver, 1, data_size, 0);
     buffer_handle_t ubo_handle = rpe_compute_bind_ubo(compute, driver, 0);
 
     vkapi_driver_map_gpu_buffer(driver, in_ssbo_handle, data_size * sizeof(int), 0, in_data);
-    vkapi_driver_map_gpu_buffer(driver, out_ssbo_handle, data_size * sizeof(int), 0, in_data);
     vkapi_driver_map_gpu_buffer(driver, ubo_handle, sizeof(int), 0, &data_size);
 
     vkapi_driver_dispatch_compute(driver, compute->bundle, data_size / 16 + 1, 1, 1);
 
     rpe_compute_download_ssbo_to_host(compute, driver, 1, data_size * sizeof(int), host_data);
 
+    RENDERDOC_END_CAPTURE(NULL, NULL)
     TEST_ASSERT(memcmp(host_data, in_data, data_size * sizeof(int)) == 0);
 }

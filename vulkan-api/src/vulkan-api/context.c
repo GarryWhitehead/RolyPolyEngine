@@ -146,7 +146,7 @@ vkapi_context_t* vkapi_context_init(arena_t* perm_arena)
     return new_context;
 }
 
-void vkapi_context_shutdown(vkapi_context_t* context)
+void vkapi_context_shutdown(vkapi_context_t* context, VkSurfaceKHR surface)
 {
     vkDestroyDevice(context->device, VK_NULL_HANDLE);
     if (context->debug_messenger)
@@ -157,6 +157,10 @@ void vkapi_context_shutdown(vkapi_context_t* context)
     else if (context->debug_callback)
     {
         vkDestroyDebugReportCallbackEXT(context->instance, context->debug_callback, VK_NULL_HANDLE);
+    }
+    if (surface)
+    {
+        vkDestroySurfaceKHR(context->instance, surface, VK_NULL_HANDLE);
     }
     vkDestroyInstance(context->instance, VK_NULL_HANDLE);
 }
@@ -222,12 +226,6 @@ int vkapi_context_prep_extensions(
         DYN_ARRAY_APPEND_CHAR(ext_array, VK_KHR_MULTIVIEW_EXTENSION_NAME);
         context->extensions.has_multi_view = true;
     }
-    if (vkapi_find_ext_props(
-            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
-    {
-        DYN_ARRAY_APPEND_CHAR(ext_array, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-        context->extensions.has_desc_indexing = true;
-    }
 
 #ifdef VULKAN_VALIDATION_DEBUG
     // if debug utils isn't supported, try debug report
@@ -289,27 +287,14 @@ int vkapi_context_create_instance(
 #endif
 
     // extension properties
-    VkExtensionProperties ext_prop_arr[25];
-    uint32_t total_ext_count = 0;
-
-    for (uint32_t i = 0; i < layer_count; ++i)
-    {
-        uint32_t ext_count;
-        VK_CHECK_RESULT(
-            vkEnumerateInstanceExtensionProperties(layer_prop_arr[i].layerName, &ext_count, NULL));
-        if (ext_count + total_ext_count >= 25)
-        {
-            log_warn("Reached maximum instance extensions prop count. Some extensions will be "
-                     "excluded.");
-            break;
-        }
-        VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties(
-            layer_prop_arr[i].layerName, &ext_count, ext_prop_arr + total_ext_count));
-        total_ext_count += ext_count;
-    }
+    uint32_t ext_count;
+    VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL));
+    VkExtensionProperties* instance_ext_props =
+        ARENA_MAKE_ARRAY(scratch_arena, VkExtensionProperties, ext_count, 0);
+    VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties(NULL, &ext_count, instance_ext_props));
 
     int ret = vkapi_context_prep_extensions(
-        context, &ext_arr, glfw_ext, glfw_ext_count, ext_prop_arr, total_ext_count);
+        context, &ext_arr, glfw_ext, glfw_ext_count, instance_ext_props, ext_count);
     if (ret != VKAPI_SUCCESS)
     {
         return ret;
@@ -361,7 +346,7 @@ int vkapi_context_create_instance(
             context->instance, &dbg_create_info, VK_NULL_HANDLE, &context->debug_messenger))
     }
     else if (
-        vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, ext_prop_arr, total_ext_count) &&
+        vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, instance_ext_props, ext_count) &&
         CreateDebugReportCallback)
     {
         VkDebugReportCallbackCreateInfoEXT cb_create_info = {0};
@@ -514,25 +499,27 @@ int vkapi_context_prepare_device(
         }
     }
 
+    VkPhysicalDeviceVulkan12Features features12 = {0};
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    features12.drawIndirectCount = VK_TRUE;
+    features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    features12.runtimeDescriptorArray = VK_TRUE;
+    features12.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    features12.descriptorBindingPartiallyBound = VK_TRUE;
+    features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    features12.descriptorIndexing = VK_TRUE;
+
     // Enable required device features.
     VkPhysicalDeviceMultiviewFeatures mv_features = {0};
     mv_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
     mv_features.multiview = VK_TRUE;
     mv_features.multiviewGeometryShader = VK_FALSE;
     mv_features.multiviewTessellationShader = VK_FALSE;
-
-    // Descriptor indexing for bindless textures.
-    VkPhysicalDeviceDescriptorIndexingFeatures di_features = {0};
-    di_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    di_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    di_features.runtimeDescriptorArray = VK_TRUE;
-    di_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
-    di_features.descriptorBindingPartiallyBound = VK_TRUE;
-    di_features.pNext = &mv_features;
+    mv_features.pNext = &features12;
 
     VkPhysicalDeviceFeatures2 req_features2 = {0};
     req_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    req_features2.pNext = &di_features;
+    req_features2.pNext = &mv_features;
 
     VkPhysicalDeviceFeatures dev_features;
     vkGetPhysicalDeviceFeatures(context->physical, &dev_features);
@@ -564,9 +551,13 @@ int vkapi_context_prepare_device(
     {
         req_features2.features.multiViewport = VK_TRUE;
     }
+    if (dev_features.multiDrawIndirect)
+    {
+        req_features2.features.multiDrawIndirect = VK_TRUE;
+    }
 
-    const char* req_extensions = NULL;
-    uint32_t req_ext_count = 0;
+    const char* req_extensions[10];
+    uint32_t ext_count = 0;
     if (win_surface)
     {
         // A swapchain extension must be present.
@@ -575,8 +566,17 @@ int vkapi_context_prepare_device(
         {
             return VKAPI_ERROR_SWAPCHAIN_NOT_FOUND;
         }
-        req_extensions = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-        ++req_ext_count;
+        req_extensions[ext_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    }
+    if (vkapi_find_ext_props(
+            VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME, dev_ext_prop_arr, dev_ext_prop_count))
+    {
+        req_extensions[ext_count++] = VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME;
+    }
+    if (vkapi_find_ext_props(
+            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, dev_ext_prop_arr, dev_ext_prop_count))
+    {
+        req_extensions[ext_count++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
     }
 
     VkDeviceCreateInfo create_info = {0};
@@ -585,8 +585,8 @@ int vkapi_context_prepare_device(
     create_info.pQueueCreateInfos = queue_info;
     create_info.enabledLayerCount = context->req_layers.size;
     create_info.ppEnabledLayerNames = context->req_layers.data;
-    create_info.enabledExtensionCount = req_ext_count;
-    create_info.ppEnabledExtensionNames = !req_ext_count ? VK_NULL_HANDLE : &req_extensions;
+    create_info.enabledExtensionCount = ext_count;
+    create_info.ppEnabledExtensionNames = !ext_count ? VK_NULL_HANDLE : req_extensions;
     create_info.pEnabledFeatures = VK_NULL_HANDLE;
     create_info.pNext = (void*)&req_features2;
 
@@ -602,7 +602,7 @@ int vkapi_context_prepare_device(
     const char* deviceName = phys_dev_props.deviceName;
 
     log_info(
-        "\n\nDevice name: %s\nDriver version: %u\nVendor ID: %i\n",
+        "\nDevice name: %s\nDriver version: %u\nVendor ID: %i",
         deviceName,
         driverVersion,
         vendorID);

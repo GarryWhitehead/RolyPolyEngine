@@ -22,6 +22,8 @@
 
 #include "camera.h"
 
+#include "frustum.h"
+
 #include <backend/enums.h>
 #include <vulkan-api/driver.h>
 
@@ -38,9 +40,10 @@ rpe_camera_t rpe_camera_init(vkapi_driver_t* driver)
 void rpe_camera_set_proj_matrix(
     rpe_camera_t* cam, float fovy, float aspect, float n, float f, enum ProjectionType type)
 {
-    if (type == RPE_CAMERA_TYPE_PERSPECTIVE)
+    assert(cam);
+    if (type == RPE_PROJECTION_TYPE_PERSPECTIVE)
     {
-        cam->projection = math_mat4f_projection(fovy, aspect, n, f);
+        cam->projection = math_mat4f_projection(math_to_radians(fovy), aspect, n, f);
     }
     else
     {
@@ -51,4 +54,36 @@ void rpe_camera_set_proj_matrix(
     cam->fov = fovy;
     cam->n = n;
     cam->z = f;
+}
+
+rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f)
+{
+    assert(cam);
+    assert(f);
+    math_mat4f mvp = math_mat4f_mul(cam->projection, math_mat4f_mul(cam->view, cam->model));
+    rpe_camera_ubo_t ubo = {
+        .mvp = mvp, .projection = cam->projection, .view = cam->view, .model = cam->model};
+    memcpy(ubo.frustums, f->planes, sizeof(math_vec4f) * 6);
+    return ubo;
+}
+
+/** Public functions **/
+
+void rpe_camera_set_projection(
+    rpe_camera_t* cam, float fovy, float aspect, float near, float far, enum ProjectionType type)
+{
+    assert(cam);
+    rpe_camera_set_proj_matrix(cam, fovy, aspect, near, far, type);
+}
+
+void rpe_camera_set_view_matrix(rpe_camera_t* cam, math_mat4f* look_at)
+{
+    assert(cam);
+    cam->view = *look_at;
+}
+
+void rpe_camera_set_fov(rpe_camera_t* cam, float fovy)
+{
+    assert(cam);
+    cam->fov = fovy;
 }

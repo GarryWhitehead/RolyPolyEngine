@@ -58,7 +58,15 @@
 #endif
 
 #ifdef __GNUC__
-#define RPE_PACKED __attribute__((packed))
+#define RPE_PUSH_PACKED __attribute__((packed))
+#elif WIN32
+#define RPE_PUSH_PACKED #pragma pack(push, 1)
+#else
+#define RPE_PUSH_PACKED
+#endif
+
+#if WIN32
+#define RPE_POP #pragma pack(push, 1)
 #else
 #define RPE_PACKED
 #endif

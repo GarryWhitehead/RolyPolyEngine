@@ -30,32 +30,9 @@
 #include "resource_node.h"
 #include "resources.h"
 
+#include <utility/hash.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
-
-typedef struct RenderGraph
-{
-    rg_dep_graph_t* dep_graph;
-
-    rg_backboard_t backboard;
-
-    /// a list of all the render passes
-    arena_dyn_array_t rg_passes;
-
-    /// a virtual list of all the resources associated with this graph
-    arena_dyn_array_t resources;
-
-    arena_dyn_array_t pass_nodes;
-    arena_dyn_array_t resource_nodes;
-
-    arena_dyn_array_t resource_slots;
-
-    /// Arena for memory allocations (frame scope).
-    arena_t* arena;
-    /// Number of active (non-culled) pass nodes set after a call to @sa rg_compile.
-    size_t active_idx;
-
-} render_graph_t;
 
 render_graph_t* rg_init(arena_t* arena)
 {
@@ -80,10 +57,11 @@ rg_render_pass_node_t* rg_create_pass_node(render_graph_t* rg, const char* name,
     return rg_pass->node;
 }
 
-void rg_add_present_pass(render_graph_t* rg, rg_handle_t handle, const char* name)
+void rg_add_present_pass(render_graph_t* rg, rg_handle_t handle)
 {
     assert(rg);
-    rg_present_pass_node_t* node = rg_present_pass_node_init(rg->dep_graph, name, rg->arena);
+    rg_present_pass_node_t* node =
+        rg_present_pass_node_init(rg->dep_graph, "PresentPass", rg->arena);
     rg_add_read(rg, handle, (rg_pass_node_t*)node, 0);
     rg_node_declare_side_effect((rg_node_t*)node);
     DYN_ARRAY_APPEND(&rg->pass_nodes, &node);
@@ -110,14 +88,15 @@ rg_handle_t rg_move_resource(render_graph_t* rg, rg_handle_t from, rg_handle_t t
     assert(rg_handle_is_valid(from));
     assert(rg_handle_is_valid(to));
 
-    rg_resource_slot_t from_slot = DYN_ARRAY_GET(rg_resource_slot_t, &rg->resource_slots, from.id);
-    rg_resource_slot_t to_slot = DYN_ARRAY_GET(rg_resource_slot_t, &rg->resource_slots, to.id);
+    rg_resource_slot_t* from_slot =
+        DYN_ARRAY_GET_PTR(rg_resource_slot_t, &rg->resource_slots, from.id);
+    rg_resource_slot_t* to_slot = DYN_ARRAY_GET_PTR(rg_resource_slot_t, &rg->resource_slots, to.id);
     rg_resource_node_t* from_node = rg_get_resource_node(rg, from);
     rg_resource_node_t* to_node = rg_get_resource_node(rg, to);
 
     // Connect the replacement node to the forwarded node.
     rg_res_node_set_alias_res_edge(rg->dep_graph, from_node, to_node, rg->arena);
-    from_slot.resource_idx = to_slot.resource_idx;
+    from_slot->resource_idx = to_slot->resource_idx;
     return from;
 }
 
@@ -133,6 +112,7 @@ rg_handle_t rg_import_render_target(
     render_graph_t* rg, const char* name, rg_import_rt_desc_t desc, vkapi_rt_handle_t handle)
 {
     rg_texture_desc_t r_desc = {.width = desc.width, .height = desc.height};
+    // TODO: What should image usage be here?
     rg_import_render_target_t* i = rg_tex_import_rt_init(name, 0, r_desc, desc, handle, rg->arena);
     return rg_add_resource(rg, (rg_resource_t*)i, NULL);
 }
@@ -175,7 +155,7 @@ rg_handle_t rg_add_write(
 
     rg_resource_connect_writer(pass_node, rg->dep_graph, node, usage, rg->arena);
 
-    // If it's an imported resource, make sure it's not culled.
+    // If it's an imported resource, make sure the pass node its writing to is not culled.
     if (r->imported)
     {
         rg_node_declare_side_effect((rg_node_t*)pass_node);
@@ -214,7 +194,7 @@ render_graph_t* rg_compile(render_graph_t* rg)
     }
     assert(rg->active_idx + tmp_idx == rg->pass_nodes.size);
     uint8_t* node_ptr = (uint8_t*)rg->pass_nodes.data + rg->active_idx * sizeof(rg_pass_node_t*);
-    memcpy(node_ptr, tmp_buffer, tmp_idx);
+    memcpy(node_ptr, tmp_buffer, tmp_idx * sizeof(rg_pass_node_t*));
 
     size_t node_idx = 0;
 
@@ -227,7 +207,7 @@ render_graph_t* rg_compile(render_graph_t* rg)
             rg_dep_graph_get_reader_edges(rg->dep_graph, (rg_node_t*)pass_node, rg->arena);
         for (size_t i = 0; i < readers.size; ++i)
         {
-            rg_edge_t* edge = DYN_ARRAY_GET_PTR(rg_edge_t, &readers, i);
+            rg_edge_t* edge = DYN_ARRAY_GET(rg_edge_t*, &readers, i);
             rg_resource_node_t* r_node =
                 (rg_resource_node_t*)rg_dep_graph_get_node(rg->dep_graph, edge->from_id);
             rg_pass_node_add_resource(pass_node, rg, r_node->resource);
@@ -277,7 +257,7 @@ render_graph_t* rg_compile(render_graph_t* rg)
     return rg;
 }
 
-void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver, rpe_engine_t* engine)
+void rg_execute(render_graph_t* rg, vkapi_driver_t* driver, rpe_engine_t* engine)
 {
     assert(rg);
     assert(driver);
@@ -291,23 +271,15 @@ void rg_execute(render_graph_t* rg, rg_pass_t* pass, vkapi_driver_t* driver, rpe
 
         // Create concrete vulkan resources - these are added to the
         // node during the compile call.
-        rg_pass_node_bake_resource_list(pass_node, driver);
+        rg_pass_node_bake_resource_list((rg_pass_node_t*)pass_node, driver);
 
         if (!pass_node->base.imported)
         {
             rg_render_graph_resource_t r = {.rg = rg, .pass_node = pass_node};
-            rg_render_pass_node_execute(pass_node, rg, pass, driver, engine, &r);
+            rg_render_pass_node_execute(pass_node, rg, driver, engine, &r);
         }
 
-        // Resources used by the render graph are added to the garbage
-        // collector to delay their destruction for a few frames so
-        // we can be certain that the cmd buffers in flight have finished
-        // with them.
-        for (size_t i = 0; i < rg->pass_nodes.size; ++i)
-        {
-            rg_pass_node_t* node = DYN_ARRAY_GET(rg_pass_node_t*, &rg->pass_nodes, i);
-            rg_pass_node_destroy_resource_list(node, driver);
-        }
+        rg_pass_node_destroy_resource_list((rg_pass_node_t*)pass_node, driver);
     }
 }
 
@@ -321,23 +293,28 @@ rg_resource_t* rg_get_resource(render_graph_t* rg, rg_handle_t handle)
 }
 
 rg_pass_t* rg_add_pass(
-    render_graph_t* rg, const char* name, setup_func setup, execute_func execute, size_t data_size)
+    render_graph_t* rg,
+    const char* name,
+    setup_func setup,
+    execute_func execute,
+    size_t data_size,
+    void* local_data)
 {
     rg_pass_t* pass = rg_pass_init(execute, data_size, rg->arena);
     rg_render_pass_node_t* node = rg_create_pass_node(rg, name, pass);
-    setup(rg, (rg_pass_node_t*)node, pass->data);
+    setup(rg, (rg_pass_node_t*)node, pass->data, local_data);
     DYN_ARRAY_APPEND(&rg->rg_passes, &pass);
     return pass;
 }
 
-void _executor_setup(render_graph_t* rg, rg_pass_node_t* node, void* data)
+void _executor_setup(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local)
 {
     rg_node_declare_side_effect((rg_node_t*)node);
 }
 
 void rg_add_executor_pass(render_graph_t* rg, const char* name, execute_func execute)
 {
-    rg_add_pass(rg, name, _executor_setup, execute, 0);
+    rg_add_pass(rg, name, _executor_setup, execute, 0, NULL);
 }
 
 void rg_clear(render_graph_t* rg)

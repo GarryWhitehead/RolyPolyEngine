@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_TRANSFORM_MANAGER_H__
-#define __RPE_TRANSFORM_MANAGER_H__
+#ifndef __RPE_PRIV_TRANSFORM_MANAGER_H__
+#define __RPE_PRIV_TRANSFORM_MANAGER_H__
 
 #include "component_manager.h"
 
@@ -29,9 +29,12 @@
 #include <utility/maths.h>
 #include <utility/string.h>
 #include <vulkan-api/buffer.h>
+#include <vulkan-api/resource_cache.h>
 
 #define RPE_TRANSFORM_MANAGER_MAX_BONE_COUNT 25
 #define RPE_TRANSFORM_MANAGER_MAX_NODE_COUNT 500
+
+typedef struct Engine rpe_engine_t;
 
 typedef struct SkinInstance
 {
@@ -47,16 +50,15 @@ typedef struct TransformNode
     /// The id of the node is derived from the index - and is used to locate
     /// this node if it's a joint or animation target
     string_t id;
-    /// a flag indicating whether this node contains a mesh
-    /// the mesh is actaully stored outside the hierachy
+    /// A flag indicating whether this node contains a mesh
+    /// the mesh is actually stored outside the hierarchy.
     bool has_mesh;
-    // the transform matrix transformed by the parent matrix
+    // The transform matrix transformed by the parent matrix.
     math_mat4f local_transform;
-    // the transform matrix for this node = T*R*S
+    // The transform matrix for this node = T*R*S
     math_mat4f node_transform;
-    // parent of this node. NULL signifies the root
+    // Parent of this node. NULL signifies the root.
     struct TransformNode* parent;
-    // children of this node
     arena_dyn_array_t children;
 } rpe_transform_node_t;
 
@@ -75,6 +77,13 @@ typedef struct TransformParams
 
 typedef struct TransformManager
 {
+    rpe_engine_t* engine;
+
+    math_mat4f* skinned_transforms;
+    math_mat4f* static_transforms;
+    buffer_handle_t bone_buffer_handle;
+    buffer_handle_t transform_buffer_handle;
+
     // transform data preserved in the node hierarchical format
     // referenced by associated Object
     arena_dyn_array_t nodes;
@@ -83,9 +92,10 @@ typedef struct TransformManager
     arena_dyn_array_t skins;
 
     rpe_component_manager_t* comp_manager;
+    bool is_dirty;
 } rpe_transform_manager_t;
 
-rpe_transform_manager_t* rpe_transform_manager_init(arena_t* arena);
+rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_t* arena);
 
 math_mat4f rpe_transform_manager_update_matrix(rpe_transform_node_t* n);
 
@@ -96,5 +106,7 @@ void rpe_transform_manager_update_model(rpe_transform_manager_t* m, rpe_object_t
 
 rpe_transform_params_t*
 rpe_transform_manager_get_transform(rpe_transform_manager_t* m, rpe_object_t obj);
+
+void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m);
 
 #endif

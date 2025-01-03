@@ -24,7 +24,7 @@
 
 #include "commands.h"
 #include "driver.h"
-#include "texture.h"
+#include "staging_pool.h"
 
 
 bool vkapi_tex_handle_is_valid(texture_handle_t handle)
@@ -53,23 +53,6 @@ vkapi_res_cache_t* vkapi_res_cache_init(vkapi_driver_t* driver, arena_t* arena)
     MAKE_DYN_ARRAY(vkapi_texture_t, arena, 100, &i->textures_gc);
     MAKE_DYN_ARRAY(texture_handle_t, arena, 100, &i->free_tex_slots);
     MAKE_DYN_ARRAY(buffer_handle_t, arena, 100, &i->free_buffer_slots);
-
-    i->vertex_data = ARENA_MAKE_ARRAY(arena, uint8_t, VKAPI_RES_CACHE_MAX_VERTEX_BUFFER_SIZE, 0);
-    i->index_data = ARENA_MAKE_ARRAY(arena, uint8_t, VKAPI_RES_CACHE_MAX_INDEX_BUFFER_SIZE, 0);
-    i->vertex_buffer = vkapi_buffer_init();
-    i->index_buffer = vkapi_buffer_init();
-
-    vkapi_buffer_alloc(
-        &i->vertex_buffer,
-        driver->vma_allocator,
-        VKAPI_RES_CACHE_VERTEX_GPU_BUFFER_SIZE,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    vkapi_buffer_alloc(
-        &i->index_buffer,
-        driver->vma_allocator,
-        VKAPI_RES_CACHE_INDEX_GPU_BUFFER_SIZE,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-
     return i;
 }
 
@@ -82,18 +65,23 @@ texture_handle_t vkapi_res_cache_create_tex2d(
     uint8_t mip_levels,
     uint8_t face_count,
     uint8_t array_count,
-    VkImageUsageFlags usage_flags)
+    VkImageUsageFlags usage_flags,
+    enum TextureType type)
 {
     assert(cache);
     vkapi_texture_t t =
-        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format);
+        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format, type);
     texture_handle_t handle = {.id = cache->textures.size};
+    vkapi_texture_create_2d(context, &t, usage_flags);
     if (cache->free_tex_slots.size > 0)
     {
         handle = DYN_ARRAY_POP_BACK(texture_handle_t, &cache->free_tex_slots);
+        DYN_ARRAY_SET(&cache->textures, handle.id, &t);
     }
-    vkapi_texture_create_2d(context, &t, usage_flags);
-    DYN_ARRAY_APPEND(&cache->textures, &t);
+    else
+    {
+        DYN_ARRAY_APPEND(&cache->textures, &t);
+    }
     return handle;
 }
 
@@ -106,19 +94,24 @@ texture_handle_t vkapi_res_cache_push_tex2d(
     uint32_t height,
     uint8_t mip_levels,
     uint8_t face_count,
-    uint8_t array_count)
+    uint8_t array_count,
+    enum TextureType type)
 {
     assert(cache);
     vkapi_texture_t t =
-        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format);
+        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format, type);
     t.image = image;
     t.image_views[0] = vkapi_texture_create_image_view(context, &t);
     texture_handle_t handle = {.id = cache->textures.size};
     if (cache->free_tex_slots.size > 0)
     {
         handle = DYN_ARRAY_POP_BACK(texture_handle_t, &cache->free_tex_slots);
+        DYN_ARRAY_SET(&cache->textures, handle.id, &t);
     }
-    DYN_ARRAY_APPEND(&cache->textures, &t);
+    else
+    {
+        DYN_ARRAY_APPEND(&cache->textures, &t);
+    }
     return handle;
 }
 
@@ -130,23 +123,59 @@ vkapi_texture_t* vkapi_res_cache_get_tex2d(vkapi_res_cache_t* cache, texture_han
     return DYN_ARRAY_GET_PTR(vkapi_texture_t, &cache->textures, handle.id);
 }
 
-buffer_handle_t vkapi_res_cache_create_ubo(
+buffer_handle_t vkapi_res_cache_create_buffer(
     vkapi_res_cache_t* cache,
     vkapi_driver_t* driver,
     VkDeviceSize size,
     VkBufferUsageFlags usage,
-    arena_t* arena)
+    enum BufferType type)
 {
     assert(cache);
     vkapi_buffer_t buffer = vkapi_buffer_init();
     buffer_handle_t handle = {.id = cache->buffers.size};
+    vkapi_buffer_alloc(&buffer, driver->vma_allocator, size, usage, type);
     if (cache->free_buffer_slots.size > 0)
     {
         handle = DYN_ARRAY_POP_BACK(buffer_handle_t, &cache->free_buffer_slots);
+        DYN_ARRAY_SET(&cache->buffers, handle.id, &buffer);
     }
-    vkapi_buffer_alloc(&buffer, driver->vma_allocator, size, usage);
-    DYN_ARRAY_APPEND(&cache->buffers, &buffer);
+    else
+    {
+        DYN_ARRAY_APPEND(&cache->buffers, &buffer);
+    }
     return handle;
+}
+
+buffer_handle_t
+vkapi_res_cache_create_ubo(vkapi_res_cache_t* cache, vkapi_driver_t* driver, VkDeviceSize size)
+{
+    return vkapi_res_cache_create_buffer(
+        cache, driver, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VKAPI_BUFFER_HOST_TO_GPU);
+}
+
+buffer_handle_t vkapi_res_cache_create_ssbo(
+    vkapi_res_cache_t* cache,
+    vkapi_driver_t* driver,
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
+    enum BufferType type)
+{
+    return vkapi_res_cache_create_buffer(
+        cache, driver, size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | usage, type);
+}
+
+buffer_handle_t vkapi_res_cache_create_vertex_buffer(
+    vkapi_res_cache_t* cache, vkapi_driver_t* driver, VkDeviceSize size)
+{
+    return vkapi_res_cache_create_buffer(
+        cache, driver, size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VKAPI_BUFFER_HOST_TO_GPU);
+}
+
+buffer_handle_t vkapi_res_cache_create_index_buffer(
+    vkapi_res_cache_t* cache, vkapi_driver_t* driver, VkDeviceSize size)
+{
+    return vkapi_res_cache_create_buffer(
+        cache, driver, size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VKAPI_BUFFER_GPU_ONLY);
 }
 
 vkapi_buffer_t* vkapi_res_cache_get_buffer(vkapi_res_cache_t* cache, buffer_handle_t handle)
@@ -173,49 +202,10 @@ void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t han
     DYN_ARRAY_APPEND(&cache->free_tex_slots, &handle);
 }
 
-uint32_t vkapi_res_cache_create_vert_buffer(
-    vkapi_res_cache_t* cache, vkapi_driver_t* driver, size_t size, void* data)
-{
-    assert(cache);
-    assert(data);
-    assert(cache->vertex_offset + size < VKAPI_RES_CACHE_MAX_VERTEX_BUFFER_SIZE);
-    uint8_t* ptr = cache->vertex_data + cache->vertex_offset;
-    memcpy(ptr, data, size);
-    uint32_t out = cache->vertex_offset;
-    cache->vertex_offset += size;
-    return out;
-}
-
-uint32_t vkapi_res_cache_create_index_buffer(
-    vkapi_res_cache_t* cache, vkapi_driver_t* driver, size_t size, void* data)
-{
-    assert(cache);
-    assert(data);
-    assert(cache->index_offset + size < VKAPI_RES_CACHE_MAX_INDEX_BUFFER_SIZE);
-    uint8_t* ptr = cache->index_data + cache->index_offset;
-    memcpy(ptr, data, size);
-    uint32_t out = cache->index_offset;
-    cache->index_offset += size;
-    return out;
-}
-
-void vkapi_res_cache_upload_vertex_buffer(vkapi_res_cache_t* cache)
-{
-    assert(cache);
-    vkapi_buffer_map_to_gpu_buffer(
-        &cache->vertex_buffer, cache->vertex_data, cache->vertex_offset, 0);
-}
-
-void vkapi_res_cache_upload_index_buffer(vkapi_res_cache_t* cache)
-{
-    assert(cache);
-    vkapi_buffer_map_to_gpu_buffer(&cache->index_buffer, cache->index_data, cache->index_offset, 0);
-}
-
 void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)
 {
     assert(c);
-    arena_dyn_array_t new_gc;
+    uint32_t curr_count = 0;
     for (size_t i = 0; i < c->textures_gc.size; ++i)
     {
         vkapi_texture_t* tex = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures_gc, i);
@@ -225,12 +215,12 @@ void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)
         }
         else
         {
-            DYN_ARRAY_APPEND(&new_gc, tex);
+            DYN_ARRAY_SET(&c->textures_gc, curr_count++, tex);
         }
     }
-    c->textures_gc = new_gc;
+    dyn_array_shrink(&c->textures_gc, curr_count);
 
-    arena_dyn_array_t new_buffer_gc;
+    curr_count = 0;
     for (size_t i = 0; i < c->buffers_gc.size; ++i)
     {
         vkapi_buffer_t* b = DYN_ARRAY_GET_PTR(vkapi_buffer_t, &c->buffers_gc, i);
@@ -240,28 +230,47 @@ void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)
         }
         else
         {
-            DYN_ARRAY_APPEND(&new_buffer_gc, b);
+            DYN_ARRAY_SET(&c->buffers_gc, curr_count++, b);
         }
     }
-    c->buffers_gc = new_buffer_gc;
+    dyn_array_shrink(&c->buffers_gc, curr_count);
 }
 
 void vkapi_res_cache_destroy(vkapi_res_cache_t* c, vkapi_driver_t* driver)
 {
     for (size_t i = 0; i < c->textures.size; ++i)
     {
-        vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures, i);
+        // Only destroy textures which have not been marked as "free" slots - these will be deleted
+        // in the garbage collection set.
+        if (!dyn_array_find(&c->free_tex_slots, &i))
+        {
+            vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures, i);
+            vkapi_texture_destroy(driver->context, t);
+        }
+    }
+    for (size_t i = 0; i < c->textures_gc.size; ++i)
+    {
+        vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures_gc, i);
         vkapi_texture_destroy(driver->context, t);
     }
     dyn_array_clear(&c->textures);
+    dyn_array_clear(&c->textures_gc);
 
     for (size_t i = 0; i < c->buffers.size; ++i)
     {
-        vkapi_buffer_t* b = DYN_ARRAY_GET_PTR(vkapi_buffer_t, &c->buffers, i);
+        // Only destroy buffers which have not been marked as "free" slots - these will be deleted
+        // in the garbage collection set.
+        if (!dyn_array_find(&c->free_buffer_slots, &i))
+        {
+            vkapi_buffer_t* b = DYN_ARRAY_GET_PTR(vkapi_buffer_t, &c->buffers, i);
+            vkapi_buffer_destroy(b, driver->vma_allocator);
+        }
+    }
+    for (size_t i = 0; i < c->buffers_gc.size; ++i)
+    {
+        vkapi_buffer_t* b = DYN_ARRAY_GET_PTR(vkapi_buffer_t, &c->buffers_gc, i);
         vkapi_buffer_destroy(b, driver->vma_allocator);
     }
     dyn_array_clear(&c->buffers);
-
-    vkapi_buffer_destroy(&c->vertex_buffer, driver->vma_allocator);
-    vkapi_buffer_destroy(&c->index_buffer, driver->vma_allocator);
+    dyn_array_clear(&c->buffers_gc);
 }

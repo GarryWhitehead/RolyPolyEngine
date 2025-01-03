@@ -30,6 +30,16 @@ typedef struct Arena arena_t;
 typedef struct VkApiStageInstance vkapi_staging_instance_t;
 typedef struct VkApiStagingPool vkapi_staging_pool_t;
 
+enum BufferType
+{
+    // Buffer that will only be read/written on the GPU
+    VKAPI_BUFFER_GPU_ONLY,
+    // Buffer that will read/written on the host and device.
+    VKAPI_BUFFER_HOST_TO_GPU,
+    // Buffer that will be read/written on the GPU and downloaded to host.
+    VKAPI_BUFFER_GPU_TO_HOST
+};
+
 typedef struct VkApiBuffer
 {
     VmaAllocationInfo alloc_info;
@@ -45,25 +55,27 @@ void vkapi_buffer_alloc(
     vkapi_buffer_t* buffer,
     VmaAllocator vma_alloc,
     VkDeviceSize buff_size,
-    VkBufferUsageFlags usage);
-
-void vkapi_buffer_map_to_stage(void* data, size_t data_size, vkapi_staging_instance_t* stage);
+    VkBufferUsageFlags usage,
+    enum BufferType);
 
 void vkapi_buffer_map_to_gpu_buffer(
     vkapi_buffer_t* buffer, void* data, size_t data_size, size_t offset);
 
 void vkapi_map_and_copy_to_gpu(
-    vkapi_buffer_t* buffer,
     vkapi_driver_t* driver,
+    vkapi_buffer_t* dst_buffer,
     VkDeviceSize size,
+    VkDeviceSize offset,
     VkBufferUsageFlags usage,
     void* data);
 
 void vkapi_copy_staged_to_gpu(
-    vkapi_buffer_t* buffer,
     vkapi_driver_t* driver,
     VkDeviceSize size,
     vkapi_staging_instance_t* stage,
+    vkapi_buffer_t* dst_buffer,
+    uint32_t src_offset,
+    uint32_t dst_offset,
     VkBufferUsageFlags usage);
 
 void vkapi_buffer_download_to_host(
@@ -71,10 +83,18 @@ void vkapi_buffer_download_to_host(
 
 void vkapi_buffer_destroy(vkapi_buffer_t* buffer, VmaAllocator vma_alloc);
 
-void vkapi_vert_buffer_create(
-    vkapi_buffer_t* buffer, vkapi_driver_t* driver, void* data, VkDeviceSize data_size);
+void vkapi_buffer_upload_vertex_data(
+    vkapi_buffer_t* dst_buffer,
+    vkapi_driver_t* driver,
+    void* data,
+    VkDeviceSize data_size,
+    uint32_t buffer_offset);
 
-void vkapi_index_buffer_create(
-    vkapi_buffer_t* buffer, vkapi_driver_t* driver, void* data, VkDeviceSize data_size);
+void vkapi_buffer_upload_index_data(
+    vkapi_buffer_t* dst_buffer,
+    vkapi_driver_t* driver,
+    void* data,
+    VkDeviceSize data_size,
+    uint32_t buffer_offset);
 
 #endif

@@ -130,13 +130,13 @@ typedef struct ShaderProgramBundle
         texture_handle_t handle;
         VkSampler sampler;
     } image_samplers[VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT];
-
+    bool use_bound_samplers;
     texture_handle_t storage_images[VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT];
 
     VkDescriptorSetLayout desc_layouts[VKAPI_PIPELINE_MAX_DESC_SET_COUNT];
 
     VkVertexInputAttributeDescription vert_attrs[VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT];
-    VkVertexInputBindingDescription vert_bind_desc;
+    VkVertexInputBindingDescription vert_bind_desc[VKAPI_PIPELINE_MAX_INPUT_BIND_COUNT];
 
     // We keep a record of descriptors here and their binding info for
     // use at the pipeline binding draw stage.
@@ -148,6 +148,11 @@ typedef struct ShaderProgramBundle
     size_t tesse_vert_count;
 
     shader_handle_t shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+
+    // Descriptor set binding mappings for creating a pipeline layout.
+    VkDescriptorSetLayoutBinding desc_bindings[VKAPI_PIPELINE_MAX_DESC_SET_COUNT]
+                                              [VKAPI_PIPELINE_MAX_DESC_SET_LAYOUT_BINDING_COUNT];
+    int desc_binding_counts[VKAPI_PIPELINE_MAX_DESC_SET_COUNT];
 
 } shader_prog_bundle_t;
 
@@ -164,13 +169,14 @@ typedef struct ProgramCache
 
 /* Shader bundle functions */
 
-shader_prog_bundle_t* shader_bundle_init(arena_t* arena);
+void shader_bundle_update_ubo_desc(
+    shader_prog_bundle_t* bundle, uint32_t binding, buffer_handle_t buffer);
+
+void shader_bundle_update_ssbo_desc(
+    shader_prog_bundle_t* bundle, uint32_t binding, buffer_handle_t buffer, uint32_t size);
 
 void shader_bundle_add_desc_binding(
     shader_prog_bundle_t* bundle, uint32_t size, uint32_t binding, VkDescriptorType type);
-
-void shader_bundle_update_desc_buffer(
-    shader_prog_bundle_t* bundle, uint32_t binding, VkDescriptorType type, buffer_handle_t buffer);
 
 void shader_bundle_add_image_sampler(
     shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding, VkSampler sampler);
@@ -206,9 +212,20 @@ VkPipelineShaderStageCreateInfo shader_bundle_get_shader_stage_create_info(
 void shader_bundle_update_descs_from_reflection(
     shader_prog_bundle_t* bundle, vkapi_driver_t* driver, shader_handle_t handle, arena_t* arena);
 
-/* Program manager functions */
+void shader_bundle_add_vertex_input_binding(
+    shader_prog_bundle_t* bundle,
+    shader_handle_t handle,
+    vkapi_driver_t* driver,
+    uint32_t firstIndex,
+    uint32_t lastIndex,
+    uint32_t binding,
+    VkVertexInputRate input_rate);
+
+/* Program cache functions */
 
 program_cache_t* program_cache_init(arena_t* arena);
+
+void program_cache_destroy(program_cache_t* c, vkapi_driver_t* driver);
 
 shader_handle_t program_cache_compile_shader(
     program_cache_t* c,

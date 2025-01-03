@@ -39,7 +39,10 @@ typedef struct Commands
     VkSemaphore submitted_signal;
 
     // wait semaphore passed by the client
-    VkSemaphore ext_signal;
+    VkSemaphore ext_signals[VKAPI_COMMANDS_MAX_EXTERNAL_SIGNAL_COUNT];
+    uint32_t ext_signal_count;
+
+    VkQueue cmd_queue;
 
     vkapi_cmdbuffer_t cmd_buffers[VKAPI_MAX_COMMAND_BUFFER_SIZE];
     VkSemaphore signals[VKAPI_MAX_COMMAND_BUFFER_SIZE];
@@ -47,16 +50,18 @@ typedef struct Commands
     size_t available_cmd_buffers;
 } vkapi_commands_t;
 
-vkapi_commands_t* vkapi_commands_init(vkapi_context_t* context, arena_t* arena)
+vkapi_commands_t* vkapi_commands_init(
+    vkapi_context_t* context, uint32_t queue_index, VkQueue cmd_queue, arena_t* arena)
 {
     assert(context);
 
     vkapi_commands_t* instance = ARENA_MAKE_STRUCT(arena, vkapi_commands_t, ARENA_ZERO_MEMORY);
     instance->available_cmd_buffers = VKAPI_MAX_COMMAND_BUFFER_SIZE;
+    instance->cmd_queue = cmd_queue;
 
     VkCommandPoolCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    create_info.queueFamilyIndex = context->queue_info.graphics;
+    create_info.queueFamilyIndex = queue_index;
     create_info.flags =
         VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
     VK_CHECK_RESULT(
@@ -183,16 +188,16 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
 
     vkEndCommandBuffer(commands->curr_cmd_buffer->instance);
 
-    VkSemaphore wait_signals[2];
+    VkSemaphore wait_signals[VKAPI_COMMANDS_MAX_EXTERNAL_SIGNAL_COUNT + 1];
     uint8_t signal_idx = 0;
 
     if (commands->submitted_signal)
     {
         wait_signals[signal_idx++] = commands->submitted_signal;
     }
-    if (commands->ext_signal)
+    for (uint32_t i = 0; i < commands->ext_signal_count; ++i)
     {
-        wait_signals[signal_idx++] = commands->ext_signal;
+        wait_signals[signal_idx++] = commands->ext_signals[i];
     }
 
     VkPipelineStageFlags flags[2] = {
@@ -205,11 +210,14 @@ void vkapi_commands_flush(vkapi_context_t* context, vkapi_commands_t* commands)
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &commands->curr_cmd_buffer->instance;
     submit_info.pSignalSemaphores = &commands->curr_signal;
+    submit_info.signalSemaphoreCount = 1;
     VK_CHECK_RESULT(
-        vkQueueSubmit(context->graphics_queue, 1, &submit_info, commands->curr_cmd_buffer->fence));
+        vkQueueSubmit(commands->cmd_queue, 1, &submit_info, commands->curr_cmd_buffer->fence));
 
     commands->curr_cmd_buffer = NULL;
-    commands->ext_signal = NULL;
+    memset(
+        commands->ext_signals, 0, sizeof(VkSemaphore) * VKAPI_COMMANDS_MAX_EXTERNAL_SIGNAL_COUNT);
+    commands->ext_signal_count = 0;
     commands->submitted_signal = commands->curr_signal;
 }
 
@@ -223,5 +231,6 @@ VkSemaphore vkapi_commands_get_finished_signal(vkapi_commands_t* commands)
 void vkapi_commands_set_ext_wait_signal(vkapi_commands_t* commands, VkSemaphore s)
 {
     assert(commands);
-    commands->ext_signal = s;
+    assert(commands->ext_signal_count < VKAPI_COMMANDS_MAX_EXTERNAL_SIGNAL_COUNT);
+    commands->ext_signals[commands->ext_signal_count++] = s;
 }

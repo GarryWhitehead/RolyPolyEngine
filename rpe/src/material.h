@@ -20,10 +20,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_MATERIAL_H__
-#define __RPE_MATERIAL_H__
+#ifndef __RPE_PRIV_MATERIAL_H__
+#define __RPE_PRIV_MATERIAL_H__
 
 #include "backend/enums.h"
+#include "rpe/material.h"
 
 #include <utility/maths.h>
 #include <vulkan-api/descriptor_cache.h>
@@ -33,13 +34,9 @@
 #include <vulkan-api/shader.h>
 #include <vulkan-api/texture.h>
 
-#define VertexUboBindPoint 4
-#define FragmentUboBindPoint 5
-#define MaxSamplerCount 6
-
 // Forward declarations.
-typedef struct RenderPrimitive rpe_render_primitive_t;
 typedef struct Engine rpe_engine_t;
+typedef struct Mesh rpe_mesh_t;
 
 enum MaterialImageType
 {
@@ -63,13 +60,6 @@ typedef struct MaterialHandle
     uint32_t id;
 } rpe_mat_handle_t;
 
-enum SamplerType
-{
-    RPE_SAMPLER_TYPE_2D,
-    RPE_SAMPLER_TYPE_3D,
-    RPE_SAMPLER_TYPE_CUBE
-};
-
 typedef struct MappedTexture
 {
     void* buffer;
@@ -87,23 +77,6 @@ struct BufferInfo
     enum ShaderStage stage;
 };
 
-struct MaterialBlendFactor
-{
-    bool state;
-    enum BlendFactor src_color;
-    enum BlendFactor dstColor;
-    enum BlendOp colour;
-    enum BlendFactor srcAlpha;
-    enum BlendFactor dstAlpha;
-    enum BlendOp alpha;
-};
-
-// This is used and set by the scene update().
-struct MaterialPushData
-{
-    uint32_t draw_idx;
-};
-
 typedef struct Material
 {
     // Handle created by the RenderableManager to ourself. Used for updating the shader push
@@ -114,21 +87,26 @@ typedef struct Material
     struct MeshConstants
     {
         int has_skin;
+        int has_normal;
     } mesh_consts;
+
     struct MaterialConstants
     {
         int has_alpha_mask;
-        int has_alpha_mask_cutoff;
         int has_base_colour_sampler;
         int has_base_colour_factor;
+        int has_alpha_mask_cutoff;
+        int pipeline_type;
+        int has_mr_sampler;
         int has_diffuse_sampler;
         int has_diffuse_factor;
+        int has_normal_sampler;
+        int has_occlusion_sampler;
         int has_emissive_sampler;
         int has_emissive_factor;
-        int has_normal_sampler;
-        int has_mr_sampler;
-        int has_occlusion_sampler;
-        int pipeline_type;
+        int has_uv;
+        int has_normal;
+        int has_colour_attr;
     } material_consts;
 
     // A representation of the data buffer found in the shader.
@@ -152,10 +130,21 @@ typedef struct Material
         uint32_t pad0[2];
     } material_draw_data;
 
+    struct MaterialKey
+    {
+        enum PolygonMode polygon_mode;
+        enum FrontFace front_face;
+        enum CullMode cull_mode;
+        bool depth_test_enable;
+        bool depth_write_enable;
+        enum CompareOp depth_compare_op;
+
+        struct MaterialBlendFactor blend_state;
+        struct MaterialConstants constants;
+    } material_key;
+
     bool double_sided;
     uint8_t view_layer;
-    // Cache the sort key here to save wasting calculating this each frame.
-    uint64_t sort_key;
 
     // ============== vulkan backend stuff =======================
 
@@ -169,7 +158,7 @@ typedef struct Material
     arena_dyn_array_t buffers;
 } rpe_material_t;
 
-rpe_material_t* rpe_material_init(rpe_engine_t* e, arena_t* arena);
+rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena);
 
 void rpe_material_set_pipeline(rpe_material_t* m, enum MaterialPipeline pipeline);
 
@@ -184,33 +173,11 @@ void rpe_material_add_image_texture(
 
 void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum ShaderStage stage);
 
-void rpe_material_set_render_prim(rpe_material_t* m, rpe_render_primitive_t* p);
-
-void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFactor factors);
-
-void rpe_material_set_double_sided_state(rpe_material_t* m, bool state);
-void rpe_material_set_test_enable(rpe_material_t* m, bool state);
-void rpe_material_set_write_enable(rpe_material_t* m, bool state);
-void rpe_material_set_depth_compare_op(rpe_material_t* m, VkCompareOp op);
-void rpe_material_set_polygon_mode(rpe_material_t* m, VkPolygonMode mode);
-void rpe_material_set_front_face(rpe_material_t* m, VkFrontFace face);
-void rpe_material_set_cull_mode(rpe_material_t* m, VkCullModeFlagBits mode);
-
 void rpe_material_set_scissor(
     rpe_material_t* m, uint32_t width, uint32_t height, uint32_t xOffset, uint32_t yOffset);
 void rpe_material_set_viewport(
     rpe_material_t* m, uint32_t width, uint32_t height, float minDepth, float maxDepth);
 
-void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer);
-
-void rpe_material_set_base_colour_factor(rpe_material_t* m, math_vec4f* f);
-void rpe_material_set_diffuse_factor(rpe_material_t* m, math_vec4f* f);
-void rpe_material_set_bas_colour_factor(rpe_material_t* m, math_vec4f* f);
-void rpe_material_set_emissive_factor(rpe_material_t* m, math_vec4f* f);
-void rpe_material_set_roughness_factor(rpe_material_t* m, float f);
-void rpe_material_set_metallic_factor(rpe_material_t* m, float f);
-void rpe_material_set_alpha_mask(rpe_material_t* m, float mask);
-void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co);
-
+void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh);
 
 #endif

@@ -100,7 +100,6 @@ void rg_render_pass_node_build(rg_render_pass_node_t* node, render_graph_t* rg);
 void rg_render_pass_node_execute(
     rg_render_pass_node_t* node,
     render_graph_t* rg,
-    rg_pass_t* rp,
     vkapi_driver_t* driver,
     rpe_engine_t* engine,
     rg_render_graph_resource_t* r);

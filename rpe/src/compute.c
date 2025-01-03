@@ -34,7 +34,7 @@ rpe_compute_t*
 rpe_compute_init_from_file(vkapi_driver_t* driver, const char* filename, arena_t* arena)
 {
     rpe_compute_t* i = ARENA_MAKE_ZERO_STRUCT(arena, rpe_compute_t);
-    i->bundle = shader_bundle_init(arena);
+    i->bundle = program_cache_create_program_bundle(driver->prog_manager, arena);
 
     i->shader = program_cache_from_spirv(
         driver->prog_manager, driver->context, filename, RPE_BACKEND_SHADER_STAGE_COMPUTE, arena);
@@ -51,7 +51,7 @@ rpe_compute_t*
 rpe_compute_init_from_text(vkapi_driver_t* driver, const char* shader_code, arena_t* arena)
 {
     rpe_compute_t* i = ARENA_MAKE_ZERO_STRUCT(arena, rpe_compute_t);
-    i->bundle = shader_bundle_init(arena);
+    i->bundle = program_cache_create_program_bundle(driver->prog_manager, arena);
 
     i->shader = program_cache_compile_shader(
         driver->prog_manager,
@@ -92,33 +92,57 @@ buffer_handle_t rpe_compute_bind_ubo(rpe_compute_t* c, vkapi_driver_t* driver, u
     assert(binding < VKAPI_PIPELINE_MAX_UBO_BIND_COUNT);
 
     uint32_t ubo_size = c->bundle->ubos[binding].size;
-    c->ubos[binding] = vkapi_res_cache_create_ubo(
-        driver->res_cache,
-        driver,
-        ubo_size,
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        &driver->_perm_arena);
-    shader_bundle_update_desc_buffer(
-        c->bundle, binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, c->ubos[binding]);
+    c->ubos[binding] = vkapi_res_cache_create_ubo(driver->res_cache, driver, ubo_size);
+    shader_bundle_update_ubo_desc(c->bundle, binding, c->ubos[binding]);
     return c->ubos[binding];
 }
 
-buffer_handle_t
-rpe_compute_bind_ssbo(rpe_compute_t* c, vkapi_driver_t* driver, uint32_t binding, size_t count)
+buffer_handle_t rpe_compute_bind_ssbo(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags,
+    enum BufferType type)
 {
     assert(binding < VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT);
     assert(count > 0);
 
     uint32_t ssbo_size = c->bundle->ssbos[binding].size * count;
-    c->ssbos[binding] = vkapi_res_cache_create_ubo(
-        driver->res_cache,
-        driver,
-        ssbo_size,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        &driver->_perm_arena);
-    shader_bundle_update_desc_buffer(
-        c->bundle, binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, c->ssbos[binding]);
+    c->ssbos[binding] =
+        vkapi_res_cache_create_ssbo(driver->res_cache, driver, ssbo_size, usage_flags, type);
+    shader_bundle_update_ssbo_desc(c->bundle, binding, c->ssbos[binding], count);
     return c->ssbos[binding];
+}
+
+buffer_handle_t rpe_compute_bind_ssbo_gpu_only(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags)
+{
+    return rpe_compute_bind_ssbo(c, driver, binding, count, usage_flags, VKAPI_BUFFER_GPU_ONLY);
+}
+
+buffer_handle_t rpe_compute_bind_ssbo_host_gpu(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags)
+{
+    return rpe_compute_bind_ssbo(c, driver, binding, count, usage_flags, VKAPI_BUFFER_HOST_TO_GPU);
+}
+
+buffer_handle_t rpe_compute_bind_ssbo_gpu_host(
+    rpe_compute_t* c,
+    vkapi_driver_t* driver,
+    uint32_t binding,
+    size_t count,
+    VkBufferUsageFlags usage_flags)
+{
+    return rpe_compute_bind_ssbo(c, driver, binding, count, usage_flags, VKAPI_BUFFER_GPU_TO_HOST);
 }
 
 void rpe_compute_download_ssbo_to_host(

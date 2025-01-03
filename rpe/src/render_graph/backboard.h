@@ -39,9 +39,9 @@ rg_backboard_t rg_backboard_init(arena_t* arena);
 
 void rg_backboard_add(rg_backboard_t* bb, const char* name, rg_handle_t handle);
 
-rg_handle_t rg_backboard_get(rg_backboard_t* bb, string_t name);
+rg_handle_t rg_backboard_get(rg_backboard_t* bb, const char* name);
 
-void rg_backboard_remove(rg_backboard_t* bb, string_t name);
+void rg_backboard_remove(rg_backboard_t* bb, const char* name);
 
 void rg_backboard_reset(rg_backboard_t* bb);
 

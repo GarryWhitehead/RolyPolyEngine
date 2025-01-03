@@ -27,13 +27,13 @@
 #include <string.h>
 #include <utility/arena.h>
 
-rpe_obj_manager_t rpe_obj_manager_init(arena_t* arena)
+rpe_obj_manager_t* rpe_obj_manager_init(arena_t* arena)
 {
-    rpe_obj_manager_t o;
-    MAKE_DYN_ARRAY(uint64_t, arena, 50, &o.free_ids);
-    o.current_idx = 1;
-    o.generations = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, RPE_OBJ_MANAGER_INDEX_COUNT);
-    memset(o.generations, 0, RPE_OBJ_MANAGER_INDEX_COUNT);
+    rpe_obj_manager_t* o = ARENA_MAKE_ZERO_STRUCT(arena, rpe_obj_manager_t);
+    MAKE_DYN_ARRAY(uint64_t, arena, 50, &o->free_ids);
+    o->current_idx = 1;
+    o->generations = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, RPE_OBJ_MANAGER_INDEX_COUNT);
+    memset(o->generations, 0, RPE_OBJ_MANAGER_INDEX_COUNT);
     return o;
 }
 
@@ -49,7 +49,7 @@ bool rpe_obj_manager_is_alive(rpe_obj_manager_t* m, rpe_object_t obj)
     return rpe_obj_manager_get_generation(obj) == m->generations[rpe_obj_manager_get_index(obj)];
 }
 
-rpe_object_t rpe_obj_manager_create(rpe_obj_manager_t* m)
+rpe_object_t rpe_obj_manager_create_obj(rpe_obj_manager_t* m)
 {
     assert(m);
     uint64_t id = 0;

@@ -48,6 +48,7 @@ set (util_files
     src/utility/thread.h
     src/utility/sort.c
     src/utility/sort.h
+    src/utility/sleep.h
 )
 
 if (MSVC)

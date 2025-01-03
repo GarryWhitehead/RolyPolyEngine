@@ -23,17 +23,29 @@
 #ifndef __APP_APP_H__
 #define __APP_APP_H__
 
-#include "rpe/engine.h"
-#include "vulkan-api/driver.h"
 #include "window.h"
+
+#include <rpe/engine.h>
+#include <rpe/scene.h>
+
+typedef void (*PreRenderFunc)(void);
+typedef void (*PostRenderFunc)(void);
 
 typedef struct Application
 {
     app_window_t window;
     rpe_engine_t* engine;
-    vkapi_driver_t driver;
+    rpe_scene_t* scene;
+    vkapi_driver_t* driver;
 
     bool should_close;
+
+    double prev_time;
+
+    // camera paramters
+    float camera_fov;
+    float camera_near;
+    float camera_far;
 
 } rpe_app_t;
 
@@ -62,6 +74,10 @@ void rpe_app_shutdown(rpe_app_t* app);
  is pressed.
  @param app A pointer to a initialised app object.
  */
-void rpe_app_run(rpe_app_t* app);
+void rpe_app_run(
+    rpe_app_t* app,
+    rpe_renderer_t* renderer,
+    PreRenderFunc pre_render_func,
+    PostRenderFunc post_render_func);
 
 #endif

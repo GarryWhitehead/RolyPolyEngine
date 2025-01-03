@@ -32,7 +32,7 @@
 vkapi_sampler_cache_t* vkapi_sampler_cache_init(arena_t* arena)
 {
     vkapi_sampler_cache_t* c = ARENA_MAKE_ZERO_STRUCT(arena, vkapi_sampler_cache_t);
-    c->samplers = HASH_SET_CREATE(sampler_params_t, VkSampler, arena, murmur_hash3);
+    c->samplers = HASH_SET_CREATE(sampler_params_t, VkSampler*, arena, murmur_hash3);
     return c;
 }
 
@@ -64,7 +64,7 @@ VkSampler* vkapi_sampler_cache_create(
     VkSampler sampler;
     VK_CHECK_RESULT(vkCreateSampler(driver->context->device, &ci, VK_NULL_HANDLE, &sampler));
 
-    return HASH_SET_INSERT(&c->samplers, &params, &sampler);
+    return hash_set_insert(&c->samplers, params, &sampler);
 }
 
 void vkapi_sampler_cache_destroy(vkapi_sampler_cache_t* c, vkapi_driver_t* driver)
@@ -72,12 +72,12 @@ void vkapi_sampler_cache_destroy(vkapi_sampler_cache_t* c, vkapi_driver_t* drive
     hash_set_iterator_t it = hash_set_iter_create(&c->samplers);
     for (;;)
     {
-        VkSampler s = hash_set_iter_next(&it);
+        VkSampler* s = hash_set_iter_next(&it);
         if (!s)
         {
             break;
         }
-        vkDestroySampler(driver->context->device, s, VK_NULL_HANDLE);
+        vkDestroySampler(driver->context->device, *s, VK_NULL_HANDLE);
     }
     hash_set_clear(&c->samplers);
 }

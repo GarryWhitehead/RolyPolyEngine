@@ -38,5 +38,7 @@ static inline uint32_t rotl32(uint32_t x, int8_t r) { return (x << r) | (x >> (3
  */
 uint32_t murmur_hash3(void* key, uint32_t size);
 
+// Specialised murmur hash for strings.
+uint32_t murmur_hash3_string(void* key, uint32_t);
 
 #endif

@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_RENDERER_H__
-#define __RPE_RENDERER_H__
+#ifndef __RPE_PRIV_RENDERER_H__
+#define __RPE_PRIV_RENDERER_H__
 
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
@@ -52,22 +52,15 @@ typedef struct RenderTarget
 typedef struct Renderer
 {
     render_graph_t* rg;
-
     rpe_engine_t* engine;
 
     // render targets for the backbuffer
     vkapi_rt_handle_t rt_handles[3];
-
     // keep track of the depth texture - set by createBackBufferRT
     texture_handle_t depth_handle;
 } rpe_renderer_t;
 
-void rpe_renderer_render(
-    rpe_renderer_t* rdr,
-    vkapi_driver_t* driver,
-    rpe_engine_t* engine,
-    rpe_scene_t* scene,
-    float dt,
-    bool clearSwap);
+rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena);
+
 
 #endif

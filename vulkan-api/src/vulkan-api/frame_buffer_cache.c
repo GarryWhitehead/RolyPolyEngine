@@ -28,8 +28,8 @@
 
 vkapi_rpass_key_t vkapi_rpass_key_init()
 {
-    vkapi_rpass_key_t i;
-    memset(&i, 0, sizeof(vkapi_rpass_key_t));
+    vkapi_rpass_key_t i = {0};
+    i.samples = 1;
     return i;
 }
 
@@ -71,7 +71,7 @@ vkapi_rpass_t* vkapi_fb_cache_find_or_create_rpass(
         if (key->colour_formats[idx] != VK_FORMAT_UNDEFINED)
         {
             assert(key->final_layout[idx] != VK_IMAGE_LAYOUT_UNDEFINED);
-            struct VkApiAttachment attach;
+            struct VkApiAttachment attach = {0};
             attach.format = key->colour_formats[idx];
             attach.initial_layout = key->initial_layout[idx];
             attach.final_layout = key->final_layout[idx];
@@ -79,6 +79,7 @@ vkapi_rpass_t* vkapi_fb_cache_find_or_create_rpass(
             attach.store_op = key->store_op[idx];
             attach.stencil_load_op = key->ds_load_op[1];
             attach.stencil_store_op = key->ds_store_op[1];
+            attach.sample_count = key->samples;
             vkapi_rpass_add_attach(&new_rpass, &attach);
         }
     }
@@ -112,7 +113,9 @@ vkapi_fbo_t* vkapi_fb_cache_find_or_create_fbo(
     vkapi_fbo_t new_fbo = vkapi_fbo_init();
     vkapi_fbo_create(
         &new_fbo, driver, key->renderpass, key->views, count, key->width, key->height, key->layer);
-    return HASH_SET_INSERT(&cache->fbos, key, &new_fbo);
+    vkapi_fbo_t* out = HASH_SET_INSERT(&cache->fbos, key, &new_fbo);
+    assert(out);
+    return out;
 }
 
 void vkapi_fb_cache_gc(vkapi_fb_cache_t* c, vkapi_driver_t* driver, uint64_t current_frame)

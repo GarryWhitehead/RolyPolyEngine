@@ -40,6 +40,7 @@ typedef struct Resource rg_resource_t;
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct DependencyGraph rg_dep_graph_t;
 typedef struct ResourceEdge rg_resource_edge_t;
+typedef struct RenderGraph render_graph_t;
 
 enum ResourceType
 {
@@ -82,9 +83,9 @@ typedef struct TextureDescriptor
 typedef struct TextureResource
 {
     rg_resource_t base;
-    /// the image information which will be used to create the image view
+    /// The image information which will be used to create the image view
     rg_texture_desc_t desc;
-    /// this is resolved only upon calling render graph compile()
+    /// This is resolved only upon calling render graph compile()
     VkImageUsageFlags image_usage;
     /// Only valid after call to "bake".
     /// Note: this will be invalid if resource is imported.
@@ -97,7 +98,7 @@ typedef struct ImportedResource
     rg_texture_resource_t base;
 } rg_imported_resource_t;
 
-typedef struct ImportedRtDes
+typedef struct ImportedRtDesc
 {
     enum LoadClearFlags load_clear_flags[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
     enum StoreClearFlags store_clear_flags[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
@@ -116,7 +117,7 @@ typedef struct ImportedRtDes
 typedef struct ImportedRenderTarget
 {
     rg_imported_resource_t base;
-    // handle to the backend render target which will be imported into the graph
+    // Handle to the backend render target which will be imported into the graph.
     vkapi_rt_handle_t rt_handle;
     rg_import_rt_desc_t desc;
 } rg_import_render_target_t;

@@ -20,11 +20,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_RENDERABLE_MANAGER_H__
-#define __RPE_RENDERABLE_MANAGER_H__
+#ifndef __RPE_PRIV_RENDERABLE_MANAGER_H__
+#define __RPE_PRIV_RENDERABLE_MANAGER_H__
 
 #include "aabox.h"
 #include "material.h"
+#include "rpe/renderable_manager.h"
 
 #include <utility/arena.h>
 #include <vulkan-api/program_manager.h>
@@ -33,73 +34,87 @@ typedef struct Engine rpe_engine_t;
 typedef struct ComponentManager rpe_comp_manager_t;
 typedef struct Object rpe_object_t;
 
-enum Visible
+enum MeshAttributeFlags
 {
-    RPE_RENDERABLE_VIS_RENDER,
-    // Removes this renderable from the culling process.
-    RPE_RENDERABLE_VIS_IGNORE,
-    RPE_RENDERABLE_VIS_SHADOW,
-    RPE_RENDERABLE_VIS_CULL
+    RPE_MESH_ATTRIBUTE_POSITION = 1 << 0,
+    RPE_MESH_ATTRIBUTE_UV = 1 << 1,
+    RPE_MESH_ATTRIBUTE_NORMAL = 1 << 2,
+    RPE_MESH_ATTRIBUTE_COLOUR = 1 << 3,
+    RPE_MESH_ATTRIBUTE_BONE_WEIGHT = 1 << 4,
+    RPE_MESH_ATTRIBUTE_BONE_ID = 1 << 5
 };
 
-enum Variants
+typedef struct Vertex
 {
-    RPE_RENDERABLE_PRIM_HAS_SKIN = 1 << 0,
-    RPE_RENDERABLE_PRIM_HAS_JOINTS = 1 << 1
-};
+    math_vec3f position;
+    math_vec2f uv;
+    math_vec3f normal;
+    math_vec4f colour;
+    math_vec4f bone_weight;
+    math_vec4f bone_id;
+} rpe_vertex_t;
 
-typedef struct RenderPrimitive
+typedef struct Mesh
 {
-    VkPrimitiveTopology topology;
-    VkBool32 prim_restart;
-    // Index offsets
+    // Note: The offsets here are into the "uber" vertex/index buffer held by the resource cache.
     size_t index_count;
     uint32_t index_offset;
     uint32_t vertex_offset;
-    size_t vertex_count;
-    // The min and max extents of the primitive
-    rpe_aabox_t box;
-
-    uint64_t material_flags;
-
-    // The material for this primitive. This isn't owned by the
-    // primitive - this is the "property" of the renderable manager.
-    rpe_material_t* material;
-} rpe_render_primitive_t;
+    enum MeshAttributeFlags mesh_flags;
+} rpe_mesh_t;
 
 typedef struct Renderable
 {
-    // Visibility of this renderable and their shadow.
-    uint64_t visibility;
+    VkPrimitiveTopology topology;
+    VkBool32 prim_restart;
 
-    // ============ vulkan backend ========================
-    // tesselation vertices count - if non-zero assumes a tesselation shader pipeline is used.
-    uint32_t tesse_vert_count;
-    arena_dyn_array_t primitives;
+    rpe_mesh_t* mesh_data;
+    rpe_material_t* material;
+    uint64_t material_flags;
+
+    // The extents of this primitive.
+    rpe_aabox_t box;
+    uint64_t sort_key;
 } rpe_renderable_t;
 
-static inline rpe_render_primitive_t*
-rpe_renderable_get_primitive(rpe_renderable_t* r, uint32_t idx)
+typedef struct BatchedDraw
 {
-    return DYN_ARRAY_GET_PTR(rpe_render_primitive_t, &r->primitives, idx);
-}
+    rpe_material_t* material;
+    uint32_t first_idx;
+    uint32_t count;
+} rpe_batch_renderable_t;
+
+struct IndirectDraw
+{
+    VkDrawIndexedIndirectCommand indirect_cmd;
+    uint32_t object_id;
+    uint32_t batch_id;
+};
 
 typedef struct RenderableManager
 {
-    // the buffers containing all the model data
+    rpe_engine_t* engine;
+
+    arena_dyn_array_t batched_renderables;
+
+    // A renderable is a combination of mesh and material data.
     arena_dyn_array_t renderables;
-    // all the materials
+
     arena_dyn_array_t materials;
+    arena_dyn_array_t meshes;
 
     rpe_comp_manager_t* comp_manager;
+
+    bool is_dirty;
 } rpe_rend_manager_t;
 
-rpe_renderable_t rpe_renderable_init(arena_t* arena);
+rpe_renderable_t rpe_renderable_init();
 
-rpe_rend_manager_t* rpe_rend_manager_init(arena_t* arena);
-
-void rpe_rend_manager_add(rpe_rend_manager_t* m, rpe_renderable_t* renderable, rpe_object_t obj);
+rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena);
 
 rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t* obj);
+
+arena_dyn_array_t*
+rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* object_arr);
 
 #endif

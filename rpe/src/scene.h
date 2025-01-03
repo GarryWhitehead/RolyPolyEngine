@@ -24,7 +24,6 @@
 #define __RPE_SCENE_H__
 
 #include "aabox.h"
-#include "render_queue.h"
 
 #include <stdbool.h>
 #include <utility/arena.h>
@@ -32,46 +31,79 @@
 #include <vulkan-api/resource_cache.h>
 
 #define RPE_SCENE_MAX_STATIC_MODEL_COUNT 3000
-#define RPE_SCENE_MAX_SKINNED_MODEL_COUNT 3000
+#define RPE_SCENE_MAX_BONE_COUNT 1000
+#define RPE_SCENE_CAMERA_UBO_BINDING 0
+#define RPE_SCENE_SKIN_SSBO_BINDING 0
+#define RPE_SCENE_TRANSFORM_SSBO_BINDING 1
+#define RPE_SCENE_DRAW_DATA_SSBO_BINDING 2
 
 typedef struct Renderable rpe_renderable_t;
 typedef struct Engine rpe_engine_t;
 typedef struct TransformParams rpe_transform_params_t;
 typedef struct Compute rpe_compute_t;
 typedef struct Camera rpe_camera_t;
+typedef struct RenderQueue rpe_render_queue_t;
+typedef struct RenderableManager rpe_rend_manager_t;
+typedef struct TransformManager rpe_transform_manager_t;
+
+struct DrawData;
 
 typedef struct RenderableExtents
 {
-    math_vec3f center;
-    float pad0;
-    math_vec3f extent;
-    float pad1;
+    math_vec4f center;
+    math_vec4f extent;
 } rpe_rend_extents_t;
+
+typedef struct SceneUbo
+{
+    uint32_t model_count;
+} rpe_scene_ubo_t;
 
 typedef struct Scene
 {
-    rpe_render_queue_t render_queue;
+    rpe_render_queue_t* render_queue;
     arena_dyn_array_t objects;
 
-    math_mat4f* skinned_transforms;
-    math_mat4f* static_transforms;
-    buffer_handle_t skinned_buffer_handle;
-    buffer_handle_t static_buffer_handle;
+    // Used on the fragment shader - data from each material instance.
+    struct DrawData* draw_data;
+    buffer_handle_t draw_data_handle;
 
-    // Visibility culling checks.
     rpe_rend_extents_t* rend_extents;
     buffer_handle_t extents_buffer;
-    buffer_handle_t vis_status_buffer;
+
+    // Mesh data used to create the VkIndirectDraw object array on the compute (Host->GPU)
+    buffer_handle_t mesh_data_handle;
+    // The indirect draw cmds based upon culling by the compute (GPU only)
+    buffer_handle_t indirect_draw_handle;
+    // Model draw data - indices based upon culling by the compute shader (GPU only).
+    buffer_handle_t model_draw_data_handle;
+    // Draw count for each batch (GPU only).
+    buffer_handle_t draw_count_handle;
+    // Total draw count buffer (GPU only)
+    buffer_handle_t total_draw_handle;
     rpe_compute_t* cull_compute;
 
     // Current camera information
     rpe_camera_t* curr_camera;
     buffer_handle_t cam_ubo;
 
+    buffer_handle_t scene_ubo;
+
 } rpe_scene_t;
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena);
 
 bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine);
+
+void rpe_scene_upload_extents(
+    rpe_scene_t* scene,
+    rpe_engine_t* engine,
+    rpe_rend_manager_t* rm,
+    rpe_transform_manager_t* tm,
+    math_mat4f world_transform);
+
+/** Public functions **/
+
+rpe_scene_t* rpe_scene_create(rpe_engine_t* engine);
 
 #endif

@@ -26,8 +26,7 @@
 #include <string.h>
 #include <utility/arena.h>
 #include <vulkan-api/driver.h>
-
-// rpe_commands_draw_t rpe_commands_draw_init(size_t size) {}
+#include <vulkan-api/shader.h>
 
 void rpe_cmd_dispatch_draw(vkapi_driver_t* driver, void* data)
 {
@@ -39,6 +38,18 @@ void rpe_cmd_dispatch_index_draw(vkapi_driver_t* driver, void* data)
 {
     struct DrawIndexCommand* dc = (struct DrawIndexCommand*)data;
     vkapi_driver_draw_indexed(driver, dc->index_count, dc->vertex_offset, dc->index_offset);
+}
+
+void rpe_cmd_dispatch_draw_indirect_indexed(vkapi_driver_t* driver, void* data)
+{
+    struct DrawIndirectIndexCommand* diic = (struct DrawIndirectIndexCommand*)data;
+    vkapi_driver_draw_indirect_indexed(
+        driver,
+        diic->cmd_handle,
+        diic->offset,
+        diic->count_handle,
+        diic->draw_count_offset,
+        diic->stride);
 }
 
 void rpe_cmd_dispatch_push_constant(vkapi_driver_t* driver, void* data)
@@ -69,14 +80,12 @@ rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena)
 {
     rpe_cmd_bucket_t* bkt = ARENA_MAKE_ZERO_STRUCT(arena, rpe_cmd_bucket_t);
     bkt->packets = ARENA_MAKE_ZERO_ARRAY(arena, rpe_cmd_packet_t*, size);
-    bkt->keys = ARENA_MAKE_ZERO_ARRAY(arena, uint64_t, size);
     bkt->curr_index = 0;
     return bkt;
 }
 
 rpe_cmd_packet_t* rpe_command_bucket_add_command(
     rpe_cmd_bucket_t* bucket,
-    uint64_t key,
     size_t aux_mem_size,
     size_t cmd_size,
     arena_t* arena,
@@ -88,8 +97,6 @@ rpe_cmd_packet_t* rpe_command_bucket_add_command(
     // store key and pointer to the data
     uint32_t idx = bucket->curr_index++;
     bucket->packets[idx] = packet;
-    void* key_ptr = (uint8_t*)bucket->keys + idx * sizeof(uint64_t);
-    memcpy(key_ptr, &key, sizeof(uint64_t));
 
     packet->next = NULL;
     packet->dispatch_func = func;
@@ -123,15 +130,13 @@ void rpe_cmd_packet_submit(rpe_cmd_packet_t* pkt, vkapi_driver_t* driver)
     func(driver, cmd);
 }
 
-void rpe_command_bucket_submit(
-    rpe_cmd_bucket_t* bucket, uint64_t* sorted_indices, vkapi_driver_t* driver)
+void rpe_command_bucket_submit(rpe_cmd_bucket_t* bucket, vkapi_driver_t* driver)
 {
     assert(bucket);
-    assert(sorted_indices);
 
     for (size_t i = 0; i < bucket->curr_index; ++i)
     {
-        rpe_cmd_packet_t* pkt = bucket->packets[sorted_indices[i]];
+        rpe_cmd_packet_t* pkt = bucket->packets[i];
         do
         {
             rpe_cmd_packet_submit(pkt, driver);

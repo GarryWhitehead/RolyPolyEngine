@@ -31,8 +31,17 @@ uint32_t murmur_hash3(void* key, uint32_t size)
     assert(key);
     assert(size > 0);
 
+    uint32_t tmp = 0;
     size_t nblocks = size / sizeof(uint32_t);
     uint32_t* key_32 = (uint32_t*)key;
+
+    // For value types <= 3, pad into four bytes to avoid an out-of-bounds memory copy below.
+    if (size <= 3)
+    {
+        memcpy(&tmp, key, size);
+        nblocks = 1;
+        key_32 = &tmp;
+    }
 
     uint32_t h1 = 0;
     uint32_t c1 = 0xcc9e2d51;
@@ -63,4 +72,10 @@ uint32_t murmur_hash3(void* key, uint32_t size)
     h1 ^= h1 >> 16;
 
     return h1;
+}
+
+uint32_t murmur_hash3_string(void* key, uint32_t)
+{
+    uint32_t str_size = strlen((const char*)key);
+    return murmur_hash3(key, str_size);
 }

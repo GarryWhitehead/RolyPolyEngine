@@ -37,17 +37,22 @@ void rpe_frustum_projection(rpe_frustum_t* f, math_mat4f* view_proj)
         Front
     };
 
-    f->planes[Left] = math_vec4f_sub(&view_proj->cols[3], &view_proj->cols[0]);
-    f->planes[Right] = math_vec4f_add(&view_proj->cols[3], &view_proj->cols[0]);
-    f->planes[Top] = math_vec4f_add(&view_proj->cols[3], &view_proj->cols[1]);
-    f->planes[Bottom] = math_vec4f_sub(&view_proj->cols[3], &view_proj->cols[1]);
-    f->planes[Front] = math_vec4f_sub(&view_proj->cols[3], &view_proj->cols[2]);
-    f->planes[Back] = math_vec4f_add(&view_proj->cols[3], &view_proj->cols[2]);
+    math_mat4f m = math_mat4f_transpose(*view_proj);
+    m.cols[3] = math_vec4f_mul_sca(m.cols[3], -1.0f);
+
+    f->planes[Left] = math_vec4f_add(m.cols[3], m.cols[0]);
+    f->planes[Right] = math_vec4f_sub(m.cols[3], m.cols[0]);
+    f->planes[Bottom] = math_vec4f_add(m.cols[3], m.cols[1]);
+    f->planes[Top] = math_vec4f_sub(m.cols[3], m.cols[1]);
+    f->planes[Back] = math_vec4f_add(m.cols[3], m.cols[2]);
+    f->planes[Front] = math_vec4f_sub(m.cols[3], m.cols[2]);
 
     for (uint8_t i = 0; i < 6; ++i)
     {
-        float len = math_vec4f_len(&f->planes[i]);
-        math_vec4f_div_sca(&f->planes[i], len);
+        float mag = sqrtf(
+            f->planes[i].x * f->planes[i].x + f->planes[i].y * f->planes[i].y +
+            f->planes[i].z * f->planes[i].z);
+        f->planes[i] = math_vec4f_div_sca(f->planes[i], mag);
     }
 }
 
