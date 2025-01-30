@@ -37,6 +37,7 @@
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
+#include <vulkan-api/sampler_cache.h>
 
 rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
 {
@@ -50,18 +51,17 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
 
     // Create the back-buffer depth texture.
     VkFormat depth_format = vkapi_driver_get_supported_depth_format(engine->driver);
+    vkapi_driver_t* driver = engine->driver;
 
-    i->depth_handle = vkapi_res_cache_create_tex2d(
-        engine->driver->res_cache,
-        engine->driver->context,
-        depth_format,
+    i->depth_handle = vkapi_res_push_reserved_tex2d(
+        driver->res_cache,
+        driver->context,
         sc->extent.width,
         sc->extent.height,
-        1,
-        1,
-        1,
+        depth_format,
+        3,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VKAPI_TEXTURE_TYPE_SYSTEM);
+        NULL);
 
     // Assume triple buffered back-buffer.
     for (uint8_t idx = 0; idx < 3; ++idx)
@@ -69,7 +69,7 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
         vkapi_attach_info_t colour[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT] = {0};
         colour[0].layer = 0;
         colour[0].level = 0;
-        colour[0].handle = sc->contexts[idx].texture;
+        colour[0].handle = sc->contexts[idx].handle;
 
         for (int col_idx = 1; col_idx < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++col_idx)
         {
@@ -200,7 +200,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
     rg_execute(rdr->rg, rdr->engine->driver, engine);
 }
 
-void rpe_render_target_build(
+/*void rpe_render_target_build(
     rpe_render_target_t* t, rpe_engine_t* engine, const char* name, bool multi_view)
 {
     assert(t->attachments[0].texture || t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].texture);
@@ -243,4 +243,4 @@ void rpe_render_target_build(
     vkapi_attach_info_t stencil = {0};
     t->handle = vkapi_driver_create_rt(
         engine->driver, multi_view, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
-}
+}*/

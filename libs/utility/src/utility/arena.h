@@ -227,7 +227,7 @@ int dyn_array_init(
  Checks whether a dynamic array needs a re-allocation.
  @param dyn_array A pointer to a dynamic array object.
  */
-void dyn_array_grow(arena_dyn_array_t* dyn_array);
+void dyn_array_grow(arena_dyn_array_t* dyn_array, size_t new_size);
 
 void dyn_array_shrink(arena_dyn_array_t* arr, size_t new_sz);
 
@@ -238,6 +238,8 @@ void dyn_array_shrink(arena_dyn_array_t* arr, size_t new_sz);
  @returns a pointer to where the item was placed in memory.
  */
 void* dyn_array_append(arena_dyn_array_t* dyn_array, void* item);
+
+void dyn_array_resize(arena_dyn_array_t* arr, size_t new_size);
 
 /**
  Get an item from a dynamic array.

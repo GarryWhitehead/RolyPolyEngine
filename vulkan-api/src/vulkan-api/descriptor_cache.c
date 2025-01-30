@@ -272,15 +272,15 @@ vkapi_desc_cache_create_desc_sets(vkapi_desc_cache_t* c, shader_prog_bundle_t* b
             uint32_t count = 0;
             VkDescriptorImageInfo* ii = ARENA_MAKE_ZERO_ARRAY(
                 &c->driver->_scratch_arena, VkDescriptorImageInfo, rs->textures.size);
-            for (uint32_t i = 0; i < rs->textures.size; ++i)
+
+            assert(rs->textures.size >= VKAPI_RES_CACHE_MAX_RESERVED_COUNT);
+            for (uint32_t i = VKAPI_RES_CACHE_MAX_RESERVED_COUNT; i < rs->textures.size; ++i)
             {
                 vkapi_texture_t* tex = DYN_ARRAY_GET_PTR(vkapi_texture_t, &rs->textures, i);
-                if (tex->type == VKAPI_TEXTURE_TYPE_MODEL)
-                {
-                    ii[count].imageView = tex->image_views[0];
-                    ii[count].imageLayout = tex->image_layout;
-                    ii[count++].sampler = tex->sampler;
-                }
+                ii[count].imageView = tex->image_views[0];
+                ii[count].imageLayout = tex->image_layout;
+                ii[count++].sampler = tex->sampler;
+                assert(tex->sampler && tex->image_views[0]);
             }
             if (count > 0)
             {
@@ -319,6 +319,7 @@ vkapi_desc_cache_create_desc_sets(vkapi_desc_cache_t* c, shader_prog_bundle_t* b
     vkUpdateDescriptorSets(
         c->driver->context->device, write_set_count, write_sets, 0, VK_NULL_HANDLE);
 
+    arena_reset(&c->driver->_scratch_arena);
     return ds;
 }
 
@@ -340,7 +341,7 @@ void vkapi_desc_cache_create_pool(vkapi_desc_cache_t* c)
     pools[4].descriptorCount =
         c->current_desc_pool_size * VKAPI_PIPELINE_MAX_STORAGE_IMAGE_BOUND_COUNT;
 
-    VkDescriptorPoolCreateInfo ci = {};
+    VkDescriptorPoolCreateInfo ci = {0};
     ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT |
         VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -413,7 +414,7 @@ void vkapi_desc_cache_gc(vkapi_desc_cache_t* c, uint64_t current_frame)
 
     // Destroy any descriptor sets that have reached there lifetime after their last
     // use.
-    // TODO: we realy should be deleting the pipeline layout associated with
+    // TODO: we really should be deleting the pipeline layout associated with
     // these sets too.
     hash_set_iterator_t it = hash_set_iter_create(&c->descriptor_sets);
     for (;;)
@@ -434,7 +435,7 @@ void vkapi_desc_cache_gc(vkapi_desc_cache_t* c, uint64_t current_frame)
                     // TODO: we cant destroy the set layouts as they are used
                     // by pipelinelayouts and doing so results in a crash
                     // So need to add a ref to the pipeline layout when creating
-                    // the desc sets and delete evrything.
+                    // the desc sets and delete everything.
                     // context_.device().destroy(info.layout[i]);
                 }
             }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,8 +23,8 @@
 #ifndef __RPE_PRIV_RENDERABLE_MANAGER_H__
 #define __RPE_PRIV_RENDERABLE_MANAGER_H__
 
-#include "aabox.h"
 #include "material.h"
+#include "rpe/aabox.h"
 #include "rpe/renderable_manager.h"
 
 #include <utility/arena.h>
@@ -37,18 +37,25 @@ typedef struct Object rpe_object_t;
 enum MeshAttributeFlags
 {
     RPE_MESH_ATTRIBUTE_POSITION = 1 << 0,
-    RPE_MESH_ATTRIBUTE_UV = 1 << 1,
-    RPE_MESH_ATTRIBUTE_NORMAL = 1 << 2,
-    RPE_MESH_ATTRIBUTE_COLOUR = 1 << 3,
-    RPE_MESH_ATTRIBUTE_BONE_WEIGHT = 1 << 4,
-    RPE_MESH_ATTRIBUTE_BONE_ID = 1 << 5
+    RPE_MESH_ATTRIBUTE_UV0 = 1 << 1,
+    RPE_MESH_ATTRIBUTE_UV1 = 1 << 2,
+    RPE_MESH_ATTRIBUTE_NORMAL = 1 << 3,
+    RPE_MESH_ATTRIBUTE_TANGENT = 1 << 4,
+    RPE_MESH_ATTRIBUTE_COLOUR = 1 << 5,
+    RPE_MESH_ATTRIBUTE_BONE_WEIGHT = 1 << 6,
+    RPE_MESH_ATTRIBUTE_BONE_ID = 1 << 7
 };
 
-typedef struct Vertex
+// TODO: Packed needs adding for Windows.
+// Note: On linux (not sure about windows) we get an extra 8bytes of packing, so disable otherwise
+// messes up attribute strides on the shader.
+typedef struct RPE_PACKED Vertex
 {
     math_vec3f position;
-    math_vec2f uv;
     math_vec3f normal;
+    math_vec2f uv0;
+    math_vec2f uv1;
+    math_vec4f tangent;
     math_vec4f colour;
     math_vec4f bone_weight;
     math_vec4f bone_id;
@@ -71,6 +78,7 @@ typedef struct Renderable
     rpe_mesh_t* mesh_data;
     rpe_material_t* material;
     uint64_t material_flags;
+    rpe_object_t transform_obj;
 
     // The extents of this primitive.
     rpe_aabox_t box;

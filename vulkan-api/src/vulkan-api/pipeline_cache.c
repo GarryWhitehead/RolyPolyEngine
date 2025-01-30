@@ -38,7 +38,7 @@ graphics_pl_key_t vkapi_graphics_pline_key_init()
 
     k.raster_state.cull_mode = VK_CULL_MODE_BACK_BIT;
     k.raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
-    k.raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    k.raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
     k.raster_state.prim_restart = VK_FALSE;
     k.raster_state.depth_test_enable = VK_FALSE;
     k.raster_state.depth_write_enable = VK_FALSE;
@@ -79,12 +79,12 @@ vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* d
 
 bool vkapi_pline_cache_compare_graphic_keys(graphics_pl_key_t* lhs, graphics_pl_key_t* rhs)
 {
-    return memcmp(lhs, rhs, sizeof(graphics_pl_key_t)) == 0;
+    return memcmp(lhs, rhs, sizeof(graphics_pl_key_t)) == 0; // NOLINT
 }
 
 bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_key_t* rhs)
 {
-    return memcmp(lhs, rhs, sizeof(compute_pl_key_t)) == 0;
+    return memcmp(lhs, rhs, sizeof(compute_pl_key_t)) == 0; // NOLINT
 }
 
 void vkapi_pline_cache_bind_graphics_pline(

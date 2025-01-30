@@ -24,7 +24,7 @@
 
 #include "commands.h"
 #include "driver.h"
-#include "staging_pool.h"
+#include "utility.h"
 
 
 bool vkapi_tex_handle_is_valid(texture_handle_t handle)
@@ -49,16 +49,52 @@ vkapi_res_cache_t* vkapi_res_cache_init(vkapi_driver_t* driver, arena_t* arena)
 {
     vkapi_res_cache_t* i = ARENA_MAKE_STRUCT(arena, vkapi_res_cache_t, ARENA_ZERO_MEMORY);
     MAKE_DYN_ARRAY(vkapi_texture_t, arena, 100, &i->textures);
-    MAKE_DYN_ARRAY(vkapi_buffer_t, arena, 100, &i->buffers);
-    MAKE_DYN_ARRAY(vkapi_texture_t, arena, 100, &i->textures_gc);
-    MAKE_DYN_ARRAY(texture_handle_t, arena, 100, &i->free_tex_slots);
+    MAKE_DYN_ARRAY(vkapi_buffer_t, arena, 20, &i->buffers);
+    MAKE_DYN_ARRAY(vkapi_texture_t, arena, 50, &i->textures_gc);
+    MAKE_DYN_ARRAY(texture_handle_t, arena, 20, &i->free_tex_slots);
     MAKE_DYN_ARRAY(buffer_handle_t, arena, 100, &i->free_buffer_slots);
+    // Four slots are reserved for special swapchain textures.
+    dyn_array_resize(&i->textures, VKAPI_RES_CACHE_MAX_RESERVED_COUNT);
     return i;
+}
+
+texture_handle_t vkapi_res_push_reserved_tex2d(
+    vkapi_res_cache_t* cache,
+    vkapi_context_t* context,
+    uint32_t width,
+    uint32_t height,
+    VkFormat format,
+    uint32_t idx,
+    VkImageUsageFlags usage_flags,
+    VkImage* image)
+{
+    assert(cache);
+    assert(idx < VKAPI_RES_CACHE_MAX_RESERVED_COUNT);
+    vkapi_texture_t tex = vkapi_texture_init(width, height, 1, 1, 1, format);
+
+    if (image)
+    {
+        tex.image = *image;
+    }
+    else
+    {
+        vkapi_texture_create_image(context, &tex, usage_flags);
+    }
+
+    tex.image_views[0] = vkapi_texture_create_image_view(context, &tex);
+    tex.image_layout = (vkapi_util_is_depth(format) || vkapi_util_is_stencil(format))
+        ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL
+        : (usage_flags & VK_IMAGE_USAGE_STORAGE_BIT) ? VK_IMAGE_LAYOUT_GENERAL
+                                                     : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    DYN_ARRAY_SET(&cache->textures, idx, &tex);
+    texture_handle_t handle = {.id = idx};
+    return handle;
 }
 
 texture_handle_t vkapi_res_cache_create_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
+    vkapi_sampler_cache_t* sampler_cache,
     VkFormat format,
     uint32_t width,
     uint32_t height,
@@ -66,46 +102,16 @@ texture_handle_t vkapi_res_cache_create_tex2d(
     uint8_t face_count,
     uint8_t array_count,
     VkImageUsageFlags usage_flags,
-    enum TextureType type)
+    sampler_params_t* sampler_params)
 {
-    assert(cache);
     vkapi_texture_t t =
-        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format, type);
+        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format);
     texture_handle_t handle = {.id = cache->textures.size};
-    vkapi_texture_create_2d(context, &t, usage_flags);
+    vkapi_texture_create_2d(context, sampler_cache, &t, usage_flags, sampler_params);
     if (cache->free_tex_slots.size > 0)
     {
         handle = DYN_ARRAY_POP_BACK(texture_handle_t, &cache->free_tex_slots);
-        DYN_ARRAY_SET(&cache->textures, handle.id, &t);
-    }
-    else
-    {
-        DYN_ARRAY_APPEND(&cache->textures, &t);
-    }
-    return handle;
-}
-
-texture_handle_t vkapi_res_cache_push_tex2d(
-    vkapi_res_cache_t* cache,
-    vkapi_context_t* context,
-    VkImage image,
-    VkFormat format,
-    uint32_t width,
-    uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
-    enum TextureType type)
-{
-    assert(cache);
-    vkapi_texture_t t =
-        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format, type);
-    t.image = image;
-    t.image_views[0] = vkapi_texture_create_image_view(context, &t);
-    texture_handle_t handle = {.id = cache->textures.size};
-    if (cache->free_tex_slots.size > 0)
-    {
-        handle = DYN_ARRAY_POP_BACK(texture_handle_t, &cache->free_tex_slots);
+        assert(handle.id >= VKAPI_RES_CACHE_MAX_RESERVED_COUNT);
         DYN_ARRAY_SET(&cache->textures, handle.id, &t);
     }
     else
@@ -187,7 +193,6 @@ vkapi_buffer_t* vkapi_res_cache_get_buffer(vkapi_res_cache_t* cache, buffer_hand
 
 void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t handle)
 {
-    assert(cache);
     assert(handle.id < cache->textures.size);
 
     // May have already been deleted - should this be an error?
@@ -238,7 +243,7 @@ void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)
 
 void vkapi_res_cache_destroy(vkapi_res_cache_t* c, vkapi_driver_t* driver)
 {
-    for (size_t i = 0; i < c->textures.size; ++i)
+    for (size_t i = VKAPI_RES_CACHE_MAX_RESERVED_COUNT; i < c->textures.size; ++i)
     {
         // Only destroy textures which have not been marked as "free" slots - these will be deleted
         // in the garbage collection set.

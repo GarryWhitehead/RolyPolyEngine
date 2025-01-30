@@ -61,7 +61,7 @@ shader_prog_bundle_t* shader_bundle_init(arena_t* arena)
 
     // Default rasterisation settings.
     out->raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
-    out->render_prim.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    out->render_prim.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     out->render_prim.prim_restart = VK_FALSE;
 
     return out;

@@ -37,7 +37,7 @@ vkapi_sampler_cache_t* vkapi_sampler_cache_init(arena_t* arena)
 }
 
 VkSampler* vkapi_sampler_cache_create(
-    vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_driver_t* driver)
+    vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_context_t* context)
 {
     VkSampler* s = HASH_SET_GET(&c->samplers, params);
     if (s)
@@ -62,7 +62,7 @@ VkSampler* vkapi_sampler_cache_create(
     ci.compareOp = compare_op_to_vk(params->compare_op);
 
     VkSampler sampler;
-    VK_CHECK_RESULT(vkCreateSampler(driver->context->device, &ci, VK_NULL_HANDLE, &sampler));
+    VK_CHECK_RESULT(vkCreateSampler(context->device, &ci, VK_NULL_HANDLE, &sampler));
 
     return hash_set_insert(&c->samplers, params, &sampler);
 }

@@ -27,6 +27,7 @@ set (public_headers
     include/rpe/light_manager.h
     include/rpe/camera.h
     include/rpe/renderer.h
+    include/rpe/aabox.h
 )
 
 set (src_files
@@ -66,7 +67,6 @@ set (hdr_files
     src/scene.h
     src/engine.h
     src/frustum.h
-    src/aabox.h
     src/renderer.h
     src/compute.h
     src/camera.h

@@ -31,7 +31,9 @@ typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct Mesh rpe_mesh_t;
 typedef struct Material rpe_material_t;
 typedef struct Renderable rpe_renderable_t;
+typedef struct AABBox rpe_aabox_t;
 
+#define RPE_RENDERABLE_MAX_UV_SET_COUNT 2
 
 enum PrimitiveFlags
 {
@@ -39,20 +41,50 @@ enum PrimitiveFlags
     RPE_RENDERABLE_PRIM_HAS_JOINTS = 1 << 1
 };
 
+enum IndicesType
+{
+    RPE_RENDERABLE_INDICES_U32,
+    RPE_RENDERABLE_INDICES_U16
+};
+
 rpe_mesh_t* rpe_rend_manager_create_mesh(
     rpe_rend_manager_t* m,
-    math_vec3f* pos_data,
-    math_vec2f* uv_data,
-    math_vec3f* normal_data,
-    math_vec4f* col_data,
-    math_vec4f* bone_weight_data,
-    math_vec4f* bone_id_data,
+    float* pos_data,
+    float* uv0_data,
+    float* uv1_data,
+    float* normal_data,
+    float* tangent_data,
+    float* col_data,
+    float* bone_weight_data,
+    float* bone_id_data,
     uint32_t vertex_size,
-    int32_t* indices,
-    uint32_t indices_size);
+    void* indices,
+    uint32_t indices_size,
+    enum IndicesType indices_type);
+
+// Convenience methods that make creating meshes easier.
+rpe_mesh_t* rpe_rend_manager_create_static_mesh(
+    rpe_rend_manager_t* m,
+    float* pos_data,
+    float* uv0_data,
+    float* normal_data,
+    float* col_data,
+    uint32_t vertex_size,
+    void* indices,
+    uint32_t indices_size,
+    enum IndicesType indices_type);
 
 rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m);
 
-void rpe_rend_manager_add(rpe_rend_manager_t* m, rpe_renderable_t* renderable, rpe_object_t obj);
+void rpe_rend_manager_add(
+    rpe_rend_manager_t* m,
+    rpe_renderable_t* renderable,
+    rpe_object_t rend_obj,
+    rpe_object_t transform_obj);
+
+void rpe_renderable_set_box(rpe_renderable_t* r, rpe_aabox_t* box);
+void rpe_renderable_set_min_max_dimensions(rpe_renderable_t* r, math_vec3f min, math_vec3f max);
+
+bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj);
 
 #endif

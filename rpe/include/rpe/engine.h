@@ -24,6 +24,8 @@
 
 #include "vulkan-api/driver.h"
 
+#include <utility/arena.h>
+
 typedef struct Engine rpe_engine_t;
 typedef struct Scene rpe_scene_t;
 typedef struct SwapchainHandle swapchain_handle_t;
@@ -71,5 +73,6 @@ void rpe_engine_set_current_swapchain(rpe_engine_t* engine, swapchain_handle_t* 
 rpe_rend_manager_t* rpe_engine_get_rend_manager(rpe_engine_t* engine);
 rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* engine);
 rpe_transform_manager_t* rpe_engine_get_transform_manager(rpe_engine_t* engine);
+
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -47,33 +47,18 @@ typedef struct SkinInstance
 
 typedef struct TransformNode
 {
-    /// The id of the node is derived from the index - and is used to locate
-    /// this node if it's a joint or animation target
-    string_t id;
     /// A flag indicating whether this node contains a mesh
     /// the mesh is actually stored outside the hierarchy.
     bool has_mesh;
     // The transform matrix transformed by the parent matrix.
     math_mat4f local_transform;
-    // The transform matrix for this node = T*R*S
-    math_mat4f node_transform;
+    // The world transform matrix for this node.
+    math_mat4f world_transform;
     // Parent of this node. NULL signifies the root.
-    struct TransformNode* parent;
-    arena_dyn_array_t children;
+    rpe_object_t* parent;
+    rpe_object_t* first_child;
+    rpe_object_t* next;
 } rpe_transform_node_t;
-
-typedef struct TransformParams
-{
-    rpe_transform_node_t nodes[RPE_TRANSFORM_MANAGER_MAX_NODE_COUNT];
-    uint32_t node_next_idx;
-    // the transform of this model - calculated by calling updateTransform()
-    math_mat4f model_transform;
-    // The offset all skin indices will be adjusted by within this
-    // node hierachy. We use this also to signify if this model has a skin.
-    uint32_t skin_offset;
-    // skinning data - set by calling updateTransform()
-    arena_dyn_array_t joint_matrices;
-} rpe_transform_params_t;
 
 typedef struct TransformManager
 {
@@ -97,15 +82,11 @@ typedef struct TransformManager
 
 rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_t* arena);
 
-math_mat4f rpe_transform_manager_update_matrix(rpe_transform_node_t* n);
-
-void rpe_transform_manager_update_model_transform(
-    rpe_transform_manager_t* m, rpe_transform_node_t* parent, rpe_transform_params_t* params);
+void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_transform_node_t* node);
 
 void rpe_transform_manager_update_model(rpe_transform_manager_t* m, rpe_object_t obj);
 
-rpe_transform_params_t*
-rpe_transform_manager_get_transform(rpe_transform_manager_t* m, rpe_object_t obj);
+rpe_transform_node_t* rpe_transform_manager_get_node(rpe_transform_manager_t* m, rpe_object_t obj);
 
 void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m);
 

@@ -38,38 +38,10 @@
 typedef struct Engine rpe_engine_t;
 typedef struct Mesh rpe_mesh_t;
 
-enum MaterialImageType
-{
-    RPE_MATERIAL_IMAGE_TYPE_BASE_COLOR,
-    RPE_MATERIAL_IMAGE_TYPE_NORMAL,
-    RPE_MATERIAL_IMAGE_TYPE_METALLIC_ROUGHNESS,
-    RPE_MATERIAL_IMAGE_TYPE_EMISSIVE,
-    RPE_MATERIAL_IMAGE_TYPE_OCCLUSION
-};
-#define RPE_MATERIAL_IMAGE_TYPE_COUNT 5
-
-enum MaterialPipeline
-{
-    RPE_MATERIAL_PIPELINE_MR,
-    RPE_MATERIAL_PIPELINE_SPECULAR,
-    RPE_MATERIAL_PIPELINE_NONE
-};
-
 typedef struct MaterialHandle
 {
     uint32_t id;
 } rpe_mat_handle_t;
-
-typedef struct MappedTexture
-{
-    void* buffer;
-    VkFormat format;
-    uint32_t width;
-    uint32_t height;
-    uint32_t mip_levels;
-    uint32_t face_count;
-    texture_handle_t backend_handle;
-} rpe_mapped_texture_t;
 
 struct BufferInfo
 {
@@ -79,8 +51,6 @@ struct BufferInfo
 
 typedef struct Material
 {
-    // Handle created by the RenderableManager to ourself. Used for updating the shader push
-    // constant.
     rpe_mat_handle_t handle;
 
     // Note: The order of constants must match that used by the material fragment shader.
@@ -94,7 +64,6 @@ typedef struct Material
     {
         int has_alpha_mask;
         int has_base_colour_sampler;
-        int has_base_colour_factor;
         int has_alpha_mask_cutoff;
         int pipeline_type;
         int has_mr_sampler;
@@ -103,9 +72,9 @@ typedef struct Material
         int has_normal_sampler;
         int has_occlusion_sampler;
         int has_emissive_sampler;
-        int has_emissive_factor;
         int has_uv;
         int has_normal;
+        int has_tangent;
         int has_colour_attr;
     } material_consts;
 
@@ -120,14 +89,9 @@ typedef struct Material
         float alpha_mask;
         float roughness_factor;
         float metallic_factor;
-
-        uint32_t colour;
-        uint32_t normal;
-        uint32_t mr;
-        uint32_t diffuse;
-        uint32_t emissive;
-        uint32_t occlusion;
-        uint32_t pad0[2];
+        // These are the index ids for each texture into the resource cache.
+        uint32_t image_indices[RPE_MATERIAL_IMAGE_TYPE_COUNT];
+        uint32_t uv_indices[RPE_MATERIAL_IMAGE_TYPE_COUNT];
     } material_draw_data;
 
     struct MaterialKey
@@ -160,17 +124,6 @@ typedef struct Material
 
 rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena);
 
-void rpe_material_set_pipeline(rpe_material_t* m, enum MaterialPipeline pipeline);
-
-void rpe_material_add_image_texture(
-    rpe_material_t* m,
-    vkapi_driver_t* driver,
-    rpe_mapped_texture_t* tex,
-    enum MaterialImageType type,
-    enum ShaderStage stage,
-    sampler_params_t params,
-    uint32_t binding);
-
 void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum ShaderStage stage);
 
 void rpe_material_set_scissor(
@@ -179,5 +132,7 @@ void rpe_material_set_viewport(
     rpe_material_t* m, uint32_t width, uint32_t height, float minDepth, float maxDepth);
 
 void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh);
+
+uint32_t rpe_material_max_mipmaps(rpe_mapped_texture_t* tex);
 
 #endif

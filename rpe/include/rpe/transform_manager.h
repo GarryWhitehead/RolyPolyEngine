@@ -38,6 +38,13 @@ typedef struct ModelTransform
 rpe_model_transform_t rpe_model_transform_init();
 
 void rpe_transform_manager_add_local_transform(
-    rpe_transform_manager_t* m, rpe_model_transform_t* local_transform, rpe_object_t obj);
+    rpe_transform_manager_t* m, rpe_model_transform_t* local_transform, rpe_object_t* obj);
+
+void rpe_transform_manager_add_node(
+    rpe_transform_manager_t* m,
+    math_mat4f* local_transform,
+    rpe_object_t* parent_obj,
+    rpe_object_t* child_obj);
+
 
 #endif

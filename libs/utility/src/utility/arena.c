@@ -155,10 +155,9 @@ int dyn_array_init(
 
 void* dyn_array_append(arena_dyn_array_t* arr, void* item)
 {
-    if (arr->size >= arr->capacity)
-    {
-        dyn_array_grow(arr);
-    }
+    assert(arr);
+    dyn_array_grow(arr, arr->size + 1);
+
     void* ptr = _offset_ptr(arr->data, arr->size, arr->type_size);
     ++arr->size;
     assert((uintptr_t)arr->data < (uintptr_t)arr->arena->end);
@@ -166,18 +165,24 @@ void* dyn_array_append(arena_dyn_array_t* arr, void* item)
     return ptr;
 }
 
-void dyn_array_grow(arena_dyn_array_t* arr)
+void dyn_array_resize(arena_dyn_array_t* arr, size_t new_size)
 {
-    arr->capacity = arr->capacity ? arr->capacity : 1;
+    assert(arr);
+    dyn_array_grow(arr, new_size);
+    arr->size = new_size;
+}
 
-    arr->capacity *= 2;
+void dyn_array_grow(arena_dyn_array_t* arr, size_t new_size)
+{
+    if (new_size < arr->capacity)
+    {
+        return;
+    }
+
+    arr->capacity = new_size * 2;
     void* data = arena_alloc(
         arr->arena, arr->type_size, arr->align_size, arr->capacity, ARENA_NONZERO_MEMORY);
-
-    if (arr->size)
-    {
-        memcpy(data, arr->data, arr->type_size * arr->size);
-    }
+    memcpy(data, arr->data, arr->type_size * arr->size);
     arr->data = data;
 }
 
@@ -236,7 +241,7 @@ void dyn_array_swap(arena_dyn_array_t* arr_dst, arena_dyn_array_t* arr_src)
 
     if (big->size >= small->capacity)
     {
-        dyn_array_grow(small);
+        dyn_array_grow(small, big->size + 1);
     }
 
     void* tmp = arena_alloc(small->arena, small->type_size, small->align_size, 1, 0);

@@ -18,6 +18,18 @@ string_t string_init(const char* str, arena_t* arena)
     return s;
 }
 
+string_t string_init_index(const char* str, int start, int end, arena_t* arena)
+{
+    assert(str);
+
+    string_t s;
+    s.len = end - start + 1;
+    s.data = arena_alloc(arena, sizeof(char), _Alignof(char), s.len + 1, 0);
+    s.data[s.len - 1] = '\0';
+    strncpy(s.data, str, s.len);
+    return s;
+}
+
 string_t string_copy(string_t* other, arena_t* arena)
 {
     assert(other);

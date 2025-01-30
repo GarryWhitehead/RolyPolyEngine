@@ -42,4 +42,6 @@ bool fs_get_extension(string_t* path, string_t* out_ext, arena_t* arena);
 
 char* fs_get_buffer(fs_buffer_t* fs);
 
+string_t fs_remove_filename(string_t* path, arena_t* arena);
+
 #endif

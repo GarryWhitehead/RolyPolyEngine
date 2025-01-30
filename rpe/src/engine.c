@@ -22,6 +22,7 @@
 
 #include "engine.h"
 
+#include "camera.h"
 #include "managers/light_manager.h"
 #include "managers/object_manager.h"
 #include "managers/renderable_manager.h"
@@ -73,11 +74,15 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver)
         return NULL;
     }
 
+    instance->camera_ubo =
+        vkapi_res_cache_create_ubo(driver->res_cache, driver, sizeof(rpe_camera_ubo_t));
+
     instance->obj_manager = rpe_obj_manager_init(&instance->perm_arena);
     instance->transform_manager = rpe_transform_manager_init(instance, &instance->perm_arena);
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
     instance->light_manager = rpe_light_manager_init(instance, &instance->perm_arena);
     instance->vbuffer = rpe_vertex_buffer_init(driver, &instance->perm_arena);
+
     return instance;
 }
 

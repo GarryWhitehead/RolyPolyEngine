@@ -105,7 +105,8 @@ void execute_light_pass(
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
         .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
         .anisotropy = 1.0f};
-    VkSampler* sampler = vkapi_sampler_cache_create(driver->sampler_cache, &s_params, driver);
+    VkSampler* sampler =
+        vkapi_sampler_cache_create(driver->sampler_cache, &s_params, driver->context);
 
     shader_bundle_add_image_sampler(
         d->prog_bundle,

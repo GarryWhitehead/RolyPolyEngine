@@ -200,9 +200,34 @@ void vkapi_driver_map_gpu_buffer(
     vkapi_driver_t* driver, buffer_handle_t h, size_t size, size_t offset, void* data)
 {
     assert(data);
+    assert(vkapi_buffer_handle_is_valid(h));
     vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, h);
     assert(buffer);
     vkapi_buffer_map_to_gpu_buffer(buffer, data, size, offset);
+}
+
+void vkapi_driver_map_gpu_texture(
+    vkapi_driver_t* driver,
+    texture_handle_t h,
+    void* data,
+    size_t sz,
+    size_t* offsets,
+    bool generate_mipmaps)
+{
+    assert(data);
+    assert(vkapi_tex_handle_is_valid(h));
+    vkapi_texture_t* tex = vkapi_res_cache_get_tex2d(driver->res_cache, h);
+    vkapi_texture_map(
+        driver->context,
+        driver->staging_pool,
+        driver->commands,
+        driver->vma_allocator,
+        tex,
+        data,
+        sz,
+        offsets,
+        &driver->_scratch_arena,
+        generate_mipmaps);
 }
 
 bool vkapi_driver_begin_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
@@ -379,18 +404,18 @@ void vkapi_driver_begin_rpass(
     // size
     VkViewport viewport = {
         .x = 0.0f,
-        .y = 0.0f,
+        .y = (float)fbo_key.height,
         .width = (float)fbo->width,
-        .height = (float)fbo->height,
+        .height = -(float)fbo->height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f};
     vkCmdSetViewport(cmds, 0, 1, &viewport);
 
     VkRect2D scissor = {
-        .offset.x = (int32_t)viewport.x,
-        .offset.y = (int32_t)viewport.y,
-        .extent.width = (int32_t)viewport.width,
-        .extent.height = (int32_t)viewport.height};
+        .offset.x = 0,
+        .offset.y = 0,
+        .extent.width = (int32_t)fbo->width,
+        .extent.height = (int32_t)fbo->height};
     vkCmdSetScissor(cmds, 0, 1, &scissor);
 
     // bind the renderpass to the pipeline

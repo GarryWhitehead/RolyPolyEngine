@@ -1,4 +1,4 @@
-/* Copyright (c) 2022 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,7 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#ifndef __APP_CAMERA_VIEW_H__
+#define __APP_CAMERA_VIEW_H__
 
 #include <utility/hash_set.h>
 #include <utility/maths.h>
@@ -69,3 +70,5 @@ void rpe_camera_view_update_key_events(rpe_camera_view_t* cam_view, float dt);
 void rpe_camera_view_set_position(rpe_camera_view_t* cam_view, math_vec3f pos);
 
 enum MovementType rpe_camera_view_convert_key_code(int code);
+
+#endif

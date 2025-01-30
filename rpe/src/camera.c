@@ -37,6 +37,12 @@ rpe_camera_t rpe_camera_init(vkapi_driver_t* driver)
     return cam;
 }
 
+math_vec3f rpe_camera_get_position(rpe_camera_t* cam)
+{
+    assert(cam);
+    return math_vec3f_mul_sca(math_mat4f_translation_vec(cam->view), -1.0f);
+}
+
 void rpe_camera_set_proj_matrix(
     rpe_camera_t* cam, float fovy, float aspect, float n, float f, enum ProjectionType type)
 {
@@ -62,7 +68,11 @@ rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f)
     assert(f);
     math_mat4f mvp = math_mat4f_mul(cam->projection, math_mat4f_mul(cam->view, cam->model));
     rpe_camera_ubo_t ubo = {
-        .mvp = mvp, .projection = cam->projection, .view = cam->view, .model = cam->model};
+        .mvp = mvp,
+        .projection = cam->projection,
+        .view = cam->view,
+        .model = cam->model,
+        .position = math_vec4f_init_vec3(rpe_camera_get_position(cam), 1.0f)};
     memcpy(ubo.frustums, f->planes, sizeof(math_vec4f) * 6);
     return ubo;
 }

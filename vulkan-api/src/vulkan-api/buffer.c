@@ -233,9 +233,10 @@ void vkapi_buffer_upload_vertex_data(
 
     // TODO: If copying staging to GPU buffer, the first vertex is not copied for some reason. Need
     // to investigate why, for now using the slower method of mapping to the buffer directly.
-    // vkapi_map_and_copy_to_gpu(driver, dst_buffer, data_size, buffer_offset,
-    // VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data);
-    memcpy(dst_buffer->alloc_info.pMappedData, data, data_size);
+    vkapi_map_and_copy_to_gpu(
+        driver, dst_buffer, data_size, buffer_offset, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, data);
+    // memcpy(dst_buffer->alloc_info.pMappedData, data, data_size);
+    // vmaFlushAllocation(driver->vma_allocator, dst_buffer->mem, buffer_offset, data_size);
 }
 
 void vkapi_buffer_upload_index_data(
