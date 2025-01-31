@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -69,9 +69,9 @@ bool rpe_comp_manager_has_obj(rpe_component_manager_t* m, rpe_object_t obj)
 {
     if (HASH_SET_FIND(&m->objects, &obj.id))
     {
-        return false;
+        return true;
     }
-    return true;
+    return false;
 }
 
 bool rpe_comp_manager_remove(rpe_component_manager_t* m, rpe_object_t obj)

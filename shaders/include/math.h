@@ -6,4 +6,6 @@
 
 #define GRAVITY 9.81
 
+#define EPSILON 0.0000001
+
 #endif

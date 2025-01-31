@@ -38,6 +38,7 @@ typedef struct CameraUbo
     math_mat4f view;
     math_mat4f model;
     math_vec4f frustums[6];
+    math_vec4f position;
 } rpe_camera_ubo_t;
 
 typedef struct Camera
@@ -60,5 +61,7 @@ void rpe_camera_set_proj_matrix(
     rpe_camera_t* cam, float fovy, float aspect, float n, float z, enum ProjectionType type);
 
 rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f);
+
+math_vec3f rpe_camera_get_position(rpe_camera_t* cam);
 
 #endif

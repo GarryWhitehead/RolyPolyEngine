@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,8 +29,8 @@
 #include <stdint.h>
 #include <vulkan-api/resource_cache.h>
 
-#define RPE_VERTEX_GPU_BUFFER_SIZE 3000
-#define RPE_INDEX_GPU_BUFFER_SIZE 3000
+#define RPE_VERTEX_GPU_BUFFER_SIZE (1 << 20)
+#define RPE_INDEX_GPU_BUFFER_SIZE (1 << 20)
 
 typedef struct VkApiStageInstance vkapi_staging_instance_t;
 typedef struct VkApiBuffer vkapi_buffer_t;
@@ -58,7 +58,10 @@ rpe_vertex_buffer_t* rpe_vertex_buffer_init(vkapi_driver_t* driver, arena_t* are
 
 uint32_t rpe_vertex_buffer_copy_vert_data(rpe_vertex_buffer_t* vb, size_t size, rpe_vertex_t* data);
 
-uint32_t rpe_vertex_buffer_ccpy_index_data(rpe_vertex_buffer_t* vb, size_t size, int32_t* data);
+uint32_t
+rpe_vertex_buffer_copy_index_data_u32(rpe_vertex_buffer_t* vb, size_t size, const int32_t* data);
+uint32_t
+rpe_vertex_buffer_copy_index_data_u16(rpe_vertex_buffer_t* vb, size_t size, const int16_t* data);
 
 void rpe_vertex_buffer_upload_to_gpu(rpe_vertex_buffer_t* vb, vkapi_driver_t* driver);
 

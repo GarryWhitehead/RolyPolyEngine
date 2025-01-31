@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2020 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -35,6 +35,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
 {
     rpe_light_manager_t* lm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_light_manager_t);
     vkapi_driver_t* driver = engine->driver;
+
     lm->ssbo_vk_buffer_handle = vkapi_res_cache_create_ssbo(
         driver->res_cache,
         driver,
@@ -79,10 +80,14 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
     shader_bundle_update_descs_from_reflection(
         lm->program_bundle, driver, lm->shaders[RPE_BACKEND_SHADER_STAGE_FRAGMENT], arena);
 
+    // Binding for the camera UBO
+    shader_bundle_update_ubo_desc(
+        lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, engine->camera_ubo);
+
     lm->engine = engine;
     lm->comp_manager = rpe_comp_manager_init(arena);
     lm->program_bundle->raster_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
-    lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
     return lm;
 }
 
@@ -211,7 +216,7 @@ void rpe_light_manager_update_ssbo(
 {
     assert(count < RPE_LIGHTING_SAMPLER_MAX_LIGHT_COUNT);
 
-    // clear the buffer so we don't get any invalid values
+    // Clear the buffer, so we don't get any invalid values.
     memset(
         (void*)lm->ssbo_buffers,
         0,
@@ -232,11 +237,10 @@ void rpe_light_manager_update_ssbo(
         buffer->direction = math_vec4f_init_vec3(light->target, 1.0f);
         buffer->colour = math_vec4f_init_vec3(light->colour, light->intensity);
         buffer->type = light->type;
-        buffer->fall_out = light->type == RPE_LIGHTING_TYPE_POINT ? light->intensity : 0.0f;
+        buffer->fall_out = light->type != RPE_LIGHTING_TYPE_DIRECTIONAL ? light->intensity : 0.0f;
 
         if (light->type == RPE_LIGHTING_TYPE_SPOT)
         {
-            buffer->fall_out = light->intensity;
             buffer->scale = light->spot_light_info.scale;
             buffer->offset = light->spot_light_info.offset;
         }

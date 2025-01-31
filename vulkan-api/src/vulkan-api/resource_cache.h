@@ -30,8 +30,8 @@
 #include <stdbool.h>
 #include <utility/arena.h>
 
-#define VKAPI_RES_CACHE_MAX_VERTEX_BUFFER_SIZE 1 << 25
-#define VKAPI_RES_CACHE_MAX_INDEX_BUFFER_SIZE 1 << 25
+// 3 swapchain image textures and 1 final depth image.
+#define VKAPI_RES_CACHE_MAX_RESERVED_COUNT 4
 
 // Forward declarations.
 typedef struct VkApiContext vkapi_context_t;
@@ -51,26 +51,6 @@ typedef struct BufferHandle
 {
     uint32_t id;
 } buffer_handle_t;
-
-typedef struct VertexBufferHandle
-{
-    uint32_t id;
-} vertex_buffer_handle_t;
-
-static inline bool is_valid_vertex_buffer_handle(vertex_buffer_handle_t h)
-{
-    return h.id != VKAPI_INVALID_TEXTURE_HANDLE;
-}
-
-typedef struct IndexBufferHandle
-{
-    uint32_t id;
-} index_buffer_handle_t;
-
-static inline bool is_valid_index_buffer_handle(index_buffer_handle_t h)
-{
-    return h.id != VKAPI_INVALID_BUFFER_HANDLE;
-}
 
 typedef struct VkApiResourceCache
 {
@@ -94,6 +74,7 @@ vkapi_res_cache_t* vkapi_res_cache_init(vkapi_driver_t* driver, arena_t* arena);
 texture_handle_t vkapi_res_cache_create_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
+    vkapi_sampler_cache_t* sampler_cache,
     VkFormat format,
     uint32_t width,
     uint32_t height,
@@ -101,21 +82,17 @@ texture_handle_t vkapi_res_cache_create_tex2d(
     uint8_t face_count,
     uint8_t array_count,
     VkImageUsageFlags usage_flags,
-    enum TextureType type);
+    sampler_params_t* sampler_params);
 
-// User defined texture held by the resource cache for
-// simplified destruction.
-texture_handle_t vkapi_res_cache_push_tex2d(
+texture_handle_t vkapi_res_push_reserved_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
-    VkImage image,
-    VkFormat format,
     uint32_t width,
     uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
-    enum TextureType type);
+    VkFormat format,
+    uint32_t idx,
+    VkImageUsageFlags usage_flags,
+    VkImage* image);
 
 vkapi_texture_t* vkapi_res_cache_get_tex2d(vkapi_res_cache_t* cache, texture_handle_t handle);
 

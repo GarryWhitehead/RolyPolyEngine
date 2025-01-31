@@ -171,17 +171,14 @@ int vkapi_swapchain_create(
     VK_CHECK_RESULT(
         vkCreateSwapchainKHR(device, &createInfo, VK_NULL_HANDLE, &swapchain->sc_instance));
 
-    vkapi_swapchain_prepare_views(driver, swapchain, swapchain->surface_format, scratch_arena);
+    vkapi_swapchain_prepare_views(driver, swapchain, scratch_arena);
 
     arena_reset(scratch_arena);
     return VKAPI_SUCCESS;
 }
 
 void vkapi_swapchain_prepare_views(
-    vkapi_driver_t* driver,
-    vkapi_swapchain_t* swapchain,
-    VkSurfaceFormatKHR surface_format,
-    arena_t* scratch_arena)
+    vkapi_driver_t* driver, vkapi_swapchain_t* swapchain, arena_t* scratch_arena)
 {
     // Get the image locations created when creating the swap chain.
     VK_CHECK_RESULT(vkGetSwapchainImagesKHR(
@@ -190,18 +187,17 @@ void vkapi_swapchain_prepare_views(
     VK_CHECK_RESULT(vkGetSwapchainImagesKHR(
         driver->context->device, swapchain->sc_instance, &swapchain->image_count, images));
 
+    assert(swapchain->image_count <= VKAPI_SWAPCHAIN_MAX_IMAGE_COUNT);
     for (uint32_t i = 0; i < swapchain->image_count; ++i)
     {
-        swapchain->contexts[i].texture = vkapi_res_cache_push_tex2d(
+        swapchain->contexts[i].handle = vkapi_res_push_reserved_tex2d(
             driver->res_cache,
             driver->context,
-            images[i],
-            surface_format.format,
             swapchain->extent.width,
             swapchain->extent.height,
-            1,
-            1,
-            1,
-            VKAPI_TEXTURE_TYPE_SWAPCHAIN);
+            swapchain->surface_format.format,
+            i,
+            0,
+            &images[i]);
     }
 }

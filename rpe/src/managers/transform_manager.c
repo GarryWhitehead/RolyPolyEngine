@@ -35,16 +35,9 @@ rpe_model_transform_t rpe_model_transform_init()
 rpe_transform_node_t rpe_transform_node_init()
 {
     rpe_transform_node_t n = {0};
-    n.node_transform = math_mat4f_identity();
+    n.world_transform = math_mat4f_identity();
     n.local_transform = math_mat4f_identity();
     return n;
-}
-
-rpe_transform_params_t rpe_transform_params_init()
-{
-    rpe_transform_params_t params = {0};
-    params.skin_offset = UINT32_MAX;
-    return params;
 }
 
 rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_t* arena)
@@ -52,7 +45,7 @@ rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_
     assert(engine);
 
     rpe_transform_manager_t* m = ARENA_MAKE_ZERO_STRUCT(arena, rpe_transform_manager_t);
-    MAKE_DYN_ARRAY(rpe_transform_params_t, arena, 100, &m->nodes);
+    MAKE_DYN_ARRAY(rpe_transform_node_t, arena, 100, &m->nodes);
     MAKE_DYN_ARRAY(rpe_skin_instance_t, arena, 100, &m->skins);
     m->static_transforms = ARENA_MAKE_ARRAY(arena, math_mat4f, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
     m->skinned_transforms = ARENA_MAKE_ARRAY(arena, math_mat4f, RPE_SCENE_MAX_BONE_COUNT, 0);
@@ -75,76 +68,88 @@ rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_
     return m;
 }
 
-void rpe_transform_manager_add_root_node(
+void rpe_transform_manager_add_node(
     rpe_transform_manager_t* m,
-    rpe_transform_node_t* node,
-    rpe_object_t obj,
-    rpe_skin_instance_t* skin)
+    math_mat4f* local_transform,
+    rpe_object_t* parent_obj,
+    rpe_object_t* child_obj)
 {
-    rpe_transform_params_t params = rpe_transform_params_init();
-    params.nodes[0] = *node;
-    params.nodes[0].parent = NULL;
-    params.node_next_idx = 1;
+    assert(m);
 
-    // Add skins to the manager - these don't require a slot to be requested as
-    // there may be numerous skins per mesh. Instead, the starting index of this
-    // group will be used to offset the skin indices to point at the correct
-    // skin.
-    if (skin)
+    rpe_transform_node_t child_node = {
+        .local_transform = *local_transform,
+        .world_transform = *local_transform,
+        .parent = parent_obj};
+
+    if (parent_obj)
     {
-        params.skin_offset = m->skins.size;
-        DYN_ARRAY_APPEND(&m->skins, skin);
+        uint64_t parent_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *parent_obj);
+        rpe_transform_node_t* parent_node =
+            DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, parent_idx);
+        child_node.next = parent_node->first_child;
+        parent_node->first_child = child_obj;
     }
 
-    // Update the model transform, and if skinned, joint matrices.
-    rpe_transform_manager_update_model_transform(m, &params.nodes[0], &params);
+    // Update the model transform.
+    rpe_transform_manager_update_world(m, &child_node);
 
     // Request a slot for this object.
-    uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, obj);
+    uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, *child_obj);
 
-    ADD_OBJECT_TO_MANAGER(&m->nodes, idx, &params);
+    ADD_OBJECT_TO_MANAGER(&m->nodes, idx, &child_node);
     m->is_dirty = true;
 }
 
 void rpe_transform_manager_add_local_transform(
-    rpe_transform_manager_t* m, rpe_model_transform_t* transform, rpe_object_t obj)
+    rpe_transform_manager_t* m, rpe_model_transform_t* transform, rpe_object_t* obj)
 {
-    rpe_transform_node_t node = rpe_transform_node_init();
-    node.has_mesh = true;
-    math_mat4f_translate(transform->translation, &node.node_transform);
-    math_mat4f_from_mat3f(transform->rot, &node.node_transform);
-    math_mat4f_scale(transform->scale, &node.node_transform);
-    rpe_transform_manager_add_root_node(m, &node, obj, NULL);
+    math_mat4f mat = math_mat4f_identity();
+    math_mat4f_translate(transform->translation, &mat);
+    math_mat4f_from_mat3f(transform->rot, &mat);
+    math_mat4f_scale(transform->scale, &mat);
+    rpe_transform_manager_add_node(m, &mat, NULL, obj);
 }
 
-void rpe_transform_manager_add_chid_node(
-    rpe_transform_manager_t* m, rpe_transform_node_t* child, rpe_object_t obj, uint32_t node_idx)
+void update_world_children(rpe_transform_manager_t* m, rpe_object_t* child)
 {
-    assert(node_idx < RPE_TRANSFORM_MANAGER_MAX_NODE_COUNT);
-    uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
-    assert(idx != UINT64_MAX);
-    rpe_transform_params_t* p = DYN_ARRAY_GET_PTR(rpe_transform_params_t, &m->nodes, idx);
-    p->nodes[p->node_next_idx] = *child;
-    rpe_transform_node_t* n = &p->nodes[node_idx];
-    DYN_ARRAY_APPEND(&n->children, &p->node_next_idx);
-    ++p->node_next_idx;
-}
-
-math_mat4f rpe_transform_manager_update_matrix(rpe_transform_node_t* n)
-{
-    assert(n);
-
-    math_mat4f mat = n->node_transform;
-    rpe_transform_node_t* parent = n->parent;
-    while (parent)
+    while (child)
     {
-        mat = math_mat4f_mul(parent->node_transform, mat);
-        parent = parent->parent;
+        uint32_t child_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *child);
+        rpe_transform_node_t* child_node =
+            DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, child_idx);
+
+        uint32_t parent_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *child_node->parent);
+        rpe_transform_node_t* parent_node =
+            DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, parent_idx);
+
+        child_node->world_transform =
+            math_mat4f_mul(parent_node->world_transform, child_node->local_transform);
+
+        if (child_node->first_child)
+        {
+            update_world_children(m, child_node->first_child);
+        }
+        child = child_node->next;
     }
-    return mat;
 }
 
-void rpe_transform_manager_update_model_transform(
+void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_transform_node_t* node)
+{
+    assert(node);
+
+    rpe_object_t* parent = node->parent;
+    if (parent)
+    {
+        uint32_t parent_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *parent);
+        rpe_transform_node_t* parent_node =
+            DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, parent_idx);
+        node->world_transform = math_mat4f_mul(parent_node->world_transform, node->local_transform);
+
+        update_world_children(m, node->first_child);
+    }
+}
+
+/*void rpe_transform_manager_update_model_transform(
     rpe_transform_manager_t* m, rpe_transform_node_t* parent, rpe_transform_params_t* params)
 {
     assert(m);
@@ -197,24 +202,23 @@ void rpe_transform_manager_update_model_transform(
         rpe_transform_node_t* child = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &parent->children, i);
         rpe_transform_manager_update_model_transform(m, child, params);
     }
-}
+}*/
 
 void rpe_transform_manager_update_model(rpe_transform_manager_t* m, rpe_object_t obj)
 {
     assert(m);
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
     assert(idx != UINT64_MAX);
-    rpe_transform_params_t* p = DYN_ARRAY_GET_PTR(rpe_transform_params_t, &m->nodes, idx);
-    rpe_transform_manager_update_model_transform(m, &p->nodes[0], p);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
+    rpe_transform_manager_update_world(m, node);
 }
 
-rpe_transform_params_t*
-rpe_transform_manager_get_transform(rpe_transform_manager_t* m, rpe_object_t obj)
+rpe_transform_node_t* rpe_transform_manager_get_node(rpe_transform_manager_t* m, rpe_object_t obj)
 {
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
     assert(idx != UINT64_MAX);
     assert(idx <= m->nodes.size);
-    return DYN_ARRAY_GET_PTR(rpe_transform_params_t, &m->nodes, idx);
+    return DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
 }
 
 void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m)
@@ -224,12 +228,12 @@ void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m)
         return;
     }
 
-    uint32_t bone_count = 0;
+    // uint32_t bone_count = 0;
     for (size_t i = 0; i < m->nodes.size; ++i)
     {
-        rpe_transform_params_t* p = DYN_ARRAY_GET_PTR(rpe_transform_params_t, &m->nodes, i);
-        m->static_transforms[i] = p->model_transform;
-        if (p->joint_matrices.size > 0)
+        rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, i);
+        m->static_transforms[i] = node->world_transform;
+        /*if (p->joint_matrices.size > 0)
         {
             assert(bone_count < RPE_SCENE_MAX_BONE_COUNT);
             // TODO: This needs checking if it actually works.
@@ -238,7 +242,7 @@ void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m)
                 p->joint_matrices.data,
                 sizeof(math_mat4f) * p->joint_matrices.size);
             bone_count += p->joint_matrices.size;
-        }
+        }*/
     }
 
     vkapi_driver_map_gpu_buffer(
@@ -248,7 +252,7 @@ void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m)
         0,
         m->static_transforms->data);
 
-    if (bone_count > 0)
+    /*if (bone_count > 0)
     {
         vkapi_driver_map_gpu_buffer(
             m->engine->driver,
@@ -256,6 +260,6 @@ void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m)
             bone_count * sizeof(math_mat4f),
             0,
             m->skinned_transforms->data);
-    }
+    }*/
     m->is_dirty = false;
 }

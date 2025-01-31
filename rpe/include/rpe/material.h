@@ -27,6 +27,39 @@
 #include <utility/maths.h>
 
 typedef struct Material rpe_material_t;
+typedef struct Engine rpe_engine_t;
+
+#define RPE_MATERIAL_IMAGE_TYPE_COUNT 6
+#define RPE_MATERIAL_MAX_MIP_COUNT 12
+
+enum MaterialImageType
+{
+    RPE_MATERIAL_IMAGE_TYPE_BASE_COLOR,
+    RPE_MATERIAL_IMAGE_TYPE_NORMAL,
+    RPE_MATERIAL_IMAGE_TYPE_METALLIC_ROUGHNESS,
+    RPE_MATERIAL_IMAGE_TYPE_DIFFUSE,
+    RPE_MATERIAL_IMAGE_TYPE_EMISSIVE,
+    RPE_MATERIAL_IMAGE_TYPE_OCCLUSION
+};
+
+enum MaterialPipeline
+{
+    RPE_MATERIAL_PIPELINE_MR,
+    RPE_MATERIAL_PIPELINE_SPECULAR,
+    RPE_MATERIAL_PIPELINE_NONE
+};
+
+typedef struct MappedTexture
+{
+    void* image_data;
+    uint32_t image_data_size;
+    VkFormat format;
+    uint32_t width;
+    uint32_t height;
+    uint32_t mip_levels;
+    uint32_t face_count;
+    size_t* offsets;
+} rpe_mapped_texture_t;
 
 struct MaterialBlendFactor
 {
@@ -40,6 +73,8 @@ struct MaterialBlendFactor
 };
 
 void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFactor factors);
+
+void rpe_material_set_pipeline(rpe_material_t* m, enum MaterialPipeline pipeline);
 
 void rpe_material_set_double_sided_state(rpe_material_t* m, bool state);
 void rpe_material_set_test_enable(rpe_material_t* m, bool state);
@@ -56,8 +91,18 @@ void rpe_material_set_diffuse_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_bas_colour_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_emissive_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_roughness_factor(rpe_material_t* m, float f);
+void rpe_material_set_specular_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_metallic_factor(rpe_material_t* m, float f);
 void rpe_material_set_alpha_mask(rpe_material_t* m, float mask);
 void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co);
+
+void rpe_material_set_texture(
+    rpe_material_t* m,
+    rpe_engine_t* engine,
+    rpe_mapped_texture_t* tex,
+    enum MaterialImageType type,
+    sampler_params_t* params,
+    uint32_t uv_index,
+    bool generate_mipmaps);
 
 #endif

@@ -29,6 +29,7 @@
 #include <utility/hash_set.h>
 
 typedef struct VkApiDriver vkapi_driver_t;
+typedef struct VkApiContext vkapi_context_t;
 
 /**
  Keep track of samplers dispersed between textures
@@ -42,7 +43,7 @@ typedef struct SamplerCache
 vkapi_sampler_cache_t* vkapi_sampler_cache_init(arena_t* arena);
 
 VkSampler* vkapi_sampler_cache_create(
-    vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_driver_t* driver);
+    vkapi_sampler_cache_t* c, sampler_params_t* params, vkapi_context_t* context);
 
 void vkapi_sampler_cache_destroy(vkapi_sampler_cache_t* c, vkapi_driver_t* driver);
 

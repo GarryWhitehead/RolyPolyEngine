@@ -95,7 +95,7 @@ void main()
     Instance i = instances[idx];
     IndexedIndirectCommand indirectCmd = inputIndirectCmds[idx];
 
-    bool isVis = checkIntersection(i.center, i.extent);
+    bool isVis = true; //checkIntersection(i.center, i.extent);
     if (isVis)
     {
         atomicAdd(batchDrawCounts[inputIndirectCmds[idx].batchId], 1);

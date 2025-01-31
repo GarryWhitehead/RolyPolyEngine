@@ -95,7 +95,19 @@ bool fs_get_extension(string_t* path, string_t* out_ext, arena_t* arena)
     return true;
 }
 
-char* fs_get_buffer(fs_buffer_t* fs)
+string_t fs_remove_filename(string_t* path, arena_t* arena)
+{
+    assert(path);
+    uint32_t idx = string_find_last_of(path, '/');
+    if (idx == UINT32_MAX)
+    {
+        // No parent directory (or is it just not a path?!), so return an empty string.
+        return string_init("", arena);
+    }
+    return string_substring(path, 0, idx - 1, arena);
+}
+
+inline char* fs_get_buffer(fs_buffer_t* fs)
 {
     assert(fs);
     return fs->buffer;

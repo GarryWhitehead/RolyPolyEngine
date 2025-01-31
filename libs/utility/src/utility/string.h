@@ -43,6 +43,8 @@ typedef struct String
  */
 string_t string_init(const char* str, arena_t* arena);
 
+string_t string_init_index(const char* str, int start, int end, arena_t* arena);
+
 string_t string_copy(string_t* other, arena_t* arena);
 
 /**

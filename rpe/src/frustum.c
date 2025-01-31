@@ -22,7 +22,7 @@
 
 #include "frustum.h"
 
-#include "aabox.h"
+#include "rpe/aabox.h"
 
 void rpe_frustum_projection(rpe_frustum_t* f, math_mat4f* view_proj)
 {

@@ -46,8 +46,9 @@ typedef struct VkApiStageInstance
 typedef struct VkApiStagingPool
 {
     // a list of free stages and their size
-    arena_dyn_array_t stages;
+    arena_dyn_array_t free_stages;
     arena_dyn_array_t in_use_stages;
+    uint64_t current_frame;
 
 } vkapi_staging_pool_t;
 

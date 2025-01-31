@@ -1,19 +1,23 @@
 #version 460
 
 layout(location = 0) in vec3 inPos;
-layout(location = 1) in vec2 inUv;
-layout(location = 2) in vec3 inNormal;
-layout(location = 3) in vec4 inColour;
-layout(location = 4) in vec4 inWeights;
-layout(location = 5) in vec4 inBoneId;
-layout(location = 6) in uint inModelDrawIdx;
-layout(location = 7) in uint inModelObjectId;
+layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec2 inUv0;
+layout(location = 3) in vec2 inUv1;
+layout(location = 4) in vec4 inTangent;
+layout(location = 5) in vec4 inColour;
+layout(location = 6) in vec4 inWeights;
+layout(location = 7) in vec4 inBoneId;
+layout(location = 8) in uint inModelDrawIdx;
+layout(location = 9) in uint inModelObjectId;
 
-layout(location = 0) out vec2 outUv;
-layout(location = 1) out vec3 outNormal;
-layout(location = 2) out vec4 outColour;
-layout(location = 3) out uint outModelDrawIdx;
-layout(location = 4) out vec3 outPos;
+layout(location = 0) out vec2 outUv0;
+layout(location = 1) out vec2 outUv1;
+layout(location = 2) out vec3 outNormal;
+layout(location = 3) out vec4 outTangent;
+layout(location = 4) out vec4 outColour;
+layout(location = 5) out uint outModelDrawIdx;
+layout(location = 6) out vec3 outPos;
 
 layout (constant_id = 0) const int HAS_SKIN = 0;
 layout (constant_id = 1) const int HAS_NORMAL = 0;
@@ -64,11 +68,14 @@ void main()
     }
     else
     {
-        outNormal = vec3(0.0f, 0.0f, 0.0f);
+        outNormal = vec3(0.0);
     }
 
-    outUv = inUv;
+    outUv0 = inUv0;
+    outUv1 = inUv1;
     outColour = inColour;
+    outTangent = inTangent;
+    outModelDrawIdx = inModelDrawIdx;
 
     outPos = pos.xyz / pos.w;
     gl_Position = camera_ubo.mvp * vec4(outPos, 1.0);

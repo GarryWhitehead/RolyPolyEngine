@@ -68,12 +68,15 @@ typedef struct Engine
     rpe_transform_manager_t* transform_manager;
     rpe_light_manager_t* light_manager;
 
+    /// Vertex information stored in one large buffer.
     rpe_vertex_buffer_t* vbuffer;
 
     arena_dyn_array_t renderers;
     arena_dyn_array_t swapchains;
     arena_dyn_array_t renderables;
-    arena_dyn_array_t primitives;
+
+    /// Current camera UBO - stored here as shared between shaders.
+    buffer_handle_t camera_ubo;
 
     // Material shader handles for each stage.
     shader_handle_t mat_shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];

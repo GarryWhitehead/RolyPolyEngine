@@ -66,11 +66,11 @@ typedef struct VkApiDriver
 
     // Graphic queue commands.
     vkapi_commands_t* commands;
-    // Compute queue commands (if the graphics and compute queue are the same, commited commands
+    // Compute queue commands (if the graphics and compute queue are the same, committed commands
     // will be in the same queue).
     vkapi_commands_t* compute_commands;
 
-    /** Private **/
+    /* ** Internal use only ** */
     /// Permanent arena space for the lifetime of this driver.
     arena_t _perm_arena;
     /// Small scratch arena for limited lifetime allocations. Should be passed as a copy to
@@ -91,37 +91,12 @@ typedef struct VkApiDriver
 
 } vkapi_driver_t;
 
-/**
- initialise the Vulkan driver - includes creating the abstract device,
- physical device, queues, etc.
- @param driver A pointer to the driver instance.
- @param surface An opaque pointer to a window surface. If NULL, then headless mode is assumed..
- @returns an error code specifying whether device creation was successful.
- */
 int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface);
 
-/**
- Create a new driver instance - creates a Vulkan instance for this device.
- @param driver A pointer to the driver instance.
- @param instance_ext Vulkan instance extensions parsed from GLFW.
- @param ext_count The instance extension count.
- @param [out] driver The new initialised driver instance.
- @returns The error code returned by the call. If not VKAPI_SUCCESS, then the driver instance will
- be uninitialised.
- */
 vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* errror_code);
 
-/**
- Deallocate all resources associated with the vulkan api.
- @param driver A pointer to the driver instance.
- */
 void vkapi_driver_shutdown(vkapi_driver_t* driver, VkSurfaceKHR surface);
 
-/**
- Get the supported Vk depth format for this device.
- @param driver A pointer to the driver instance.
- @return The supported depth format.
- */
 VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver);
 
 vkapi_rt_handle_t vkapi_driver_create_rt(
@@ -150,6 +125,13 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
 
 void vkapi_driver_map_gpu_buffer(
     vkapi_driver_t* driver, buffer_handle_t h, size_t size, size_t offset, void* data);
+void vkapi_driver_map_gpu_texture(
+    vkapi_driver_t* driver,
+    texture_handle_t h,
+    void* data,
+    size_t sz,
+    size_t* offsets,
+    bool generate_mipmaps);
 
 void vkapi_driver_set_push_constant(
     vkapi_driver_t* driver, void* data, size_t size, VkShaderStageFlags stage);

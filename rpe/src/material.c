@@ -57,20 +57,20 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
         e->mat_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX],
         e->driver,
         0, // First location
-        5, // End location.
+        7, // End location.
         0, // Binding id.
         VK_VERTEX_INPUT_RATE_VERTEX);
     shader_bundle_add_vertex_input_binding(
         instance.program_bundle,
         e->mat_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX],
         e->driver,
-        6, // First location.
-        7, // End location.
+        8, // First location.
+        9, // End location.
         1, // Binding id.
         VK_VERTEX_INPUT_RATE_INSTANCE);
 
     shader_bundle_update_ubo_desc(
-        instance.program_bundle, RPE_SCENE_CAMERA_UBO_BINDING, e->curr_scene->cam_ubo);
+        instance.program_bundle, RPE_SCENE_CAMERA_UBO_BINDING, e->camera_ubo);
     shader_bundle_update_ssbo_desc(
         instance.program_bundle,
         RPE_SCENE_SKIN_SSBO_BINDING,
@@ -88,6 +88,13 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 
     return instance;
+}
+
+uint32_t rpe_material_max_mipmaps(rpe_mapped_texture_t* tex)
+{
+    assert(tex);
+    uint32_t p = MAX(tex->width, tex->height);
+    return (uint32_t)floorf(log2f((float)p) + 1);
 }
 
 void rpe_material_add_variant(enum MaterialImageType type, rpe_material_t* m)
@@ -135,7 +142,11 @@ void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh)
         mat->mesh_consts.has_normal = 1;
         mat->material_consts.has_normal = 1;
     }
-    if (mesh->mesh_flags & RPE_MESH_ATTRIBUTE_UV)
+    if (mesh->mesh_flags & RPE_MESH_ATTRIBUTE_TANGENT)
+    {
+        mat->material_consts.has_tangent = 1;
+    }
+    if (mesh->mesh_flags & RPE_MESH_ATTRIBUTE_UV0 || mesh->mesh_flags & RPE_MESH_ATTRIBUTE_UV1)
     {
         mat->material_consts.has_uv = 1;
     }
@@ -159,23 +170,6 @@ void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh)
         sizeof(struct MaterialConstants),
         &mat->material_consts,
         RPE_BACKEND_SHADER_STAGE_FRAGMENT);
-}
-
-void rpe_material_add_image_texture(
-    rpe_material_t* m,
-    vkapi_driver_t* driver,
-    rpe_mapped_texture_t* tex,
-    enum MaterialImageType type,
-    enum ShaderStage stage,
-    sampler_params_t params,
-    uint32_t binding)
-{
-    assert(binding < VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT);
-    rpe_material_add_variant(type, m);
-
-    params.mip_levels = tex->mip_levels;
-    VkSampler* sampler = vkapi_sampler_cache_create(driver->sampler_cache, &params, driver);
-    shader_bundle_add_texture_sampler(m->program_bundle, *sampler, binding);
 }
 
 void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum ShaderStage stage)
@@ -273,7 +267,6 @@ void rpe_material_set_base_colour_factor(rpe_material_t* m, math_vec4f* f)
 {
     assert(m);
     m->material_draw_data.base_colour_factor = *f;
-    m->material_consts.has_base_colour_factor = true;
 }
 
 void rpe_material_set_diffuse_factor(rpe_material_t* m, math_vec4f* f)
@@ -292,8 +285,7 @@ void rpe_material_set_specular_factor(rpe_material_t* m, math_vec4f* f)
 void rpe_material_set_emissive_factor(rpe_material_t* m, math_vec4f* f)
 {
     assert(m);
-    m->material_draw_data.base_colour_factor = *f;
-    m->material_consts.has_emissive_factor = true;
+    m->material_draw_data.emissive_factor = *f;
 }
 
 void rpe_material_set_roughness_factor(rpe_material_t* m, float f)
@@ -320,4 +312,48 @@ void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co)
     assert(m);
     m->material_draw_data.alpha_mask_cut_off = co;
     m->material_consts.has_alpha_mask_cutoff = true;
+}
+
+void rpe_material_set_texture(
+    rpe_material_t* m,
+    rpe_engine_t* engine,
+    rpe_mapped_texture_t* tex,
+    enum MaterialImageType type,
+    sampler_params_t* params,
+    uint32_t uv_index,
+    bool generate_mipmaps)
+{
+    assert(m);
+    assert(engine);
+    assert(tex);
+    assert(params);
+    assert(uv_index < RPE_RENDERABLE_MAX_UV_SET_COUNT);
+
+    vkapi_driver_t* driver = engine->driver;
+
+    tex->mip_levels = generate_mipmaps ? rpe_material_max_mipmaps(tex) : tex->mip_levels;
+    params->mip_levels = tex->mip_levels;
+
+    texture_handle_t h = vkapi_res_cache_create_tex2d(
+        driver->res_cache,
+        driver->context,
+        driver->sampler_cache,
+        tex->format,
+        tex->width,
+        tex->height,
+        tex->mip_levels,
+        tex->face_count,
+        1,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        params);
+    assert(vkapi_tex_handle_is_valid(h));
+
+    vkapi_driver_map_gpu_texture(
+        engine->driver, h, tex->image_data, tex->image_data_size, tex->offsets, generate_mipmaps);
+    // We have to adjust the image handles to take into account the four reserved slots - these are
+    // not bound to the shader, so we need to take this into account.
+    m->material_draw_data.image_indices[type] = h.id - VKAPI_RES_CACHE_MAX_RESERVED_COUNT;
+    m->material_draw_data.uv_indices[type] = uv_index;
+
+    rpe_material_add_variant(type, m);
 }

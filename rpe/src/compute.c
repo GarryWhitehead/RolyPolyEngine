@@ -97,6 +97,15 @@ buffer_handle_t rpe_compute_bind_ubo(rpe_compute_t* c, vkapi_driver_t* driver, u
     return c->ubos[binding];
 }
 
+void rpe_compute_bind_ubo_buffer(rpe_compute_t* c, uint32_t binding, buffer_handle_t ubo)
+{
+    assert(binding < VKAPI_PIPELINE_MAX_UBO_BIND_COUNT);
+    assert(vkapi_buffer_handle_is_valid(ubo));
+
+    c->ubos[binding] = ubo;
+    shader_bundle_update_ubo_desc(c->bundle, binding, c->ubos[binding]);
+}
+
 buffer_handle_t rpe_compute_bind_ssbo(
     rpe_compute_t* c,
     vkapi_driver_t* driver,

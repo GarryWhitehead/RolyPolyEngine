@@ -24,6 +24,7 @@
 
 #include "commands.h"
 #include "driver.h"
+#include "sampler_cache.h"
 #include "utility.h"
 
 #include <assert.h>
@@ -94,7 +95,7 @@ uint32_t vkapi_texture_format_comp_size(VkFormat format)
 
 uint32_t vkapi_texture_format_byte_size(VkFormat format)
 {
-    uint32_t output = 1;
+    uint32_t output;
     switch (format)
     {
         case VK_FORMAT_R8_SNORM:
@@ -154,17 +155,34 @@ uint32_t vkapi_texture_format_byte_size(VkFormat format)
     return output;
 }
 
+uint32_t vkapi_texture_compute_total_size(
+    uint32_t width,
+    uint32_t height,
+    uint32_t layer_count,
+    uint32_t face_count,
+    uint32_t mip_levels,
+    VkFormat format)
+{
+    uint32_t byte_size = vkapi_texture_format_byte_size(format);
+
+    uint32_t total_size = 0;
+    for (uint32_t i = 0; i < mip_levels; ++i)
+    {
+        total_size += ((width >> i) * (height >> i) * 4 * byte_size) * face_count * layer_count;
+    }
+    return total_size;
+}
+
 vkapi_texture_t vkapi_texture_init(
     uint32_t width,
     uint32_t height,
     uint32_t mip_levels,
     uint32_t face_count,
     uint32_t array_count,
-    VkFormat format,
-    enum TextureType type)
+    VkFormat format)
 {
     assert(width > 0 && height > 0);
-    assert(mip_levels > 0 && mip_levels < VKAPI_TEXTURE_MAX_MIP_COUNT);
+    assert(mip_levels > 0 && mip_levels <= VKAPI_TEXTURE_MAX_MIP_COUNT);
     assert(face_count >= 1 && face_count <= 6);
 
     vkapi_texture_t tex = {
@@ -176,7 +194,6 @@ vkapi_texture_t vkapi_texture_init(
         .info.format = format,
         .image_layout = VK_IMAGE_LAYOUT_UNDEFINED,
         .image = VK_NULL_HANDLE,
-        .type = type,
         .image_memory = VK_NULL_HANDLE,
         .frames_until_gc = 0};
 
@@ -190,11 +207,7 @@ void vkapi_texture_destroy(vkapi_context_t* context, vkapi_texture_t* texture)
     {
         vkDestroyImageView(context->device, texture->image_views[level], VK_NULL_HANDLE);
     }
-    // Images associated with the swapchain are destroyed on calling vkDestroySwapchainKHR.
-    if (texture->type != VKAPI_TEXTURE_TYPE_SWAPCHAIN)
-    {
-        vkDestroyImage(context->device, texture->image, VK_NULL_HANDLE);
-    }
+    vkDestroyImage(context->device, texture->image, VK_NULL_HANDLE);
 }
 
 void vkapi_texture_create_image(
@@ -257,22 +270,6 @@ VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_text
 
     // making assumptions here based on the image format used.
     VkImageAspectFlags aspect = vkapi_texture_aspect_flags(texture->info.format);
-    switch (texture->info.format)
-    {
-        // depth/stencil image formats
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-        case VK_FORMAT_D24_UNORM_S8_UINT:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-            break;
-            // depth only formats
-        case VK_FORMAT_D32_SFLOAT:
-        case VK_FORMAT_D16_UNORM:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-            break;
-            // otherwise, must be a colour format
-        default:
-            aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-    }
 
     VkImageViewCreateInfo create_info = {0};
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -286,7 +283,7 @@ VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_text
     create_info.subresourceRange.layerCount = texture->info.face_count;
     create_info.subresourceRange.baseMipLevel = 0;
     create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.levelCount = 1;
+    create_info.subresourceRange.levelCount = texture->info.mip_levels;
     create_info.subresourceRange.aspectMask = aspect;
 
     VkImageView image_view;
@@ -295,11 +292,28 @@ VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_text
     return image_view;
 }
 
-void vkapi_texture_create_2d(
-    vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags)
+void vkapi_texture_update_sampler(
+    vkapi_context_t* context,
+    vkapi_sampler_cache_t* sc,
+    vkapi_texture_t* tex,
+    sampler_params_t* sampler_params)
 {
+    assert(context);
+    assert(sc);
+    assert(sampler_params);
+    tex->sampler = *vkapi_sampler_cache_create(sc, sampler_params, context);
+}
+
+void vkapi_texture_create_2d(
+    vkapi_context_t* context,
+    vkapi_sampler_cache_t* sc,
+    vkapi_texture_t* texture,
+    VkImageUsageFlags usage_flags,
+    sampler_params_t* sampler_params)
+{
+    assert(sampler_params);
     assert(
-        texture->info.mip_levels < VKAPI_TEXTURE_MAX_MIP_COUNT &&
+        texture->info.mip_levels <= VKAPI_TEXTURE_MAX_MIP_COUNT &&
         "Requested mip level exceed max allowed count");
 
     // create an empty image
@@ -316,6 +330,8 @@ void vkapi_texture_create_2d(
         ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL
         : (usage_flags & VK_IMAGE_USAGE_STORAGE_BIT) ? VK_IMAGE_LAYOUT_GENERAL
                                                      : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    vkapi_texture_update_sampler(context, sc, texture, sampler_params);
 }
 
 void vkapi_texture_map(
@@ -327,53 +343,77 @@ void vkapi_texture_map(
     void* data,
     uint32_t data_size,
     size_t* offsets,
-    arena_t* scratch_arena)
+    arena_t* scratch_arena,
+    bool generate_mipmaps)
 {
     vkapi_staging_instance_t* stage = vkapi_staging_get(staging_pool, vma_alloc, data_size);
 
-    memcpy(stage->alloc_info.pMappedData, data, data_size);
+    void* mapped;
+    vmaMapMemory(vma_alloc, stage->mem, &mapped);
+    assert(mapped);
+    memcpy(mapped, data, data_size);
+    vmaUnmapMemory(vma_alloc, stage->mem);
     vmaFlushAllocation(vma_alloc, stage->mem, 0, data_size);
 
-    if (!offsets)
+    VkBufferImageCopy* copy_buffers;
+    uint32_t copy_size;
+
+    if (!generate_mipmaps)
     {
-        offsets = ARENA_MAKE_ARRAY(
-            scratch_arena, size_t, texture->info.face_count * texture->info.mip_levels, 0);
-        uint32_t offset = 0;
-        for (uint32_t face = 0; face < texture->info.face_count; face++)
+        if (!offsets)
+        {
+            offsets = ARENA_MAKE_ARRAY(
+                scratch_arena, size_t, texture->info.face_count * texture->info.mip_levels, 0);
+            uint32_t offset = 0;
+            for (uint32_t face = 0; face < texture->info.face_count; face++)
+            {
+                for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
+                {
+                    offsets[face * texture->info.mip_levels + level] = offset;
+                    offset += (texture->info.width >> level) * (texture->info.height >> level) *
+                        vkapi_texture_format_comp_size(texture->info.format) *
+                        vkapi_texture_format_byte_size(texture->info.format);
+                }
+            }
+        }
+
+        // Create the info required for the copy.
+        copy_size = texture->info.face_count * texture->info.mip_levels;
+        copy_buffers = ARENA_MAKE_ZERO_ARRAY(scratch_arena, VkBufferImageCopy, copy_size);
+        for (uint32_t face = 0; face < texture->info.face_count; ++face)
         {
             for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
             {
-                offsets[face * texture->info.mip_levels + level] = offset;
-                offset += (texture->info.width >> level) * (texture->info.height >> level) *
-                    vkapi_texture_format_comp_size(texture->info.format) *
-                    vkapi_texture_format_byte_size(texture->info.format);
+                size_t idx = face * texture->info.mip_levels + level;
+                copy_buffers[idx].bufferOffset = offsets[face * texture->info.mip_levels + level];
+                copy_buffers[idx].imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                copy_buffers[idx].imageSubresource.mipLevel = level;
+                copy_buffers[idx].imageSubresource.layerCount = face;
+                copy_buffers[idx].imageSubresource.baseArrayLayer = 1;
+                copy_buffers[idx].imageExtent.width = texture->info.width >> level;
+                copy_buffers[idx].imageExtent.height = texture->info.height >> level;
+                copy_buffers[idx].imageExtent.depth = 1;
             }
         }
     }
-
-    // Create the info required for the copy.
-    VkBufferImageCopy* copy_buffers = ARENA_MAKE_ARRAY(
-        scratch_arena, VkBufferImageCopy, texture->info.face_count * texture->info.mip_levels, 0);
-    for (uint32_t face = 0; face < texture->info.face_count; ++face)
+    else
     {
-        for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
-        {
-            VkBufferImageCopy image_copy = {0};
-            image_copy.bufferOffset = offsets[face * texture->info.mip_levels + level];
-            image_copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            image_copy.imageSubresource.mipLevel = level;
-            image_copy.imageSubresource.layerCount = face;
-            image_copy.imageSubresource.baseArrayLayer = 1;
-            image_copy.imageExtent.width = texture->info.width >> level;
-            image_copy.imageExtent.height = texture->info.height >> level;
-            image_copy.imageExtent.depth = 1;
-            copy_buffers[face * texture->info.mip_levels + level] = image_copy;
-        }
+        copy_buffers = ARENA_MAKE_ZERO_ARRAY(scratch_arena, VkBufferImageCopy, 1);
+        copy_size = 1;
+
+        // If generating a mipmap chain, only copy the first image - the rest will be blitted.
+        copy_buffers[0].imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copy_buffers[0].imageSubresource.mipLevel = 0;
+        copy_buffers[0].imageSubresource.layerCount = 1;
+        copy_buffers[0].imageSubresource.baseArrayLayer = 0;
+        copy_buffers[0].imageExtent.width = texture->info.width;
+        copy_buffers[0].imageExtent.height = texture->info.height;
+        copy_buffers[0].imageExtent.depth = 1;
     }
 
-    // now copy image to local device - first prepare the image for copying via
+    // Now copy image to the local device - first prepare the image for copying via
     // transitioning to a transfer state. After copying, the image is
-    // transistioned ready for reading by the shader
+    // then transitioned ready for reading by the shader.
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(context, commands);
 
     vkapi_texture_image_transition(
@@ -381,26 +421,31 @@ void vkapi_texture_map(
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         cmds->instance,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        UINT32_MAX);
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0);
 
     vkCmdCopyBufferToImage(
         cmds->instance,
         stage->buffer,
         texture->image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        texture->info.face_count * texture->info.mip_levels,
+        copy_size,
         copy_buffers);
 
     vkapi_texture_image_transition(
         texture,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        texture->image_layout,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         cmds->instance,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        UINT32_MAX);
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0);
+
+    if (generate_mipmaps)
+    {
+        vkapi_texture_gen_mipmaps(texture, context, commands, texture->info.mip_levels);
+    }
 }
 
 void vkapi_texture_image_transition(
@@ -475,7 +520,7 @@ void vkapi_texture_image_transition(
     }
 
     VkImageMemoryBarrier mem_barrier = {0};
-    mem_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mem_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     mem_barrier.image = texture->image;
     mem_barrier.oldLayout = old_layout;
     mem_barrier.newLayout = new_layout;
@@ -489,6 +534,98 @@ void vkapi_texture_image_transition(
         cmd_buffer, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &mem_barrier);
 
     texture->image_layout = new_layout;
+}
+
+void vkapi_texture_gen_mipmaps(
+    vkapi_texture_t* tex, vkapi_context_t* context, vkapi_commands_t* commands, size_t level_count)
+{
+    assert(tex);
+    assert(tex->info.width == tex->info.height);
+    assert(level_count > 1);
+
+    if (tex->info.width == 2 && tex->info.height == 2)
+    {
+        return;
+    }
+
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(context, commands);
+    vkapi_texture_image_transition(
+        tex,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        cmds->instance,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0);
+
+    for (uint32_t i = 1; i < level_count; ++i)
+    {
+        // source
+        VkImageSubresourceLayers src = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = i - 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+        VkOffset3D src_offset = {
+            .x = (int32_t)tex->info.width >> (i - 1),
+            .y = (int32_t)tex->info.height >> (i - 1),
+            .z = 1};
+
+        // destination
+        VkImageSubresourceLayers dst = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = i,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+        VkOffset3D dst_offset = {
+            .x = (int32_t)tex->info.width >> i, .y = (int32_t)tex->info.height >> i, .z = 1};
+
+        VkImageBlit blit = {
+            .srcOffsets[1] = src_offset,
+            .srcSubresource = src,
+            .dstOffsets[1] = dst_offset,
+            .dstSubresource = dst};
+
+        // create image barrier - transition image to transfer
+        vkapi_texture_image_transition(
+            tex,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            i);
+
+        // blit the image
+        vkCmdBlitImage(
+            cmds->instance,
+            tex->image,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            tex->image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &blit,
+            VK_FILTER_LINEAR);
+
+        vkapi_texture_image_transition(
+            tex,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            i);
+    }
+
+    // prepare for shader read
+    vkapi_texture_image_transition(
+        tex,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        cmds->instance,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0);
 }
 
 void vkapi_texture_blit(
@@ -600,10 +737,11 @@ VkImageAspectFlags vkapi_texture_aspect_flags(VkFormat format)
     VkImageAspectFlags aspect;
     switch (format)
     {
-        // depth/stencil image formats
+        // depth/stencil image formats.
+        // FIXME: For depth/stencil formats only the depth or stencil bit can be set, not both.
         case VK_FORMAT_D32_SFLOAT_S8_UINT:
         case VK_FORMAT_D24_UNORM_S8_UINT:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            aspect = VK_IMAGE_ASPECT_DEPTH_BIT; // | VK_IMAGE_ASPECT_STENCIL_BIT;
             break;
             // depth only formats
         case VK_FORMAT_D32_SFLOAT:

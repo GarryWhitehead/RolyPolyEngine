@@ -151,18 +151,26 @@ void rg_resource_bake(rg_resource_t* r, vkapi_driver_t* driver)
     switch (r->type)
     {
         case RG_RESOURCE_TYPE_TEXTURE: {
+            sampler_params_t s_params = {
+                .min = RPE_SAMPLER_FILTER_NEAREST,
+                .mag = RPE_SAMPLER_FILTER_NEAREST,
+                .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+                .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+                .anisotropy = 1.0f};
+
             rg_texture_resource_t* r_tex = (rg_texture_resource_t*)r;
             r_tex->handle = vkapi_res_cache_create_tex2d(
                 driver->res_cache,
                 driver->context,
+                driver->sampler_cache,
                 r_tex->desc.format,
                 r_tex->desc.width,
                 r_tex->desc.height,
                 r_tex->desc.mip_levels,
                 1,
                 1,
-                r_tex->image_usage,
-                VKAPI_TEXTURE_TYPE_SYSTEM);
+                r_tex->image_usage | VK_IMAGE_USAGE_SAMPLED_BIT,
+                &s_params);
             break;
         }
         case RG_RESOURCE_TYPE_IMPORTED:

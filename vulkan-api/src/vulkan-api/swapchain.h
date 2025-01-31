@@ -33,9 +33,7 @@ typedef struct VkApiContext vkapi_context_t;
 
 typedef struct SwapchainContext
 {
-    texture_handle_t texture;
-    VkCommandBuffer cmdBuffer;
-    VkFence fence;
+    texture_handle_t handle;
 
 } vkapi_swapchain_context_t;
 
@@ -65,9 +63,6 @@ int vkapi_swapchain_create(
 
 /// creates the image views for the swapchain
 void vkapi_swapchain_prepare_views(
-    vkapi_driver_t* driver,
-    vkapi_swapchain_t* swapchain,
-    VkSurfaceFormatKHR surface_format,
-    arena_t* scratch_arena);
+    vkapi_driver_t* driver, vkapi_swapchain_t* swapchain, arena_t* scratch_arena);
 
 #endif

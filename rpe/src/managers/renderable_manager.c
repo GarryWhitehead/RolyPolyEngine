@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -38,9 +38,27 @@ rpe_renderable_t rpe_renderable_init()
 {
     rpe_renderable_t rend = {0};
     rend.sort_key = UINT32_MAX;
-    rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     rend.box = rpe_aabox_init();
     return rend;
+}
+
+void rpe_renderable_set_box(rpe_renderable_t* r, rpe_aabox_t* box)
+{
+    assert(r);
+    r->box.min.x = box->min.x;
+    r->box.min.y = box->min.y;
+    r->box.min.z = box->min.z;
+    r->box.max.x = box->max.x;
+    r->box.max.y = box->max.y;
+    r->box.min.z = box->min.z;
+}
+
+void rpe_renderable_set_min_max_dimensions(rpe_renderable_t* r, math_vec3f min, math_vec3f max)
+{
+    assert(r);
+    rpe_aabox_t box = {.min = min, .max = max};
+    rpe_renderable_set_box(r, &box);
 }
 
 rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)
@@ -57,9 +75,15 @@ rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)
     return m;
 }
 
-void rpe_rend_manager_add(rpe_rend_manager_t* m, rpe_renderable_t* renderable, rpe_object_t obj)
+void rpe_rend_manager_add(
+    rpe_rend_manager_t* m,
+    rpe_renderable_t* renderable,
+    rpe_object_t rend_obj,
+    rpe_object_t transform_obj)
 {
     assert(m);
+    assert(transform_obj.id != UINT32_MAX);
+    assert(rend_obj.id != UINT32_MAX);
 
     m->is_dirty = true;
     uint32_t material_key =
@@ -70,68 +94,136 @@ void rpe_rend_manager_add(rpe_rend_manager_t* m, rpe_renderable_t* renderable, r
         .screen_layer = 0,
         .depth = 0};
     renderable->sort_key = rpe_render_queue_create_sort_key(key, RPE_MATERIAL_KEY_SORT_PROGRAM);
+    renderable->transform_obj = transform_obj;
 
-    // First add the Object which will give us a free slot.
-    uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, obj);
+    // First, add the object which will give us a free slot.
+    uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, rend_obj);
     ADD_OBJECT_TO_MANAGER(&m->renderables, idx, renderable);
 }
 
 rpe_mesh_t* rpe_rend_manager_create_mesh(
     rpe_rend_manager_t* m,
-    math_vec3f* pos_data,
-    math_vec2f* uv_data,
-    math_vec3f* normal_data,
-    math_vec4f* col_data,
-    math_vec4f* bone_weight_data,
-    math_vec4f* bone_id_data,
+    float* pos_data,
+    float* uv0_data,
+    float* uv1_data,
+    float* normal_data,
+    float* tangent_data,
+    float* col_data,
+    float* bone_weight_data,
+    float* bone_id_data,
     uint32_t vertex_size,
-    int32_t* indices,
-    uint32_t indices_size)
+    void* indices,
+    uint32_t indices_size,
+    enum IndicesType indices_type)
 {
     assert(m);
     assert(pos_data);
 
     enum MeshAttributeFlags mesh_flags = RPE_MESH_ATTRIBUTE_POSITION;
     rpe_vertex_t* tmp = ARENA_MAKE_ZERO_ARRAY(&m->engine->scratch_arena, rpe_vertex_t, vertex_size);
+
+    float* pos_ptr = pos_data;
+    float* uv0_ptr = uv0_data;
+    float* uv1_ptr = uv1_data;
+    float* normal_ptr = normal_data;
+    float* tangent_ptr = tangent_data;
+    float* colour_ptr = col_data;
+    float* weight_ptr = bone_weight_data;
+    float* id_ptr = bone_id_data;
+
     for (uint32_t i = 0; i < vertex_size; ++i)
     {
         rpe_vertex_t* v = &tmp[i];
-        v->position = pos_data[i];
-        if (uv_data)
+        memcpy(v->position.data, pos_ptr, 3 * sizeof(float));
+        pos_ptr += 3;
+
+        if (uv0_data)
         {
-            v->uv = uv_data[i];
-            mesh_flags |= RPE_MESH_ATTRIBUTE_UV;
+            memcpy(v->uv0.data, uv0_ptr, 2 * sizeof(float));
+            uv0_ptr += 2;
+            mesh_flags |= RPE_MESH_ATTRIBUTE_UV0;
+        }
+        if (uv1_data)
+        {
+            memcpy(v->uv1.data, uv1_ptr, 2 * sizeof(float));
+            uv1_ptr += 2;
+            mesh_flags |= RPE_MESH_ATTRIBUTE_UV1;
         }
         if (normal_data)
         {
-            v->normal = normal_data[i];
+            memcpy(v->normal.data, normal_ptr, 3 * sizeof(float));
+            normal_ptr += 3;
             mesh_flags |= RPE_MESH_ATTRIBUTE_NORMAL;
+        }
+        if (tangent_data)
+        {
+            memcpy(v->tangent.data, tangent_ptr, 4 * sizeof(float));
+            tangent_ptr += 4;
+            mesh_flags |= RPE_MESH_ATTRIBUTE_TANGENT;
         }
         if (col_data)
         {
-            v->colour = col_data[i];
+            memcpy(v->colour.data, colour_ptr, 4 * sizeof(float));
+            colour_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_COLOUR;
         }
         if (bone_weight_data)
         {
-            v->bone_weight = bone_weight_data[i];
+            memcpy(v->bone_weight.data, weight_ptr, 4 * sizeof(float));
+            weight_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_BONE_WEIGHT;
         }
         if (bone_id_data)
         {
-            v->bone_id = bone_id_data[i];
+            memcpy(v->bone_id.data, id_ptr, 4 * sizeof(float));
+            id_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_BONE_ID;
         }
     }
 
     rpe_mesh_t mesh;
     mesh.vertex_offset = rpe_vertex_buffer_copy_vert_data(m->engine->vbuffer, vertex_size, tmp);
-    mesh.index_offset =
-        rpe_vertex_buffer_ccpy_index_data(m->engine->vbuffer, indices_size, indices);
+    if (indices_type == RPE_RENDERABLE_INDICES_U32)
+    {
+        mesh.index_offset = rpe_vertex_buffer_copy_index_data_u32(
+            m->engine->vbuffer, indices_size, (int32_t*)indices);
+    }
+    else
+    {
+        mesh.index_offset = rpe_vertex_buffer_copy_index_data_u16(
+            m->engine->vbuffer, indices_size, (int16_t*)indices);
+    }
     mesh.index_count = indices_size;
     mesh.mesh_flags = mesh_flags;
     arena_reset(&m->engine->scratch_arena);
     return DYN_ARRAY_APPEND(&m->meshes, &mesh);
+}
+
+rpe_mesh_t* rpe_rend_manager_create_static_mesh(
+    rpe_rend_manager_t* m,
+    float* pos_data,
+    float* uv0_data,
+    float* normal_data,
+    float* col_data,
+    uint32_t vertex_size,
+    void* indices,
+    uint32_t indices_size,
+    enum IndicesType indices_type)
+{
+    return rpe_rend_manager_create_mesh(
+        m,
+        pos_data,
+        uv0_data,
+        NULL,
+        normal_data,
+        NULL,
+        col_data,
+        NULL,
+        NULL,
+        vertex_size,
+        indices,
+        indices_size,
+        indices_type);
 }
 
 rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m)
@@ -153,9 +245,9 @@ int sort_renderables(const void* a, const void* b, void* rend_manager)
     assert(rend_manager);
     rpe_object_t* a_obj = (rpe_object_t*)a;
     rpe_object_t* b_obj = (rpe_object_t*)b;
-    rpe_rend_manager_t* r_manager = (rpe_rend_manager_t*)rend_manager;
-    rpe_renderable_t* a_rend = rpe_rend_manager_get_mesh(r_manager, a_obj);
-    rpe_renderable_t* b_rend = rpe_rend_manager_get_mesh(r_manager, b_obj);
+    rpe_rend_manager_t* rm = (rpe_rend_manager_t*)rend_manager;
+    rpe_renderable_t* a_rend = rpe_rend_manager_get_mesh(rm, a_obj);
+    rpe_renderable_t* b_rend = rpe_rend_manager_get_mesh(rm, b_obj);
     assert(a_rend->sort_key != UINT32_MAX);
     assert(b_rend->sort_key != UINT32_MAX);
     if (a_rend->sort_key > b_rend->sort_key)
@@ -206,4 +298,10 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
 
     m->is_dirty = false;
     return &m->batched_renderables;
+}
+
+bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj)
+{
+    assert(m);
+    return rpe_comp_manager_has_obj(m->comp_manager, *obj);
 }

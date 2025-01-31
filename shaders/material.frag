@@ -5,8 +5,10 @@
 
 #include "include/math.h"
 
-#define SPECULAR_GLOSSINESS_PIPELINE 0
-#define METALLIC_ROUGHNESS_PIPELINE 1
+
+#define METALLIC_ROUGHNESS_PIPELINE     0
+#define SPECULAR_GLOSSINESS_PIPELINE    1
+#define NO_PIPELINE_WORKFLOW            2
 
 struct DrawData
 {
@@ -19,19 +21,29 @@ struct DrawData
     float roughnessFactor;
     float metallicFactor;
     // Texture indices into the bindless samppler.
+    // Note: the order here is dictated by the TextureType enum.
     uint colour;
     uint normal;
     uint mr;
     uint diffuse;
     uint emissive;
     uint occlusion;
-} draw_data;
+    // uv indices
+    uint colourUv;
+    uint normalUv;
+    uint mrUv;
+    uint diffuseUv;
+    uint emissiveUv;
+    uint occlusionUv;
+};
 
-layout(location = 0) in vec2 inUv;
-layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec4 inColour;
-layout(location = 3) flat in uint inModelDrawIdx;
-layout(location = 4) in vec3 inPos;
+layout(location = 0) in vec2 inUv0;
+layout(location = 1) in vec2 inUv1;
+layout(location = 2) in vec3 inNormal;
+layout(location = 3) in vec4 inTangent;
+layout(location = 4) in vec4 inColour;
+layout(location = 5) flat in uint inModelDrawIdx;
+layout(location = 6) in vec3 inPos;
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec4 outPos;
@@ -39,33 +51,29 @@ layout(location = 2) out vec4 outNormal;
 layout(location = 3) out vec4 outEmissive;
 layout(location = 4) out vec2 outPbr;
 
-layout (constant_id = 0) const int HAS_ALPHA_MASK = 0;
-layout (constant_id = 1) const int HAS_BASECOLOUR_SAMPLER = 0;
-layout (constant_id = 2) const int HAS_BASECOLOUR_FACTOR = 0;
-layout (constant_id = 3) const int HAS_APLHA_MASK_CUTOFF = 0;
-layout (constant_id = 4) const int PIPELINE_WORKFLOW = 0;
-layout (constant_id = 5) const int HAS_MR_SAMPLER = 0;
-layout (constant_id = 6) const int HAS_DIFFUSE_SAMPLER = 0;
-layout (constant_id = 7) const int HAS_DIFFUSE_FACTOR = 0;
-layout (constant_id = 8) const int HAS_NORMAL_SAMPLER = 0;
-layout (constant_id = 9) const int HAS_OCCLUSION_SAMPLER = 0;
-layout (constant_id = 10) const int HAS_EMISSIVE_SAMPLER = 0;
-layout (constant_id = 11) const int HAS_EMISSIVE_FACTOR = 0;
-layout (constant_id = 12) const int HAS_UV = 0;
-layout (constant_id = 13) const int HAS_NORMAL = 0;
-layout (constant_id = 14) const int HAS_COLOUR_ATTR = 0;
+layout (constant_id = 0) const bool HAS_ALPHA_MASK = false;
+layout (constant_id = 1) const bool HAS_BASECOLOUR_SAMPLER = false;
+layout (constant_id = 2) const bool HAS_APLHA_MASK_CUTOFF = false;
+layout (constant_id = 3) const int PIPELINE_WORKFLOW = NO_PIPELINE_WORKFLOW;
+layout (constant_id = 4) const bool HAS_MR_SAMPLER = false;
+layout (constant_id = 5) const bool HAS_DIFFUSE_SAMPLER = false;
+layout (constant_id = 6) const bool HAS_DIFFUSE_FACTOR = false;
+layout (constant_id = 7) const bool HAS_NORMAL_SAMPLER = false;
+layout (constant_id = 8) const bool HAS_OCCLUSION_SAMPLER = false;
+layout (constant_id = 9) const bool HAS_EMISSIVE_SAMPLER = false;
+layout (constant_id = 10) const bool HAS_UV = false;
+layout (constant_id = 11) const bool HAS_NORMAL = false;
+layout (constant_id = 12) const bool HAS_TANGENT = false;
+layout (constant_id = 13) const bool HAS_COLOUR_ATTR = false;
 
 
 layout(set = 3, binding = 0) uniform sampler2D textures[];
 //layout(set = 3, binding = 0) uniform samplerCube texCubes[];
 
-
 layout (set = 2, binding = 2) buffer MeshDataSsbo
 {
     DrawData drawData[];
 };
-
-#define EPSILON 0.0000001
 
 float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 {
@@ -114,13 +122,25 @@ void main()
     outPos = vec4(inPos, 1.0);
 
     // Normal.
-    if (HAS_NORMAL_SAMPLER == 1 && HAS_UV == 1)
+    if (HAS_NORMAL_SAMPLER && HAS_UV)
     {
-        // convert normal to -1, 1 coord system
-        vec3 tangentNormal = texture(textures[nonuniformEXT(iData.normal)], inUv).xyz * 2.0 - 1.0;
-        outNormal = vec4(peturbNormal(inUv, tangentNormal), 1.0);
+        vec2 uv = iData.normalUv == 0 ? inUv0 : inUv1;
+        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - 1.0;
+
+        if (HAS_NORMAL && HAS_TANGENT)
+        {
+            vec3 N = normalize(inNormal);
+	        vec3 T = normalize(inTangent.xyz);
+	        vec3 B = cross(inNormal, inTangent.xyz) * inTangent.w;
+	        mat3 TBN = mat3(T, B, N);
+            outNormal = vec4(TBN * norm, 1.0);
+        }
+        else
+        {
+            outNormal = vec4(peturbNormal(uv, norm), 1.0);
+        }
     }
-    else if (HAS_NORMAL == 1)
+    else if (HAS_NORMAL)
     {
         outNormal = vec4(normalize(inNormal), 1.0);
     }
@@ -128,94 +148,86 @@ void main()
     {
         outNormal = vec4(normalize(cross(dFdx(inPos), dFdy(inPos))), 1.0);
     }
-    if (HAS_COLOUR_ATTR == 1)
-    {   
-        outColour = inColour;
-        // Early return as we don't care about PBR if using vertex colour.
-        return;
-    }
-    
+
+
     // albedo
     vec4 baseColour = vec4(1.0);
-    float alphaMask = 1.0;
 
-	if (HAS_ALPHA_MASK == 1)
+    
+	if (HAS_ALPHA_MASK)
     {
-	  if (HAS_APLHA_MASK_CUTOFF == 1 && baseColour.a < draw_data.alphaMaskCutOff)
-	  {
-        discard;
-	  }
-	  alphaMask = draw_data.alphaMask;
-    }
-
-    if (alphaMask == 1.0)
-    {
-        if (HAS_BASECOLOUR_SAMPLER == 1 && HAS_UV == 1)
+	  // TODO: If has alpha mask value, only "OPAQUE" and "MASK" are dealt with. Need to do something when "BLEND"?
+      // alphaMsak == 1.0 == "MASK"; alphaMask == 0.0 == "OPAQUE"
+      // We don't have to do anything for "OPAQUE".
+      if (iData.alphaMask == 1.0)
+      { 
+        float cutoff = HAS_APLHA_MASK_CUTOFF ? iData.alphaMaskCutOff : 0.5;
+        if (baseColour.a < cutoff)
         {
-            baseColour = texture(textures[nonuniformEXT(iData.colour)], inUv);
-
-            if (HAS_BASECOLOUR_FACTOR == 1)
-            {
-                baseColour *= draw_data.baseColourFactor;
-            }
+            discard;
         }
-        else if (HAS_BASECOLOUR_FACTOR == 1)
-        {
-            baseColour = draw_data.baseColourFactor;
-        }
+      }
     }
     
     // default values for output attachments
     float roughness = 1.0;
     float metallic = 1.0;
 
-
-    switch(PIPELINE_WORKFLOW)
+    switch (PIPELINE_WORKFLOW)
     {
-        case SPECULAR_GLOSSINESS_PIPELINE:
+        case METALLIC_ROUGHNESS_PIPELINE:
         {
-            roughness = draw_data.roughnessFactor;
-            metallic = draw_data.metallicFactor;
+            roughness = iData.roughnessFactor;
+            metallic = iData.metallicFactor;
 
-            if (HAS_MR_SAMPLER == 1 && HAS_UV == 1)
+            if (HAS_MR_SAMPLER && HAS_UV)
             {
-                vec4 mrSample = texture(textures[nonuniformEXT(iData.mr)], inUv);
+                vec2 uv = iData.mrUv == 0 ? inUv0 : inUv1;
+                vec3 mrSample = texture(textures[nonuniformEXT(iData.mr)], uv).rgb;
                 roughness = clamp(mrSample.g * roughness, 0.0, 1.0);
-                metallic = mrSample.b * metallic;
+                metallic = clamp(mrSample.b * metallic, 0.0, 1.0);
             }
             else
             {
                 roughness = clamp(roughness, 0.04, 1.0);
                 metallic = clamp(metallic, 0.0, 1.0);
             }
-            break;
-        }
-        case METALLIC_ROUGHNESS_PIPELINE:
-        {
-            // Values from specular glossiness workflow are converted to metallic
-            // roughness
-            vec4 diffuse;
-            vec3 specular;
 
-            if (HAS_MR_SAMPLER == 1  && HAS_UV == 1)
+            // If the model doesn't define a base colour sampler, then  the base colour factor must be set.
+            if (HAS_BASECOLOUR_SAMPLER && HAS_UV)
             {
-                roughness = 1.0 - texture(textures[nonuniformEXT(iData.mr)], inUv).a;
-                specular = texture(textures[nonuniformEXT(iData.mr)], inUv).rgb;
+                vec2 uv = iData.colourUv == 0 ? inUv0 : inUv1;
+                baseColour = texture(textures[nonuniformEXT(iData.colour)], uv);
             }
             else
             {
-                roughness = 1.0;
-                specular = vec3(0.0);
+                baseColour = iData.baseColourFactor;
             }
+            break;
+        }
         
+        case SPECULAR_GLOSSINESS_PIPELINE:
+        {
+            // Values from specular glossiness workflow are converted to metallic
+            // roughness
+            vec4 diffuse = vec4(0.0);
+            vec3 specular = vec3(0.0);;
 
-            if (HAS_DIFFUSE_SAMPLER == 1  && HAS_UV == 1)
+            if (HAS_MR_SAMPLER  && HAS_UV)
             {
-                diffuse = texture(textures[nonuniformEXT(iData.diffuse)], inUv);
+                vec2 uv = iData.mrUv == 0 ? inUv0 : inUv1;
+                roughness = 1.0 - texture(textures[nonuniformEXT(iData.mr)], uv).a;
+                specular = texture(textures[nonuniformEXT(iData.mr)], uv).rgb;
             }
-            else if (HAS_DIFFUSE_FACTOR == 1)
+            
+            if (HAS_DIFFUSE_SAMPLER && HAS_UV)
             {
-                diffuse = draw_data.diffuseFactor;
+                vec2 uv = iData.diffuseUv == 0 ? inUv0 : inUv1;
+                diffuse = texture(textures[nonuniformEXT(iData.diffuse)], uv);
+            }
+            else if (HAS_DIFFUSE_FACTOR)
+            {
+                diffuse = iData.diffuseFactor;
             }
 
             float maxSpecular = max(max(specular.r, specular.g), specular.b);
@@ -227,40 +239,41 @@ void main()
             vec3 baseColourDiffusePart = diffuse.rgb *
                 ((1.0 - maxSpecular) / (1 - minRoughness) /
                 max(1 - metallic, EPSILON)) *
-                draw_data.diffuseFactor.rgb;
+                iData.diffuseFactor.rgb;
             vec3 baseColourSpecularPart = specular -
                 (vec3(minRoughness) * (1 - metallic) * (1 / max(metallic, EPSILON))) *
-                    draw_data.specularFactor.rgb;
+                    iData.specularFactor.rgb;
             baseColour = vec4(
                 mix(baseColourDiffusePart, baseColourSpecularPart, metallic * metallic),
                 diffuse.a);
-            break;
+             break;
         }
     }
 
     // =========== fragment outputs ====================
 
+    if (HAS_COLOUR_ATTR)
+    {   
+        baseColour = inColour;
+    }
+
     outColour = baseColour;
     outPbr = vec2(metallic, roughness);
 
-    // ao
-    float ambient = 0.4;
-    if (HAS_OCCLUSION_SAMPLER == 1 && HAS_UV == 1)
+    // occlusion
+    if (HAS_OCCLUSION_SAMPLER && HAS_UV)
     {
-        ambient = texture(textures[nonuniformEXT(iData.occlusion)], inUv).x;
+        // Bake the occlusion value into the alpha channel of the colour - applied in the lighting stage.
+        vec2 uv = iData.occlusionUv == 0 ? inUv0 : inUv1;
+        outColour.a = texture(textures[nonuniformEXT(iData.occlusion)], uv).r;
     }
-    outColour.a = ambient;
 
     // emmisive
-    vec3 emissive = vec3(0.2);
-    if (HAS_EMISSIVE_SAMPLER == 1 && HAS_UV == 1)
+    vec3 emissive = iData.emissiveFactor.rgb;
+    if (HAS_EMISSIVE_SAMPLER && HAS_UV)
     {
-        emissive = texture(textures[nonuniformEXT(iData.emissive)], inUv).rgb;
-        emissive *= draw_data.emissiveFactor.rgb;
-    }
-    else if (HAS_EMISSIVE_FACTOR == 1)
-    {
-        emissive = draw_data.emissiveFactor.rgb;
+        vec2 uv = iData.emissiveUv == 0 ? inUv0 : inUv1;
+        emissive *= texture(textures[nonuniformEXT(iData.emissive)], uv).rgb;
     }
     outEmissive = vec4(emissive, 1.0);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,7 +23,7 @@
 #ifndef __RPE_SCENE_H__
 #define __RPE_SCENE_H__
 
-#include "aabox.h"
+#include "rpe/aabox.h"
 
 #include <stdbool.h>
 #include <utility/arena.h>
@@ -85,7 +85,6 @@ typedef struct Scene
 
     // Current camera information
     rpe_camera_t* curr_camera;
-    buffer_handle_t cam_ubo;
 
     buffer_handle_t scene_ubo;
 
@@ -96,11 +95,7 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena);
 bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine);
 
 void rpe_scene_upload_extents(
-    rpe_scene_t* scene,
-    rpe_engine_t* engine,
-    rpe_rend_manager_t* rm,
-    rpe_transform_manager_t* tm,
-    math_mat4f world_transform);
+    rpe_scene_t* scene, rpe_engine_t* engine, rpe_rend_manager_t* rm, rpe_transform_manager_t* tm);
 
 /** Public functions **/
 

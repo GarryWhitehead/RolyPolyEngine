@@ -10,9 +10,19 @@ layout(set = 3, binding = 2) uniform sampler2D NormalSampler;
 layout(set = 3, binding = 3) uniform sampler2D PbrSampler;
 layout(set = 3, binding = 4) uniform sampler2D EmissiveSampler;
 
-#define LightTypePointId 0
-#define LightTypeSpotId 1
-#define LightTypeDir 2
+#define LIGHT_TYPE_POINT        0
+#define LIGHT_TYPE_SPOT         1   
+#define LIGHT_TYPE_DIRECTIONAL  2
+
+layout (binding = 0, set = 0) uniform CameraUBO
+{
+    mat4 mvp;
+    mat4 proj;
+    mat4 view;
+    mat4 model;
+    vec4 fustrums[6];
+    vec4 position;
+} camera_ubo;
 
 //layout (constant_id = 0) const int LIGHT_COUNT = 0;
 
@@ -43,10 +53,15 @@ vec3 calculateIBL(vec3 N, float NdotV, float roughness, vec3 reflection, vec3 di
 #endif*/
 
 void main()
-{
+{   
+    // TODO: Hard-coded light position for now. Removed once lighting added.
+    vec3 lightPos = vec3(0.0f, 2.5f, 0.0f);
+
     vec3 inPos = texture(PositionSampler, inUv).rgb;
     vec3 baseColour = texture(BaseColourSampler, inUv).rgb;
-    float applyLightingFlag = texture(EmissiveSampler, inUv).a;
+    vec3 emissive = texture(EmissiveSampler, inUv).rgb;
+
+    vec3 colour = baseColour;
 
     // if lighting isn't applied to this fragment then
     // exit early.
@@ -54,19 +69,19 @@ void main()
     {
         outFrag = vec4(baseColour, 1.0);
         return;
-    }
+    }*/
 
-    vec3 V = normalize(scene_ubo.position.xyz - inPos);
+    vec3 V = normalize(camera_ubo.position.xyz - inPos);
+    vec3 L = normalize(lightPos - inPos);
     vec3 N = texture(NormalSampler, inUv).rgb;
     vec3 R = reflect(-V, N);
 
     // get pbr information from G-buffer
-    float metallic = texture(PbrSampler, inUv).x;
-    float roughness = texture(PbrSampler, inUv).y;
+    float metallic = texture(PbrSampler, inUv).r;
+    float roughness = texture(PbrSampler, inUv).g;
     float occlusion = texture(BaseColourSampler, inUv).a;
-    vec3 emissive = texture(EmissiveSampler, inUv).rgb;
 
-    vec3 F0 = vec3(0.04);
+    /*vec3 F0 = vec3(0.04);
     vec3 specularColour = mix(F0, baseColour, metallic);
 
     float reflectance =
@@ -155,14 +170,21 @@ void main()
 
     vec3 ambient = (kD * diffuse + specular) * occlusion;
     vec3 finalColour = colour + ambient;
-#else
+
     // occlusion
-    vec3 finalColour = mix(colour, colour * occlusion, 1.0);
-#endif
+    vec3 finalColour = mix(colour, colour * occlusion, 1.0);*/
 
-    // emissive
-    finalColour += emissive;*/
+    // TODO: Temp measure until IBL/BRDF added.
+    float ambient = 0.4;
+    vec3 diffuse = max(dot(N, L), ambient).rrr;
+	float specular = pow(max(dot(R, V), 0.0), 32.0);
+	vec3 finalColour = diffuse * colour.rgb + specular;
 
-    outFrag = vec4(baseColour, 1.0);
-    //outFrag = vec4(finalColour, 1.0);
+    // Apply occlusion to final colour.
+    finalColour = mix(finalColour, finalColour * occlusion, 1.0);
+
+    // Apply emission to final colour.
+    finalColour += emissive;
+
+    outFrag = vec4(finalColour, 1.0);
 }

@@ -37,8 +37,8 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define MAX(a, b) a > b ? a : b;
-#define MIN(a, b) a < b ? a : b;
+#define MAX(a, b) a > b ? a : b
+#define MIN(a, b) a < b ? a : b
 
 #define CLAMP(x, low, high)                                                                        \
     ({                                                                                             \
@@ -247,6 +247,24 @@ static inline math_vec2f math_vec2f_mul_sca(math_vec2f a, float s)
 static inline math_vec3f math_vec3f_mul_sca(math_vec3f a, float s)
 {
     math_vec3f out = {.x = a.x * s, .y = a.y * s, .z = a.z * s};
+    return out;
+}
+
+static inline math_vec3f math_vec3f_min(math_vec3f a, math_vec3f b)
+{
+    math_vec3f out;
+    out.x = MIN(a.x, b.x);
+    out.y = MIN(a.y, b.y);
+    out.z = MIN(a.z, b.z);
+    return out;
+}
+
+static inline math_vec3f math_vec3f_max(math_vec3f a, math_vec3f b)
+{
+    math_vec3f out;
+    out.x = MAX(a.x, b.x);
+    out.y = MAX(a.y, b.y);
+    out.z = MAX(a.z, b.z);
     return out;
 }
 
@@ -843,13 +861,13 @@ static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, ma
     m.data[1][1] = cam_up.y;
     m.data[2][1] = cam_up.z;
 
-    m.data[0][2] = -dir.x;
-    m.data[1][2] = -dir.y;
-    m.data[2][2] = -dir.z;
+    m.data[0][2] = dir.x;
+    m.data[1][2] = dir.y;
+    m.data[2][2] = dir.z;
 
-    m.data[3][0] = math_vec3f_dot(right, eye);
-    m.data[3][1] = math_vec3f_dot(cam_up, eye);
-    m.data[3][2] = math_vec3f_dot(dir, eye);
+    m.data[3][0] = -math_vec3f_dot(right, eye);
+    m.data[3][1] = -math_vec3f_dot(cam_up, eye);
+    m.data[3][2] = -math_vec3f_dot(dir, eye);
     m.data[3][3] = 1.0f;
 
     return m;
@@ -860,11 +878,11 @@ math_mat4f_frustum(float left, float right, float bottom, float top, float near,
 {
     math_mat4f m = {0};
     m.data[0][0] = (2.0f * near) / (right - left);
-    m.data[1][1] = (2.0f * near) / (top - bottom);
+    m.data[1][1] = -(2.0f * near) / (top - bottom);
     m.data[2][0] = (right + left) / (right - left);
     m.data[2][1] = (top + bottom) / (top - bottom);
-    m.data[2][2] = -(far + near) / (far - near);
-    m.data[2][3] = -1.0f;
+    m.data[2][2] = (far + near) / (far - near);
+    m.data[2][3] = 1.0f;
     m.data[3][2] = -(2.0f * far * near) / (far - near);
     return m;
 }
@@ -927,5 +945,61 @@ static inline math_vec3f math_mat4f_translation_vec(math_mat4f m)
 
 /** ================================ Quaternion functions ================================= **/
 
+static inline math_quatf math_quatf_init(float x, float y, float z, float w)
+{
+    math_quatf out = {.x = x, .y = y, .z = z, .w = w};
+#ifdef MATH_USE_SSE3
+    out.sse_data = _mm_load_ps(out.data);
+#endif
+    return out;
+}
+
+static inline math_quatf math_quatf_norm(math_quatf q)
+{
+    // Use vector4 version.
+    math_vec4f v = {q.x, q.y, q.z, q.w};
+    math_vec4f n = math_vec4f_normalise(v);
+    math_quatf out = {n.x, n.y, n.z, n.w};
+    return out;
+}
+
+static inline math_mat4f math_quatf_to_mat4f(math_quatf q)
+{
+    math_mat4f out;
+
+    math_quatf nq = math_quatf_norm(q);
+
+    float xx = nq.x * nq.x;
+    float yy = nq.y * nq.y;
+    float zz = nq.z * nq.z;
+    float xy = nq.x * nq.y;
+    float xz = nq.x * nq.z;
+    float yz = nq.y * nq.z;
+    float wx = nq.w * nq.x;
+    float wy = nq.w * nq.y;
+    float wz = nq.w * nq.z;
+
+    out.data[0][0] = 1.0f - 2.0f * (yy + zz);
+    out.data[0][1] = 2.0f * (xy + wz);
+    out.data[0][2] = 2.0f * (xz - wy);
+    out.data[0][3] = 0.0f;
+
+    out.data[1][0] = 2.0f * (xy - wz);
+    out.data[1][1] = 1.0f - 2.0f * (xx + zz);
+    out.data[1][2] = 2.0f * (yz + wx);
+    out.data[1][3] = 0.0f;
+
+    out.data[2][0] = 2.0f * (xz + wy);
+    out.data[2][1] = 2.0f * (yz - wx);
+    out.data[2][2] = 1.0f - 2.0f * (xx + yy);
+    out.data[2][3] = 0.0f;
+
+    out.data[3][0] = 0.0f;
+    out.data[3][1] = 0.0f;
+    out.data[3][2] = 0.0f;
+    out.data[3][3] = 1.0f;
+
+    return out;
+}
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -61,12 +61,20 @@ int main()
     rpe_material_set_write_enable(mat, true);
     rpe_material_set_depth_compare_op(mat, RPE_COMPARE_OP_LESS);
 
-    math_vec3f pos_vertices[3] = {{1.0f, 1.0f, 0.0f}, {-1.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}};
+    math_vec3f pos_vertices[3] = {{1.0f, -1.0f, 0.0f}, {-1.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}};
     math_vec4f col_vertices[3] = {
         {1.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}};
     int32_t indices[] = {0, 1, 2};
-    rpe_mesh_t* mesh = rpe_rend_manager_create_mesh(
-        r_manager, pos_vertices, NULL, NULL, col_vertices, NULL, NULL, 3, indices, 3);
+    rpe_mesh_t* mesh = rpe_rend_manager_create_static_mesh(
+        r_manager,
+        (float*)pos_vertices,
+        NULL,
+        NULL,
+        (float*)col_vertices,
+        3,
+        indices,
+        3,
+        RPE_RENDERABLE_INDICES_U32);
 
     rpe_renderable_t* renderable = rpe_engine_create_renderable(app.engine, mat, mesh);
 
@@ -77,13 +85,13 @@ int main()
             for (int x = 0; x < MODELS_PER_AXIS; ++x)
             {
                 rpe_object_t obj = rpe_obj_manager_create_obj(o_manager);
-                rpe_rend_manager_add(r_manager, renderable, obj);
+                rpe_rend_manager_add(r_manager, renderable, obj, obj);
                 rpe_scene_add_object(app.scene, obj);
 
                 rpe_model_transform_t t = {
                     .scale = {0.2f, 0.2f, 0.2f},
                     .translation = {(float)x / 2.0f, (float)y / 2.0f, (float)z / 2.0f}};
-                rpe_transform_manager_add_local_transform(t_manager, &t, obj);
+                rpe_transform_manager_add_local_transform(t_manager, &t, &obj);
             }
         }
     }
