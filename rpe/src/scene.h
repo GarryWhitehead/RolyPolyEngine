@@ -45,6 +45,7 @@ typedef struct Camera rpe_camera_t;
 typedef struct RenderQueue rpe_render_queue_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
+typedef struct Ibl ibl_t;
 
 struct DrawData;
 
@@ -57,6 +58,7 @@ typedef struct RenderableExtents
 typedef struct SceneUbo
 {
     uint32_t model_count;
+    uint32_t ibl_mip_levels;
 } rpe_scene_ubo_t;
 
 typedef struct Scene
@@ -85,6 +87,8 @@ typedef struct Scene
 
     // Current camera information
     rpe_camera_t* curr_camera;
+    // Current IBL instance (optional).
+    ibl_t* curr_ibl;
 
     buffer_handle_t scene_ubo;
 

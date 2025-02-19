@@ -90,10 +90,11 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
     return instance;
 }
 
-uint32_t rpe_material_max_mipmaps(rpe_mapped_texture_t* tex)
+uint32_t rpe_material_max_mipmaps(uint32_t width, uint32_t height)
 {
-    assert(tex);
-    uint32_t p = MAX(tex->width, tex->height);
+    assert(width > 0);
+    assert(width == height);
+    uint32_t p = MAX(width, height);
     return (uint32_t)floorf(log2f((float)p) + 1);
 }
 
@@ -228,6 +229,13 @@ void rpe_material_set_front_face(rpe_material_t* m, enum FrontFace face)
     m->material_key.front_face = face;
 }
 
+void rpe_material_set_topology(rpe_material_t* m, enum PrimitiveTopology topo)
+{
+    assert(m);
+    m->program_bundle->render_prim.topology = primitive_topology_to_vk(topo);
+    m->material_key.topo = topo;
+}
+
 void rpe_material_set_cull_mode(rpe_material_t* m, enum CullMode mode)
 {
     assert(m);
@@ -331,7 +339,7 @@ void rpe_material_set_texture(
 
     vkapi_driver_t* driver = engine->driver;
 
-    tex->mip_levels = generate_mipmaps ? rpe_material_max_mipmaps(tex) : tex->mip_levels;
+    tex->mip_levels = generate_mipmaps ? rpe_material_max_mipmaps(tex->width, tex->height) : tex->mip_levels;
     params->mip_levels = tex->mip_levels;
 
     texture_handle_t h = vkapi_res_cache_create_tex2d(

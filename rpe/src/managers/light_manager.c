@@ -46,7 +46,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
     lm->shaders[RPE_BACKEND_SHADER_STAGE_VERTEX] = program_cache_from_spirv(
         driver->prog_manager,
         driver->context,
-        "lighting.vert.spv",
+        "fullscreen_quad.vert.spv",
         RPE_BACKEND_SHADER_STAGE_VERTEX,
         &engine->perm_arena);
     lm->shaders[RPE_BACKEND_SHADER_STAGE_FRAGMENT] = program_cache_from_spirv(
@@ -64,21 +64,16 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
 
     lm->program_bundle = program_cache_create_program_bundle(driver->prog_manager, arena);
 
-    /*shader_bundle_update_spec_const_data(
-        lm->program_bundle,
-        sizeof(struct MeshConstants),
-        &instance.mesh_consts,
-        RPE_BACKEND_SHADER_STAGE_VERTEX);
-    shader_bundle_update_spec_const_data(
-        instance.program_bundle,
-        sizeof(struct MaterialConstants),
-        &instance.material_consts,
-        RPE_BACKEND_SHADER_STAGE_FRAGMENT);*/
-
     shader_bundle_update_descs_from_reflection(
         lm->program_bundle, driver, lm->shaders[RPE_BACKEND_SHADER_STAGE_VERTEX], arena);
     shader_bundle_update_descs_from_reflection(
         lm->program_bundle, driver, lm->shaders[RPE_BACKEND_SHADER_STAGE_FRAGMENT], arena);
+
+    shader_bundle_update_spec_const_data(
+        lm->program_bundle,
+        sizeof(struct LightingConstants),
+        &lm->light_consts,
+        RPE_BACKEND_SHADER_STAGE_FRAGMENT);
 
     // Binding for the camera UBO
     shader_bundle_update_ubo_desc(
@@ -163,6 +158,7 @@ void set_sun_halo_falloff(rpe_light_manager_t* lm, rpe_light_instance_t* light, 
 }
 
 /** Public entry function **/
+
 void rpe_light_manager_create_light(
     rpe_light_manager_t* lm, rpe_light_create_info_t* ci, rpe_object_t obj, enum LightType type)
 {
@@ -197,9 +193,15 @@ void rpe_light_manager_create_light(
     ADD_OBJECT_TO_MANAGER(&lm->lights, idx, &instance);
 }
 
-void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_camera_t* camera)
+void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_camera_t* camera)
 {
     assert(lm);
+    assert(scene);
+
+    lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
+
+    // Set the scene UBO each update as the current scene may have changed (could instead just update on a call to set_current_scene?)
+    shader_bundle_update_ubo_desc(lm->program_bundle, 1, scene->scene_ubo);
 
     math_vec3f up = {0.0f, 1.0f, 0.0f};
     for (size_t i = 0; i < lm->lights.size; ++i)
@@ -214,6 +216,7 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_camera_t* camera)
 void rpe_light_manager_update_ssbo(
     rpe_light_manager_t* lm, struct LightInstance* lights, uint32_t count)
 {
+    assert(lm);
     assert(count < RPE_LIGHTING_SAMPLER_MAX_LIGHT_COUNT);
 
     // Clear the buffer, so we don't get any invalid values.
@@ -256,6 +259,7 @@ void rpe_light_manager_update_ssbo(
 
 rpe_light_instance_t* rpe_light_manager_get_dir_light_params(rpe_light_manager_t* lm)
 {
+    assert(lm);
     if (lm->dir_light_obj.id != UINT64_MAX)
     {
         return rpe_light_manager_get_light_instance(lm, lm->dir_light_obj);
@@ -266,6 +270,7 @@ rpe_light_instance_t* rpe_light_manager_get_dir_light_params(rpe_light_manager_t
 rpe_light_instance_t*
 rpe_light_manager_get_light_instance(rpe_light_manager_t* lm, rpe_object_t obj)
 {
+    assert(lm);
     assert(rpe_comp_manager_has_obj(lm->comp_manager, obj));
     uint64_t idx = rpe_comp_manager_get_obj_idx(lm->comp_manager, obj);
     return DYN_ARRAY_GET_PTR(rpe_light_instance_t, &lm->lights, idx);
@@ -273,42 +278,49 @@ rpe_light_manager_get_light_instance(rpe_light_manager_t* lm, rpe_object_t obj)
 
 void rpe_light_manager_set_intensity(rpe_light_manager_t* lm, rpe_object_t obj, float intensity)
 {
+    assert(lm);
     rpe_light_instance_t* i = rpe_light_manager_get_light_instance(lm, obj);
     set_intensity(i, intensity, i->type);
 }
 
 void rpe_light_manager_set_fallout(rpe_light_manager_t* lm, rpe_object_t obj, float fallout)
 {
+    assert(lm);
     rpe_light_instance_t* i = rpe_light_manager_get_light_instance(lm, obj);
     set_radius(i, fallout);
 }
 
 void rpe_light_manager_set_position(rpe_light_manager_t* lm, rpe_object_t obj, math_vec3f* pos)
 {
+    assert(lm);
     rpe_light_instance_t* i = rpe_light_manager_get_light_instance(lm, obj);
     i->position = *pos;
 }
 
 void rpe_light_manager_set_target(rpe_light_manager_t* lm, rpe_object_t obj, math_vec3f* target)
 {
+    assert(lm);
     rpe_light_instance_t* i = rpe_light_manager_get_light_instance(lm, obj);
     i->target = *target;
 }
 
 void rpe_light_manager_set_colour(rpe_light_manager_t* lm, rpe_object_t obj, math_vec3f* col)
 {
+    assert(lm);
     rpe_light_instance_t* i = rpe_light_manager_get_light_instance(lm, obj);
     i->colour = *col;
 }
 
 void rpe_light_manager_set_fov(rpe_light_manager_t* lm, rpe_object_t obj, float fov)
 {
+    assert(lm);
     rpe_light_instance_t* i = rpe_light_manager_get_light_instance(lm, obj);
     i->fov = fov;
 }
 
 void rpe_light_manager_destroy(rpe_light_manager_t* lm, rpe_object_t obj)
 {
+    assert(lm);
     bool res = rpe_comp_manager_remove(lm->comp_manager, obj);
     assert(res);
 }

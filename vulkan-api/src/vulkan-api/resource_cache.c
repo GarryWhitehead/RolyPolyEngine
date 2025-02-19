@@ -81,7 +81,8 @@ texture_handle_t vkapi_res_push_reserved_tex2d(
         vkapi_texture_create_image(context, &tex, usage_flags);
     }
 
-    tex.image_views[0] = vkapi_texture_create_image_view(context, &tex);
+    tex.framebuffer_imageview = vkapi_texture_create_image_view(context, &tex, 0, 1);
+
     tex.image_layout = (vkapi_util_is_depth(format) || vkapi_util_is_stencil(format))
         ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL
         : (usage_flags & VK_IMAGE_USAGE_STORAGE_BIT) ? VK_IMAGE_LAYOUT_GENERAL
@@ -98,14 +99,15 @@ texture_handle_t vkapi_res_cache_create_tex2d(
     VkFormat format,
     uint32_t width,
     uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
+    uint32_t mip_levels,
+    uint32_t face_count,
+    uint32_t array_count,
     VkImageUsageFlags usage_flags,
     sampler_params_t* sampler_params)
 {
+    uint32_t levels = mip_levels == 0xffff ? (uint32_t)floorf(log2f((float)MAX(width, height)) + 1) : mip_levels;
     vkapi_texture_t t =
-        vkapi_texture_init(width, height, mip_levels, face_count, array_count, format);
+        vkapi_texture_init(width, height, levels, face_count, array_count, format);
     texture_handle_t handle = {.id = cache->textures.size};
     vkapi_texture_create_2d(context, sampler_cache, &t, usage_flags, sampler_params);
     if (cache->free_tex_slots.size > 0)

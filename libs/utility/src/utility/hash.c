@@ -23,59 +23,63 @@
 #include "hash.h"
 
 #include <assert.h>
-#include <stddef.h>
 #include <string.h>
 
-uint32_t murmur_hash3(void* key, uint32_t size)
+uint32_t murmur2_hash(void* data, uint32_t len, uint32_t seed)
 {
-    assert(key);
-    assert(size > 0);
+    assert(len > 0);
 
-    uint32_t tmp = 0;
-    size_t nblocks = size / sizeof(uint32_t);
-    uint32_t* key_32 = (uint32_t*)key;
+    const uint64_t Constant = 0xc6a4a7935bd1e995ULL;
+    const int Rotation = 47;
 
-    // For value types <= 3, pad into four bytes to avoid an out-of-bounds memory copy below.
-    if (size <= 3)
+    uint64_t h1 = seed ^ (len * Constant);
+
+    const uint64_t* dataPtr = (uint64_t*)data;
+    const uint64_t* endPtr = dataPtr + (len / 8);
+
+    // Process the "body" - 8bytes processed per loop.
+    while (dataPtr != endPtr)
     {
-        memcpy(&tmp, key, size);
-        nblocks = 1;
-        key_32 = &tmp;
+        uint64_t k1 = *(dataPtr++);
+        k1 *= Constant;
+        k1 ^= k1 >> Rotation;
+        k1 *= Constant;
+        h1 ^= k1;
+        h1 *= Constant;
     }
 
-    uint32_t h1 = 0;
-    uint32_t c1 = 0xcc9e2d51;
-    uint32_t c2 = 0x1b873593;
-    uint32_t c3 = 0x85ebca6b;
-    uint32_t c4 = 0xc2b2ae35;
+    // Process any remaining bytes - max of 7bytes.
+    const uint8_t* tail = (uint8_t*)dataPtr;
 
-    // body
-    do
+    switch (len & 7)
     {
-        uint32_t k1;
-        memcpy((void*)&k1, (void*)key_32, sizeof(uint32_t));
-        key_32++;
-        k1 *= c1;
-        k1 = ROTL32(k1, 15);
-        k1 *= c2;
-        h1 ^= k1;
-        h1 = ROTL32(h1, 13);
-        h1 = (h1 * 5) + 0xe6546b64;
-    } while (--nblocks);
+        case 7:
+            h1 ^= (uint64_t)tail[6] << 48;
+        case 6:
+            h1 ^= (uint64_t)tail[5] << 40;
+        case 5:
+            h1 ^= (uint64_t)tail[4] << 32;
+        case 4:
+            h1 ^= (uint64_t)tail[3] << 24;
+        case 3:
+            h1 ^= (uint64_t)tail[2] << 16;
+        case 2:
+            h1 ^= (uint64_t)tail[1] << 8;
+        case 1:
+            h1 ^= (uint64_t)tail[0];
+            h1 *= Constant;
+    }
 
-    // tail
-    h1 ^= nblocks;
-    h1 ^= h1 >> 16;
-    h1 *= c3;
-    h1 ^= h1 >> 13;
-    h1 *= c4;
-    h1 ^= h1 >> 16;
+    // Finalise mix.
+    h1 ^= h1 >> Rotation;
+    h1 *= Constant;
+    h1 ^= h1 >> Rotation;
 
     return h1;
 }
 
-uint32_t murmur_hash3_string(void* key, uint32_t)
+uint32_t murmur2_hash_string(void* key, uint32_t, uint32_t)
 {
     uint32_t str_size = strlen((const char*)key);
-    return murmur_hash3(key, str_size);
+    return murmur2_hash(key, str_size, 0);
 }

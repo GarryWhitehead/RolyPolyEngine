@@ -87,7 +87,7 @@ void rpe_rend_manager_add(
 
     m->is_dirty = true;
     uint32_t material_key =
-        murmur_hash3(&renderable->material->material_key, sizeof(struct MaterialKey));
+        murmur2_hash(&renderable->material->material_key, sizeof(struct MaterialKey), 0);
     struct SortKey key = {
         .program_id = material_key,
         .view_layer = renderable->material->view_layer,

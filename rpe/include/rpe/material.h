@@ -83,6 +83,7 @@ void rpe_material_set_depth_compare_op(rpe_material_t* m, enum CompareOp op);
 void rpe_material_set_polygon_mode(rpe_material_t* m, enum PolygonMode mode);
 void rpe_material_set_front_face(rpe_material_t* m, enum FrontFace face);
 void rpe_material_set_cull_mode(rpe_material_t* m, enum CullMode mode);
+void rpe_material_set_topology(rpe_material_t* m, enum PrimitiveTopology topo);
 
 void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer);
 

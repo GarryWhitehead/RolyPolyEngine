@@ -19,8 +19,8 @@ layout(location = 4) out vec4 outColour;
 layout(location = 5) out uint outModelDrawIdx;
 layout(location = 6) out vec3 outPos;
 
-layout (constant_id = 0) const int HAS_SKIN = 0;
-layout (constant_id = 1) const int HAS_NORMAL = 0;
+layout (constant_id = 0) const bool HAS_SKIN = false;
+layout (constant_id = 1) const bool HAS_NORMAL = false;
 
 #define MAX_BONES 250
 
@@ -42,41 +42,34 @@ layout (binding = 0, set = 0) uniform CameraUbo
 
 void main()
 {
-    mat4 normalTransform;
+    mat4 modelTransform;
 
-    if (HAS_SKIN == 1)
+    if (HAS_SKIN)
     {
         mat4 boneTransform = skin_ssbo.bones[int(inBoneId.x)] * inWeights.x;
         boneTransform += skin_ssbo.bones[int(inBoneId.y)] * inWeights.y;
         boneTransform += skin_ssbo.bones[int(inBoneId.z)] * inWeights.z;
         boneTransform += skin_ssbo.bones[int(inBoneId.w)] * inWeights.w;
     
-        normalTransform = transform_ssbo.modelTransform[inModelObjectId] * boneTransform;
+        modelTransform = transform_ssbo.modelTransform[inModelObjectId] * boneTransform;
     }
     else
     {
-        normalTransform = transform_ssbo.modelTransform[inModelObjectId];
+        modelTransform = transform_ssbo.modelTransform[inModelObjectId];
     }
 
-    vec4 pos = normalTransform * vec4(inPos, 1.0);
+    vec4 pos = modelTransform * vec4(inPos, 1.0);
 
-    // inverse-transpose for non-uniform scaling - expensive computations here -
-    // maybe remove this?
-    if (HAS_NORMAL == 1)
-    {
-        outNormal = normalize(transpose(inverse(mat3(normalTransform))) * inNormal);
-    }
-    else
-    {
-        outNormal = vec3(0.0);
-    }
+    mat4 normalTransform = transpose(inverse(modelTransform));
+
+    outNormal = HAS_NORMAL ? normalize(normalTransform * vec4(inNormal, 0.0)).rgb : vec3(0.0);
+    outTangent = modelTransform * inTangent;
 
     outUv0 = inUv0;
     outUv1 = inUv1;
     outColour = inColour;
-    outTangent = inTangent;
     outModelDrawIdx = inModelDrawIdx;
 
-    outPos = pos.xyz / pos.w;
+    outPos = pos.xyz /pos.w;
     gl_Position = camera_ubo.mvp * vec4(outPos, 1.0);
 }

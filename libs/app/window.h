@@ -59,7 +59,7 @@ typedef struct AppWindow
     VkSurfaceKHR vk_surface;
 
     rpe_camera_view_t cam_view;
-    rpe_camera_t camera;
+    rpe_camera_t* camera;
 } app_window_t;
 
 /**

@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,20 +25,15 @@
 
 #include <stdint.h>
 
-static inline uint32_t rotl32(uint32_t x, int8_t r) { return (x << r) | (x >> (32 - r)); }
-
-#define ROTL32(x, y) rotl32(x, y)
-
-#define BIG_CONSTANT(x) (x##LLU)
-
 /**
- A 32bit murmur3 hasher adapted from here:
- https://github.com/PeterScott/murmur3 This is for the use with smaller keys
- with an improvement in performance compared to 128bit versions
+ A 64-bit murmur2 hasher implementation combining a multiplicative hash with a XOR shift.
+ This hasher is designed with performance in mind, not to be used in a cryptographic scenario!
+ The original murmur2 implementation can be found in the temple of hashers:
+ https://github.com/aappleby/smhasher/tree/master
  */
-uint32_t murmur_hash3(void* key, uint32_t size);
+uint32_t murmur2_hash(void* data, uint32_t len, uint32_t seed);
 
 // Specialised murmur hash for strings.
-uint32_t murmur_hash3_string(void* key, uint32_t);
+uint32_t murmur2_hash_string(void* key, uint32_t, uint32_t);
 
 #endif

@@ -206,6 +206,14 @@ void vkapi_driver_map_gpu_buffer(
     vkapi_buffer_map_to_gpu_buffer(buffer, data, size, offset);
 }
 
+void vkapi_driver_destroy_rt(vkapi_driver_t* driver, vkapi_rt_handle_t* h)
+{
+    assert(driver);
+    assert(h->id < driver->render_targets.size);
+    DYN_ARRAY_REMOVE(&driver->render_targets, h->id);
+    h->id = UINT32_MAX;
+}
+
 void vkapi_driver_map_gpu_texture(
     vkapi_driver_t* driver,
     texture_handle_t h,
@@ -228,6 +236,22 @@ void vkapi_driver_map_gpu_texture(
         offsets,
         &driver->_scratch_arena,
         generate_mipmaps);
+}
+
+void vkapi_driver_map_gpu_vertex(
+    vkapi_driver_t* driver,
+    buffer_handle_t vertex_handle,
+    void* vertices,
+    uint32_t vertex_sz,
+    buffer_handle_t index_handle,
+    void* indices,
+    uint32_t indices_sz)
+{
+    vkapi_buffer_t* vert_buffer = vkapi_res_cache_get_buffer(driver->res_cache, vertex_handle);
+    vkapi_buffer_t* index_buffer = vkapi_res_cache_get_buffer(driver->res_cache, index_handle);
+
+    vkapi_buffer_upload_vertex_data(vert_buffer, driver, vertices, vertex_sz, 0);
+    vkapi_buffer_upload_index_data(index_buffer, driver, indices, indices_sz, 0);
 }
 
 bool vkapi_driver_begin_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
@@ -350,7 +374,8 @@ void vkapi_driver_begin_rpass(
         if (vkapi_tex_handle_is_valid(colour.handle))
         {
             vkapi_texture_t* tex = vkapi_res_cache_get_tex2d(driver->res_cache, colour.handle);
-            fbo_key.views[idx] = tex->image_views[colour.level];
+
+            fbo_key.views[idx] = colour.level > 0 ? tex->image_views[colour.level] : tex->framebuffer_imageview;
             assert(fbo_key.views[idx] && "ImageView for attachment is invalid.");
             ++count;
         }
@@ -358,7 +383,7 @@ void vkapi_driver_begin_rpass(
     if (vkapi_tex_handle_is_valid(rt->depth.handle))
     {
         vkapi_texture_t* tex = vkapi_res_cache_get_tex2d(driver->res_cache, rt->depth.handle);
-        fbo_key.views[count++] = tex->image_views[0];
+        fbo_key.views[count++] = tex->framebuffer_imageview;
     }
 
     vkapi_fbo_t* fbo =
@@ -422,6 +447,7 @@ void vkapi_driver_begin_rpass(
     vkapi_pline_cache_bind_rpass(driver->pline_cache, rpass->instance);
     vkapi_pline_cache_bind_colour_attach_count(
         driver->pline_cache, vkapi_rpass_get_attach_count(rpass));
+    arena_reset(&driver->_scratch_arena);
 }
 
 void vkapi_driver_end_rpass(VkCommandBuffer cmds) { vkCmdEndRenderPass(cmds); }
@@ -442,7 +468,8 @@ void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_h
     vkCmdBindIndexBuffer(cmd_buffer->instance, ib->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
+void vkapi_driver_bind_gfx_pipeline(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind)
 {
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
@@ -494,7 +521,8 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
         cmds->instance,
         bundle,
         pl_layout->instance,
-        VK_PIPELINE_BIND_POINT_GRAPHICS);
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        force_rebind);
     vkapi_pline_cache_bind_gfx_shader_modules(driver->pline_cache, bundle);
 
     // Bind the rasterisation and depth/stencil states
@@ -537,28 +565,30 @@ void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t
 
     // if the width and height are zero then ignore setting the scissors and/or
     // viewport and go with the extents set upon initiation of the renderpass
-    if (bundle->scissor.extent.width > 0 && bundle->scissor.extent.height > 0)
+    if (bundle->scissor.extent.width > 0)
     {
         vkCmdSetScissor(cmds->instance, 0, 1, &bundle->scissor);
     }
-    if (bundle->viewport.width > 0 && bundle->viewport.height > 0)
+    if (bundle->viewport.width > 0)
     {
         vkCmdSetViewport(cmds->instance, 0, 1, &bundle->viewport);
     }
 
     vkapi_pline_cache_bind_gfx_pl_layout(driver->pline_cache, pl_layout->instance);
     vkapi_pline_cache_bind_graphics_pline(
-        driver->pline_cache, cmds->instance, bundle->spec_const_params);
+        driver->pline_cache, cmds->instance, bundle->spec_const_params, force_rebind);
 }
 
 void vkapi_driver_set_push_constant(
-    vkapi_driver_t* driver, void* data, size_t size, VkShaderStageFlags stage)
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, void* data, enum ShaderStage stage)
 {
     assert(driver);
     assert(data);
     VkPipelineLayout l = driver->pline_cache->bound_graphics_pline.pl_layout;
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkCmdPushConstants(cmd_buffer->instance, l, stage, 0, size, data);
+    size_t size = bundle->push_blocks[stage].range;
+    assert(size > 0);
+    vkCmdPushConstants(cmd_buffer->instance, l, bundle->push_blocks[stage].stage, 0, size, data);
 }
 
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset)
@@ -570,6 +600,7 @@ void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vert
 void vkapi_driver_draw_indexed(
     vkapi_driver_t* driver, uint32_t index_count, int32_t vertex_offset, int32_t index_offset)
 {
+    assert(driver);
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkCmdDrawIndexed(cmd_buffer->instance, index_count, 1, index_offset, vertex_offset, 0);
 }
@@ -582,6 +613,7 @@ void vkapi_driver_draw_indirect_indexed(
     uint32_t draw_count_offset,
     uint32_t stride)
 {
+    assert(driver);
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_buffer_t* ic_buffer = vkapi_res_cache_get_buffer(driver->res_cache, indirect_cmd_buffer);
     vkapi_buffer_t* count_buffer = vkapi_res_cache_get_buffer(driver->res_cache, cmd_count_buffer);
@@ -673,7 +705,12 @@ void vkapi_driver_dispatch_compute(
 
     RENDERDOC_START_CAPTURE(NULL, NULL)
     vkapi_desc_cache_bind_descriptors(
-        driver->desc_cache, cmds->instance, bundle, pl_instance, VK_PIPELINE_BIND_POINT_COMPUTE);
+        driver->desc_cache,
+        cmds->instance,
+        bundle,
+        pl_instance,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        false);
     vkapi_pline_cache_bind_compute_shader_modules(driver->pline_cache, bundle);
 
     vkapi_pline_cache_bind_compute_pl_layout(driver->pline_cache, pl_instance);
@@ -702,8 +739,44 @@ void vkapi_driver_dispatch_compute(
 void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
 {
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle, false);
     vkCmdDraw(cmd_buffer->instance, 3, 1, 0, 0);
+}
+
+void vkapi_driver_generate_mipmaps(
+    vkapi_driver_t* driver, texture_handle_t handle, size_t level_count)
+{
+    assert(driver);
+    vkapi_texture_t* tex = vkapi_res_cache_get_tex2d(driver->res_cache, handle);
+    vkapi_texture_gen_mipmaps(tex, driver->context, driver->commands, level_count);
+}
+
+void vkapi_driver_transition_image(
+    vkapi_driver_t* driver,
+    texture_handle_t h,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    uint32_t mip_levels)
+{
+    if (old_layout == new_layout)
+    {
+        return;
+    }
+
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_texture_t* texture = vkapi_res_cache_get_tex2d(driver->res_cache, h);
+
+    VkPipelineStageFlags old_flags = vkapi_texture_get_pline_stage_flag(old_layout);
+    VkPipelineStageFlags new_flags = vkapi_texture_get_pline_stage_flag(new_layout);
+
+    vkapi_texture_image_multi_transition(
+        texture,
+        old_layout,
+        new_layout,
+        cmds->instance,
+        old_flags,
+        new_flags,
+        mip_levels);
 }
 
 void vkapi_driver_apply_global_barrier(

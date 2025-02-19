@@ -106,6 +106,7 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
     vkapi_attach_info_t stencil);
+void vkapi_driver_destroy_rt(vkapi_driver_t* driver, vkapi_rt_handle_t* h);
 
 bool vkapi_driver_begin_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc);
 void vkapi_driver_end_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc);
@@ -121,10 +122,11 @@ void vkapi_driver_bind_vertex_buffer(
     vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding);
 void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle);
 
-void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
+void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind);
 
 void vkapi_driver_map_gpu_buffer(
     vkapi_driver_t* driver, buffer_handle_t h, size_t size, size_t offset, void* data);
+
 void vkapi_driver_map_gpu_texture(
     vkapi_driver_t* driver,
     texture_handle_t h,
@@ -133,12 +135,27 @@ void vkapi_driver_map_gpu_texture(
     size_t* offsets,
     bool generate_mipmaps);
 
+void vkapi_driver_map_gpu_vertex(
+    vkapi_driver_t* driver,
+    buffer_handle_t vertex_handle,
+    void* vertices,
+    uint32_t vertex_sz,
+    buffer_handle_t index_handle,
+    void* indices,
+    uint32_t indices_sz);
+
+// The pipeline layout must be bound either by a call to vkapi_driver_bind_gfx_pipeline or some other means before calling this function.
 void vkapi_driver_set_push_constant(
-    vkapi_driver_t* driver, void* data, size_t size, VkShaderStageFlags stage);
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, void* data, enum ShaderStage stage);
 
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset);
+
 void vkapi_driver_draw_indexed(
-    vkapi_driver_t* driver, uint32_t index_count, int32_t vertex_offset, int32_t index_offset);
+    vkapi_driver_t* driver,
+    uint32_t index_count,
+    int32_t vertex_offset,
+    int32_t index_offset);
+
 void vkapi_driver_draw_indirect_indexed(
     vkapi_driver_t* driver,
     buffer_handle_t indirect_cmd_buffer,
@@ -162,14 +179,23 @@ void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle
 void vkapi_driver_clear_gpu_buffer(
     vkapi_driver_t* driver, vkapi_cmdbuffer_t* cmd_buffer, buffer_handle_t handle);
 
+void vkapi_driver_transition_image(
+    vkapi_driver_t* driver,
+    texture_handle_t h,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    uint32_t mip_levels);
+
 void vkapi_driver_apply_global_barrier(
     vkapi_driver_t* driver,
     VkPipelineStageFlags src_stage,
     VkPipelineStageFlags dst_stage,
     VkAccessFlags src_access,
     VkAccessFlags dst_access);
+
 void vkapi_driver_acquire_buffer_barrier(
     vkapi_driver_t* driver, vkapi_cmdbuffer_t*, buffer_handle_t handle, enum BarrierType type);
+
 void vkapi_driver_release_buffer_barrier(
     vkapi_driver_t* driver, vkapi_cmdbuffer_t*, buffer_handle_t handle, enum BarrierType type);
 
@@ -177,6 +203,9 @@ void vkapi_driver_flush_compute_cmds(vkapi_driver_t* driver);
 void vkapi_driver_flush_gfx_cmds(vkapi_driver_t* driver);
 vkapi_cmdbuffer_t* vkapi_driver_get_compute_cmds(vkapi_driver_t* driver);
 vkapi_cmdbuffer_t* vkapi_driver_get_gfx_cmds(vkapi_driver_t* driver);
+
+void vkapi_driver_generate_mipmaps(
+    vkapi_driver_t* driver, texture_handle_t handle, size_t level_count);
 
 void vkapi_driver_gc(vkapi_driver_t* driver);
 

@@ -102,6 +102,7 @@ typedef struct Material
         bool depth_test_enable;
         bool depth_write_enable;
         enum CompareOp depth_compare_op;
+        enum PrimitiveTopology topo;
 
         struct MaterialBlendFactor blend_state;
         struct MaterialConstants constants;
@@ -133,6 +134,6 @@ void rpe_material_set_viewport(
 
 void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh);
 
-uint32_t rpe_material_max_mipmaps(rpe_mapped_texture_t* tex);
+uint32_t rpe_material_max_mipmaps(uint32_t width, uint32_t height);
 
 #endif

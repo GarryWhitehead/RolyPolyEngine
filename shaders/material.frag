@@ -125,34 +125,32 @@ void main()
     if (HAS_NORMAL_SAMPLER && HAS_UV)
     {
         vec2 uv = iData.normalUv == 0 ? inUv0 : inUv1;
-        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - 1.0;
+        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - vec3(1.0);
 
         if (HAS_NORMAL && HAS_TANGENT)
         {
             vec3 N = normalize(inNormal);
 	        vec3 T = normalize(inTangent.xyz);
-	        vec3 B = cross(inNormal, inTangent.xyz) * inTangent.w;
+	        vec3 B = cross(N, T) * inTangent.w;
 	        mat3 TBN = mat3(T, B, N);
-            outNormal = vec4(TBN * norm, 1.0);
+            outNormal = vec4(normalize(TBN * norm), 0.0);
         }
         else
         {
-            outNormal = vec4(peturbNormal(uv, norm), 1.0);
+            outNormal = vec4(peturbNormal(uv, norm), 0.0);
         }
     }
     else if (HAS_NORMAL)
     {
-        outNormal = vec4(normalize(inNormal), 1.0);
+        outNormal = vec4(normalize(inNormal), 0.0);
     }
     else
     {
-        outNormal = vec4(normalize(cross(dFdx(inPos), dFdy(inPos))), 1.0);
+        outNormal = vec4(normalize(cross(dFdx(inPos), dFdy(inPos))), 0.0);
     }
-
 
     // albedo
     vec4 baseColour = vec4(1.0);
-
     
 	if (HAS_ALPHA_MASK)
     {

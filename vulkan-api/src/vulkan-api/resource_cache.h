@@ -78,9 +78,9 @@ texture_handle_t vkapi_res_cache_create_tex2d(
     VkFormat format,
     uint32_t width,
     uint32_t height,
-    uint8_t mip_levels,
-    uint8_t face_count,
-    uint8_t array_count,
+    uint32_t mip_levels,
+    uint32_t face_count,
+    uint32_t array_count,
     VkImageUsageFlags usage_flags,
     sampler_params_t* sampler_params);
 

@@ -38,8 +38,8 @@
 gltf_resource_loader_t gltf_resource_loader_init(arena_t* arena)
 {
     gltf_resource_loader_t rl = {0};
-    rl.uri_filename_cache = HASH_SET_CREATE(char*, rpe_mapped_texture_t, arena, murmur_hash3);
-    rl.buffer_texture_cache = HASH_SET_CREATE(uint8_t*, rpe_mapped_texture_t, arena, murmur_hash3);
+    rl.uri_filename_cache = HASH_SET_CREATE(char*, rpe_mapped_texture_t, arena);
+    rl.buffer_texture_cache = HASH_SET_CREATE(uint8_t*, rpe_mapped_texture_t, arena);
     return rl;
 }
 

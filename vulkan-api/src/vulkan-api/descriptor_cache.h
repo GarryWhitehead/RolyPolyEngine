@@ -27,7 +27,7 @@
 // Bindless samplers used by graphics pipeline.
 #define VKAPI_PIPELINE_MAX_SAMPLER_BINDLESS_COUNT 1024
 // Bound samplers for compute shaders.
-#define VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT 6
+#define VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT 10
 #define VKAPI_PIPELINE_MAX_UBO_BIND_COUNT 8
 #define VKAPI_PIPELINE_MAX_DYNAMIC_UBO_BIND_COUNT 4
 #define VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT 6
@@ -104,7 +104,8 @@ void vkapi_desc_cache_bind_descriptors(
     VkCommandBuffer cmdBuffer,
     shader_prog_bundle_t* bundle,
     VkPipelineLayout layout,
-    VkPipelineBindPoint bind_point);
+    VkPipelineBindPoint bind_point,
+    bool force_rebind);
 
 vkapi_desc_cache_t* vkapi_desc_cache_init(vkapi_driver_t* driver, arena_t* arena);
 

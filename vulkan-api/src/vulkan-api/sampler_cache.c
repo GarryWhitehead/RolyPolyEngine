@@ -32,7 +32,7 @@
 vkapi_sampler_cache_t* vkapi_sampler_cache_init(arena_t* arena)
 {
     vkapi_sampler_cache_t* c = ARENA_MAKE_ZERO_STRUCT(arena, vkapi_sampler_cache_t);
-    c->samplers = HASH_SET_CREATE(sampler_params_t, VkSampler*, arena, murmur_hash3);
+    c->samplers = HASH_SET_CREATE(sampler_params_t, VkSampler*, arena);
     return c;
 }
 

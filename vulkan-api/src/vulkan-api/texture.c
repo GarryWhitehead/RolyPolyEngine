@@ -182,7 +182,6 @@ vkapi_texture_t vkapi_texture_init(
     VkFormat format)
 {
     assert(width > 0 && height > 0);
-    assert(mip_levels > 0 && mip_levels <= VKAPI_TEXTURE_MAX_MIP_COUNT);
     assert(face_count >= 1 && face_count <= 6);
 
     vkapi_texture_t tex = {
@@ -207,6 +206,7 @@ void vkapi_texture_destroy(vkapi_context_t* context, vkapi_texture_t* texture)
     {
         vkDestroyImageView(context->device, texture->image_views[level], VK_NULL_HANDLE);
     }
+    vkDestroyImageView(context->device, texture->framebuffer_imageview, VK_NULL_HANDLE);
     vkDestroyImage(context->device, texture->image, VK_NULL_HANDLE);
 }
 
@@ -232,7 +232,6 @@ void vkapi_texture_create_image(
 
     if (texture->info.face_count == 6)
     {
-        image_info.arrayLayers = 6;
         image_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
     }
 
@@ -254,7 +253,7 @@ void vkapi_texture_create_image(
     vkBindImageMemory(context->device, texture->image, texture->image_memory, 0);
 }
 
-VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture)
+VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture, uint32_t mip_level, uint32_t mip_count)
 {
     // Work out the image view type.
     VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
@@ -281,9 +280,9 @@ VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_text
     create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.subresourceRange.layerCount = texture->info.face_count;
-    create_info.subresourceRange.baseMipLevel = 0;
+    create_info.subresourceRange.baseMipLevel = mip_level;
     create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.levelCount = texture->info.mip_levels;
+    create_info.subresourceRange.levelCount = mip_count;
     create_info.subresourceRange.aspectMask = aspect;
 
     VkImageView image_view;
@@ -312,18 +311,19 @@ void vkapi_texture_create_2d(
     sampler_params_t* sampler_params)
 {
     assert(sampler_params);
-    assert(
-        texture->info.mip_levels <= VKAPI_TEXTURE_MAX_MIP_COUNT &&
-        "Requested mip level exceed max allowed count");
 
     // create an empty image
     vkapi_texture_create_image(context, texture, usage_flags);
 
-    // and a image view for each mip level
-    for (uint32_t level = 0; level < texture->info.mip_levels; ++level)
+    // First image view declares all mip levels for this image.
+    texture->image_views[0] = vkapi_texture_create_image_view(context, texture, 0, texture->info.mip_levels);
+    for (uint32_t i = 1; i < texture->info.mip_levels; ++i)
     {
-        texture->image_views[level] = vkapi_texture_create_image_view(context, texture);
+        // Image view for use as render target per mip level.
+        texture->image_views[i] = vkapi_texture_create_image_view(context, texture, i, 1);
     }
+    // For use as with framebuffer as declares single mip level to avoid validation errors.
+    texture->framebuffer_imageview = vkapi_texture_create_image_view(context, texture, 0, 1);
 
     texture->image_layout =
         (vkapi_util_is_depth(texture->info.format) || vkapi_util_is_stencil(texture->info.format))
@@ -331,6 +331,7 @@ void vkapi_texture_create_2d(
         : (usage_flags & VK_IMAGE_USAGE_STORAGE_BIT) ? VK_IMAGE_LAYOUT_GENERAL
                                                      : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    sampler_params->mip_levels = texture->info.mip_levels;
     vkapi_texture_update_sampler(context, sc, texture, sampler_params);
 }
 
@@ -357,6 +358,8 @@ void vkapi_texture_map(
 
     VkBufferImageCopy* copy_buffers;
     uint32_t copy_size;
+
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(context, commands);
 
     if (!generate_mipmaps)
     {
@@ -388,13 +391,24 @@ void vkapi_texture_map(
                 copy_buffers[idx].bufferOffset = offsets[face * texture->info.mip_levels + level];
                 copy_buffers[idx].imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
                 copy_buffers[idx].imageSubresource.mipLevel = level;
-                copy_buffers[idx].imageSubresource.layerCount = face;
-                copy_buffers[idx].imageSubresource.baseArrayLayer = 1;
+                copy_buffers[idx].imageSubresource.layerCount = 1;
+                copy_buffers[idx].imageSubresource.baseArrayLayer = face;
                 copy_buffers[idx].imageExtent.width = texture->info.width >> level;
                 copy_buffers[idx].imageExtent.height = texture->info.height >> level;
                 copy_buffers[idx].imageExtent.depth = 1;
             }
         }
+        // Transition all mips to for dst transfer - this is required as the last step in copying is
+        // then to transition all mips ready for shader read. Not having the levels in the correct
+        // layout leads to validation warnings.
+        vkapi_texture_image_multi_transition(
+            texture,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            texture->info.mip_levels);
     }
     else
     {
@@ -409,21 +423,16 @@ void vkapi_texture_map(
         copy_buffers[0].imageExtent.width = texture->info.width;
         copy_buffers[0].imageExtent.height = texture->info.height;
         copy_buffers[0].imageExtent.depth = 1;
+
+        vkapi_texture_image_transition(
+            texture,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0);
     }
-
-    // Now copy image to the local device - first prepare the image for copying via
-    // transitioning to a transfer state. After copying, the image is
-    // then transitioned ready for reading by the shader.
-    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(context, commands);
-
-    vkapi_texture_image_transition(
-        texture,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        cmds->instance,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0);
 
     vkCmdCopyBufferToImage(
         cmds->instance,
@@ -433,31 +442,48 @@ void vkapi_texture_map(
         copy_size,
         copy_buffers);
 
-    vkapi_texture_image_transition(
-        texture,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        cmds->instance,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0);
-
     if (generate_mipmaps)
     {
+        // Only the first level is transitioned, the other mip levels will be transitioned during
+        // blitting.
+        vkapi_texture_image_transition(
+            texture,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0);
+
         vkapi_texture_gen_mipmaps(texture, context, commands, texture->info.mip_levels);
     }
+    else
+    {
+        // Transition all mip levels ready for reads by the shader pipeline.
+        vkapi_texture_image_multi_transition(
+            texture,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            texture->info.mip_levels);
+    }
+    arena_reset(scratch_arena);
 }
 
-void vkapi_texture_image_transition(
+void image_transition(
     vkapi_texture_t* texture,
     VkImageLayout old_layout,
     VkImageLayout new_layout,
     VkCommandBuffer cmd_buffer,
     VkPipelineStageFlags srcStage,
     VkPipelineStageFlags dstStage,
-    uint32_t baseMipMapLevel)
+    VkImageSubresourceRange* subresource_ranges,
+    uint32_t subresource_ranges_count)
 {
-    VkImageAspectFlags mask = vkapi_texture_aspect_flags(texture->info.format);
+    assert(subresource_ranges_count > 0);
+
     VkAccessFlags srcBarrier, dstBarrier;
 
     switch (old_layout)
@@ -506,34 +532,91 @@ void vkapi_texture_image_transition(
             dstBarrier = 0;
     }
 
+    VkImageMemoryBarrier mem_barriers[12] = {0};
+    for (uint32_t i = 0; i < subresource_ranges_count; ++i)
+    {
+        mem_barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        mem_barriers[i].image = texture->image;
+        mem_barriers[i].oldLayout = old_layout;
+        mem_barriers[i].newLayout = new_layout;
+        mem_barriers[i].subresourceRange = subresource_ranges[i];
+        mem_barriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        mem_barriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        mem_barriers[i].srcAccessMask = srcBarrier;
+        mem_barriers[i].dstAccessMask = dstBarrier;
+    }
+
+    vkCmdPipelineBarrier(
+        cmd_buffer,
+        srcStage,
+        dstStage,
+        0,
+        0,
+        VK_NULL_HANDLE,
+        0,
+        VK_NULL_HANDLE,
+        subresource_ranges_count,
+        mem_barriers);
+
+    texture->image_layout = new_layout;
+}
+
+void vkapi_texture_image_transition(
+    vkapi_texture_t* texture,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkCommandBuffer cmd_buffer,
+    VkPipelineStageFlags srcStage,
+    VkPipelineStageFlags dstStage,
+    uint32_t baseMipMapLevel)
+{
+    VkImageAspectFlags mask = vkapi_texture_aspect_flags(texture->info.format);
+
     VkImageSubresourceRange subresourceRange = {0};
     subresourceRange.aspectMask = mask;
     subresourceRange.levelCount = 0;
     subresourceRange.layerCount = texture->info.array_count * texture->info.face_count;
     subresourceRange.baseMipLevel = texture->info.mip_levels;
     subresourceRange.baseArrayLayer = 0;
+    subresourceRange.baseMipLevel = baseMipMapLevel;
+    subresourceRange.levelCount = 1;
 
-    if (baseMipMapLevel != UINT32_MAX)
+    image_transition(
+        texture, old_layout, new_layout, cmd_buffer, srcStage, dstStage, &subresourceRange, 1);
+}
+
+void vkapi_texture_image_multi_transition(
+    vkapi_texture_t* texture,
+    VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkCommandBuffer cmd_buffer,
+    VkPipelineStageFlags srcStage,
+    VkPipelineStageFlags dstStage,
+    uint32_t level_count)
+{
+    VkImageAspectFlags mask = vkapi_texture_aspect_flags(texture->info.format);
+
+    VkImageSubresourceRange subresourceRanges[12] = {0};
+    for (uint32_t i = 0; i < level_count; ++i)
     {
-        subresourceRange.baseMipLevel = baseMipMapLevel;
-        subresourceRange.levelCount = 1;
+        subresourceRanges[i].aspectMask = mask;
+        subresourceRanges[i].levelCount = 0;
+        subresourceRanges[i].layerCount = texture->info.array_count * texture->info.face_count;
+        subresourceRanges[i].baseMipLevel = texture->info.mip_levels;
+        subresourceRanges[i].baseArrayLayer = 0;
+        subresourceRanges[i].baseMipLevel = i;
+        subresourceRanges[i].levelCount = 1;
     }
 
-    VkImageMemoryBarrier mem_barrier = {0};
-    mem_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    mem_barrier.image = texture->image;
-    mem_barrier.oldLayout = old_layout;
-    mem_barrier.newLayout = new_layout;
-    mem_barrier.subresourceRange = subresourceRange;
-    mem_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    mem_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    mem_barrier.srcAccessMask = srcBarrier;
-    mem_barrier.dstAccessMask = dstBarrier;
-
-    vkCmdPipelineBarrier(
-        cmd_buffer, srcStage, dstStage, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &mem_barrier);
-
-    texture->image_layout = new_layout;
+    image_transition(
+        texture,
+        old_layout,
+        new_layout,
+        cmd_buffer,
+        srcStage,
+        dstStage,
+        subresourceRanges,
+        level_count);
 }
 
 void vkapi_texture_gen_mipmaps(
@@ -542,9 +625,13 @@ void vkapi_texture_gen_mipmaps(
     assert(tex);
     assert(tex->info.width == tex->info.height);
     assert(level_count > 1);
+    assert(
+        tex->info.mip_levels <= level_count &&
+        "The image must have been created with the number of mip levels as specified here.");
 
     if (tex->info.width == 2 && tex->info.height == 2)
     {
+        tex->info.mip_levels = 1;
         return;
     }
 
@@ -617,15 +704,18 @@ void vkapi_texture_gen_mipmaps(
             i);
     }
 
-    // prepare for shader read
-    vkapi_texture_image_transition(
-        tex,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        cmds->instance,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0);
+    // Prepare all levels for shader reading.
+    for (uint32_t i = 0; i < level_count; ++i)
+    {
+        vkapi_texture_image_transition(
+            tex,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            cmds->instance,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            i);
+    }
 }
 
 void vkapi_texture_blit(
@@ -753,4 +843,21 @@ VkImageAspectFlags vkapi_texture_aspect_flags(VkFormat format)
             aspect = VK_IMAGE_ASPECT_COLOR_BIT;
     }
     return aspect;
+}
+
+VkPipelineStageFlags vkapi_texture_get_pline_stage_flag(VkImageLayout layout)
+{
+    switch(layout)
+    {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        default:
+            log_warn("Unsupported image layoout -> stage flag.");
+    }
+    return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 }

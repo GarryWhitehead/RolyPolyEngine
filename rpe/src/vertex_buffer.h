@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_VERTEX_BUFFER_H__
-#define __RPE_VERTEX_BUFFER_H__
+#ifndef __RPE_PRIV_VERTEX_BUFFER_H__
+#define __RPE_PRIV_VERTEX_BUFFER_H__
 
 #include "managers/renderable_manager.h"
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2022 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -19,31 +19,36 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#ifndef __RPE_IBL_H__
+#define __RPE_IBL_H__
 
-#ifndef __BACKEND_CONVERT_TO_VK_H__
-#define __BACKEND_CONVERT_TO_VK_H__
+#include <stddef.h>
 
-#include "enums.h"
-#include "volk.h"
+typedef struct Ibl ibl_t;
+typedef struct Engine rpe_engine_t;
 
-VkSamplerAddressMode sampler_addr_mode_to_vk(enum SamplerAddressMode mode);
+struct PreFilterOptions
+{
+    int brdf_sample_count;
+    int specular_sample_count;
+    int specular_level_count;
+};
 
-VkFilter sampler_filter_to_vk(enum SamplerFilter filter);
+ibl_t* rpe_ibl_init(rpe_engine_t* engine, struct PreFilterOptions options);
 
-VkAttachmentLoadOp load_flags_to_vk(enum LoadClearFlags flags);
+bool rpe_ibl_eqirect_to_cubemap(
+    ibl_t* ibl, rpe_engine_t* engine, float* image_data, uint32_t width, uint32_t height);
 
-VkAttachmentStoreOp store_flags_to_vk(enum StoreClearFlags flags);
+bool rpe_ibl_upload_cubemap(
+    ibl_t* ibl,
+    rpe_engine_t* engine,
+    const float* image_data,
+    uint32_t image_sz,
+    uint32_t width,
+    uint32_t height,
+    uint32_t mip_levels,
+    size_t* mip_offsets);
 
-VkSampleCountFlagBits samples_to_vk(uint32_t count);
-
-VkCompareOp compare_op_to_vk(enum CompareOp op);
-
-VkCullModeFlags cull_mode_to_vk(enum CullMode mode);
-
-VkFrontFace front_face_to_vk(enum FrontFace ff);
-
-VkPolygonMode polygon_mode_to_vk(enum PolygonMode mode);
-
-VkPrimitiveTopology primitive_topology_to_vk(enum PrimitiveTopology topo);
+bool rpe_ibl_create_env_maps(ibl_t* ibl, rpe_engine_t* engine);
 
 #endif

@@ -51,8 +51,7 @@ void rpe_compute_add_image_sampler(
     rpe_compute_t* c,
     vkapi_driver_t* driver,
     texture_handle_t h,
-    uint32_t binding,
-    sampler_params_t sampler_params);
+    uint32_t binding);
 
 // Creates a new UBO instance at the specified shader binding point.
 buffer_handle_t rpe_compute_bind_ubo(rpe_compute_t* c, vkapi_driver_t* driver, uint32_t binding);

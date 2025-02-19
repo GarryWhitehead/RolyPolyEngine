@@ -73,7 +73,7 @@ void rpe_cmd_dispatch_cond_render(vkapi_driver_t* driver, void* data)
 void rpe_cmd_dispatch_pline_bind(vkapi_driver_t* driver, void* data)
 {
     struct PipelineBindCommand* cmd = (struct PipelineBindCommand*)data;
-    vkapi_driver_bind_gfx_pipeline(driver, cmd->bundle);
+    vkapi_driver_bind_gfx_pipeline(driver, cmd->bundle, false);
 }
 
 rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena)

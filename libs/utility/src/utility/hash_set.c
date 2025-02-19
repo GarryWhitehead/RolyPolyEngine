@@ -205,7 +205,7 @@ hash_set_t hash_set_create(
 void* hash_set_get(hash_set_t* set, void* key)
 {
     assert(key);
-    uint64_t hash = set->hash_func(key, set->key_type_size);
+    uint64_t hash = set->hash_func(key, set->key_type_size, 0);
     _find(set, key, hash);
     return !set->_curr_node ? NULL : set->_curr_node->value;
 }
@@ -213,7 +213,7 @@ void* hash_set_get(hash_set_t* set, void* key)
 bool hash_set_find(hash_set_t* set, void* key)
 {
     assert(key);
-    uint64_t hash = set->hash_func(key, set->key_type_size);
+    uint64_t hash = set->hash_func(key, set->key_type_size, 0);
     _find(set, key, hash);
     return !set->_curr_node ? false : true;
 }
@@ -223,7 +223,7 @@ void* hash_set_set(hash_set_t* set, void* key, void* value)
     assert(key);
     assert(value);
 
-    uint64_t hash = set->hash_func(key, set->key_type_size);
+    uint64_t hash = set->hash_func(key, set->key_type_size, 0);
     _find(set, key, hash);
     if (set->_curr_node)
     {
@@ -253,7 +253,7 @@ void* hash_set_insert(hash_set_t* set, void* key, void* value)
     assert(value);
     assert(key);
 
-    uint64_t hash = set->hash_func(key, set->key_type_size);
+    uint64_t hash = set->hash_func(key, set->key_type_size, 0);
     void* out = NULL;
     for (;;)
     {
@@ -273,7 +273,7 @@ void* hash_set_insert(hash_set_t* set, void* key, void* value)
 void* hash_set_erase(hash_set_t* set, void* key)
 {
     assert(key);
-    uint64_t hash = set->hash_func(key, set->key_type_size);
+    uint64_t hash = set->hash_func(key, set->key_type_size, 0);
     _find(set, key, hash);
     assert(set->_curr_node);
 

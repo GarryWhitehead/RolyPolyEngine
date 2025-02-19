@@ -127,7 +127,7 @@ typedef struct PipelineCache
 vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* driver);
 
 void vkapi_pline_cache_bind_graphics_pline(
-    vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts);
+    vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts, bool force_rebind);
 
 vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
     vkapi_pipeline_cache_t* c, struct SpecConstParams* spec_consts);

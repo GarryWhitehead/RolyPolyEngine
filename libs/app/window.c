@@ -101,22 +101,19 @@ int app_window_init(
     // create the engine (dependent on the glfw window for creating the device).
     app->engine = rpe_engine_create(app->driver);
 
-    new_win->cam_view = rpe_camera_view_init(app->engine);
-    new_win->camera = rpe_camera_init(app->driver);
-
     uint32_t g_width, g_height;
     glfwGetWindowSize(app->window.glfw_window, (int*)&g_width, (int*)&g_height);
-    rpe_camera_set_projection(
-        &app->window.camera,
-        app->camera_fov,
-        (float)g_width / (float)g_height,
-        app->camera_near,
-        app->camera_far,
-        RPE_PROJECTION_TYPE_PERSPECTIVE);
+
+    new_win->cam_view = rpe_camera_view_init(app->engine);
+    new_win->camera = rpe_camera_init(app->engine, app->camera_fov,
+                                      (float)g_width / (float)g_height,
+                                      app->camera_near,
+                                      app->camera_far,
+                                      RPE_PROJECTION_TYPE_PERSPECTIVE);
 
     // Create a scene for our application.
-    app->scene = rpe_scene_create(app->engine);
-    rpe_scene_set_current_camera(app->scene, &new_win->camera);
+    app->scene = rpe_engine_create_scene(app->engine);
+    rpe_scene_set_current_camera(app->scene, new_win->camera);
     rpe_engine_set_current_scene(app->engine, app->scene);
 
     return APP_SUCCESS;
@@ -189,8 +186,10 @@ void app_window_mouse_move_response(GLFWwindow* window, double xpos, double ypos
 void app_window_scroll_response(GLFWwindow* window, double xoffset, double yoffset)
 {
     app_window_t* input_sys = (app_window_t*)glfwGetWindowUserPointer(window);
-    input_sys->camera.fov -= (float)yoffset;
-    CLAMP(input_sys->camera.fov, 1.0f, 90.0f);
+    float fov = input_sys->camera->fov;
+    fov -= (float)yoffset;
+    CLAMP(input_sys->camera->fov, 1.0f, 90.0f);
+    rpe_camera_set_fov(input_sys->camera, fov);
 }
 
 void keyCallback(GLFWwindow* window, int key, int scan_code, int action, int mode)

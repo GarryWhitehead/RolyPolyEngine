@@ -27,10 +27,11 @@
 typedef struct Scene rpe_scene_t;
 typedef struct Engine rpe_engine_t;
 typedef struct Camera rpe_camera_t;
-
-rpe_scene_t* rpe_scene_create(rpe_engine_t* engine);
+typedef struct Ibl ibl_t;
 
 void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_camera_t* cam);
+
+void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl);
 
 void rpe_scene_add_object(rpe_scene_t* scene, rpe_object_t obj);
 

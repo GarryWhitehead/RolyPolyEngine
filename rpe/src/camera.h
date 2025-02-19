@@ -30,6 +30,7 @@
 #include <vulkan-api/resource_cache.h>
 
 typedef struct Frustum rpe_frustum_t;
+typedef struct Engine rpe_engine_t;
 
 typedef struct CameraUbo
 {
@@ -52,10 +53,11 @@ typedef struct Camera
     float n;
     float z;
     float aspect;
+    enum ProjectionType type;
 
 } rpe_camera_t;
 
-rpe_camera_t rpe_camera_init(vkapi_driver_t* driver);
+rpe_camera_t* rpe_camera_init(rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type);
 
 void rpe_camera_set_proj_matrix(
     rpe_camera_t* cam, float fovy, float aspect, float n, float z, enum ProjectionType type);

@@ -37,7 +37,7 @@ vkapi_desc_cache_t* vkapi_desc_cache_init(vkapi_driver_t* driver, arena_t* arena
     c->current_desc_pool_size = 1000;
 
     vkapi_desc_cache_create_pool(c);
-    c->descriptor_sets = HASH_SET_CREATE(desc_key_t, vkapi_desc_set_t, arena, murmur_hash3);
+    c->descriptor_sets = HASH_SET_CREATE(desc_key_t, vkapi_desc_set_t, arena);
     MAKE_DYN_ARRAY(vkapi_desc_set_t, arena, 100, &c->desc_sets_for_deletion);
     MAKE_DYN_ARRAY(VkDescriptorPool, arena, 100, &c->desc_pools_for_deletion);
 
@@ -59,11 +59,12 @@ void vkapi_desc_cache_bind_descriptors(
     VkCommandBuffer cmd_buffer,
     shader_prog_bundle_t* bundle,
     VkPipelineLayout layout,
-    VkPipelineBindPoint bind_point)
+    VkPipelineBindPoint bind_point,
+    bool force_rebind)
 {
     // Check if the required descriptor set is already bound. If so, nothing to
     // do here.
-    if (vkapi_desc_cache_compare_desc_keys(&c->desc_requires, &c->bound_desc))
+    if (vkapi_desc_cache_compare_desc_keys(&c->desc_requires, &c->bound_desc) && !force_rebind)
     {
         vkapi_desc_set_t* s = HASH_SET_GET(&c->descriptor_sets, &c->bound_desc);
         s->frame_last_used = c->driver->current_frame;

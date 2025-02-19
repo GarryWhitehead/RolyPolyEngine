@@ -28,6 +28,7 @@ set (public_headers
     include/rpe/camera.h
     include/rpe/renderer.h
     include/rpe/aabox.h
+    include/rpe/ibl.h
 )
 
 set (src_files
@@ -42,6 +43,7 @@ set (src_files
     src/renderer.c
     src/compute.c
     src/camera.c
+    src/ibl.c
     src/vertex_buffer.c
     src/render_graph/render_graph.c
     src/render_graph/render_pass_node.c
@@ -70,6 +72,7 @@ set (hdr_files
     src/renderer.h
     src/compute.h
     src/camera.h
+    src/ibl.h
     src/vertex_buffer.h
     src/render_graph/render_graph.h
     src/render_graph/render_pass_node.h
@@ -103,6 +106,7 @@ target_link_libraries(
     VulkanApi
     UtilityLib
     log.c::log.c
+    stb::stb
 )
 
 add_dependencies(RPE Shaders)
