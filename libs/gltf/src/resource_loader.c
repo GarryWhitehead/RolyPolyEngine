@@ -163,7 +163,8 @@ bool decode_image(
     image_free_func* free_func)
 {
     bool res;
-    if (strcmp("image/png", mime_type->data) == 0 || strcmp("image/jpeg", mime_type->data) == 0)
+    if (strcmp("image/png", mime_type->data) == 0 || strcmp("image/jpeg", mime_type->data) == 0 ||
+        strcmp("image/jpg", mime_type->data) == 0)
     {
         res = gltf_stb_loader_decode_image(data, sz, tex, free_func);
     }
@@ -227,15 +228,30 @@ rpe_mapped_texture_t* get_texture(
         }
         size_t sz = fs_get_file_size(fp);
         void* image_data = ARENA_MAKE_ZERO_ARRAY(&asset->arena, uint8_t, sz);
-        fread(image_data, sizeof(uint8_t), sz, fp);
+        size_t sz_read = fread(image_data, sizeof(uint8_t), sz, fp);
+        if (sz_read != sz)
+        {
+            log_error("Error whilst reading image file: %s", full_path);
+            return NULL;
+        }
         fclose(fp);
+
+        if (strcmp(mime_type.data, "") == 0)
+        {
+            string_t suffix;
+            string_t filename = {.data = image->uri, strlen(image->uri)};
+            bool r = fs_get_extension(&filename, &suffix, &asset->arena);
+            assert(r);
+            string_t parent = string_init("image/", &asset->arena);
+            mime_type = string_append(&parent, suffix.data, &asset->arena);
+        }
 
         if (!decode_image(&mime_type, image_data, sz, &new_tex, asset, free_func))
         {
+            log_error("Error whilst decoding image: %s", image->uri);
             return NULL;
         }
         out_tex = HASH_SET_INSERT(&rl->uri_filename_cache, &image->uri, &new_tex);
-        // FIXME: Free image buffer once this is added to the arena.
     }
     else if (image->buffer_view)
     {

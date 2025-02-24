@@ -152,8 +152,8 @@ void rg_resource_bake(rg_resource_t* r, vkapi_driver_t* driver)
     {
         case RG_RESOURCE_TYPE_TEXTURE: {
             sampler_params_t s_params = {
-                .min = RPE_SAMPLER_FILTER_NEAREST,
-                .mag = RPE_SAMPLER_FILTER_NEAREST,
+                .min = RPE_SAMPLER_FILTER_LINEAR,
+                .mag = RPE_SAMPLER_FILTER_LINEAR,
                 .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
                 .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
                 .anisotropy = 1.0f};

@@ -22,13 +22,14 @@
 
 #include "camera.h"
 
-#include "frustum.h"
 #include "engine.h"
+#include "frustum.h"
 
 #include <backend/enums.h>
 #include <vulkan-api/driver.h>
 
-rpe_camera_t* rpe_camera_init(rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type)
+rpe_camera_t* rpe_camera_init(
+    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type)
 {
     rpe_camera_t* cam = ARENA_MAKE_ZERO_STRUCT(&engine->perm_arena, rpe_camera_t);
     rpe_camera_set_proj_matrix(cam, fovy, aspect, n, f, type);

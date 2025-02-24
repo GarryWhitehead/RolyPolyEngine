@@ -31,8 +31,7 @@ rpe_camera_view_t rpe_camera_view_init(rpe_engine_t* engine)
 {
     rpe_camera_view_t cam_view = {0};
     cam_view.move_speed = 0.2f;
-    cam_view.key_events =
-        HASH_SET_CREATE(enum MovementType, bool, &engine->perm_arena);
+    cam_view.key_events = HASH_SET_CREATE(enum MovementType, bool, &engine->perm_arena);
     cam_view.view = math_mat4f_identity();
     cam_view.eye.z = -2.0f;
     return cam_view;

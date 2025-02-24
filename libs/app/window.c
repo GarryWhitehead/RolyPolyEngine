@@ -105,11 +105,13 @@ int app_window_init(
     glfwGetWindowSize(app->window.glfw_window, (int*)&g_width, (int*)&g_height);
 
     new_win->cam_view = rpe_camera_view_init(app->engine);
-    new_win->camera = rpe_camera_init(app->engine, app->camera_fov,
-                                      (float)g_width / (float)g_height,
-                                      app->camera_near,
-                                      app->camera_far,
-                                      RPE_PROJECTION_TYPE_PERSPECTIVE);
+    new_win->camera = rpe_camera_init(
+        app->engine,
+        app->camera_fov,
+        (float)g_width / (float)g_height,
+        app->camera_near,
+        app->camera_far,
+        RPE_PROJECTION_TYPE_PERSPECTIVE);
 
     // Create a scene for our application.
     app->scene = rpe_engine_create_scene(app->engine);

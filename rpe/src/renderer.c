@@ -189,8 +189,7 @@ void setup_single_render(
         sizeof(enum StoreClearFlags) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
 }
 
-void rpe_renderer_begin_renderpass(
-    rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview)
+void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview)
 {
     assert(rdr);
     vkapi_driver_t* driver = rdr->engine->driver;
@@ -210,10 +209,7 @@ void rpe_render_end_renderpass(rpe_renderer_t* rdr)
 }
 
 void rpe_renderer_render_single_quad(
-    rpe_renderer_t* rdr,
-    rpe_render_target_t* rt,
-    shader_prog_bundle_t* bundle,
-    bool multiview)
+    rpe_renderer_t* rdr, rpe_render_target_t* rt, shader_prog_bundle_t* bundle, bool multiview)
 {
     assert(rdr);
     assert(rt);

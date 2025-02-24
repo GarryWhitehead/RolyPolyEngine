@@ -29,6 +29,7 @@
 #include "managers/transform_manager.h"
 #include "renderer.h"
 #include "scene.h"
+#include "skybox.h"
 #include "vertex_buffer.h"
 
 #include <assert.h>
@@ -56,6 +57,7 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver)
     MAKE_DYN_ARRAY(rpe_renderable_t, &instance->perm_arena, 100, &instance->renderables);
     MAKE_DYN_ARRAY(rpe_scene_t*, &instance->perm_arena, 10, &instance->scenes);
     MAKE_DYN_ARRAY(rpe_camera_t*, &instance->perm_arena, 10, &instance->cameras);
+    MAKE_DYN_ARRAY(rpe_skybox_t*, &instance->perm_arena, 5, &instance->skyboxes);
 
     // Load the material shaders. Held by the engine as the most logical place.
     instance->mat_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX] = program_cache_from_spirv(
@@ -176,6 +178,14 @@ rpe_camera_t* rpe_engine_create_camera(
     rpe_camera_t* cam = rpe_camera_init(engine, fovy, aspect, n, f, type);
     DYN_ARRAY_APPEND(&engine->cameras, &cam);
     return cam;
+}
+
+rpe_skybox_t* rpe_engine_create_skybox(rpe_engine_t* engine)
+{
+    assert(engine);
+    rpe_skybox_t* skybox = rpe_skybox_init(engine, &engine->perm_arena);
+    DYN_ARRAY_APPEND(&engine->skyboxes, &skybox);
+    return skybox;
 }
 
 rpe_renderable_t*

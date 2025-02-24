@@ -865,7 +865,7 @@ static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, ma
     m.data[1][2] = -dir.y;
     m.data[2][2] = -dir.z;
 
-    m.data[3][0] = -math_vec3f_dot(right, eye);
+    m.data[3][0] = math_vec3f_dot(right, eye);
     m.data[3][1] = -math_vec3f_dot(cam_up, eye);
     m.data[3][2] = -math_vec3f_dot(dir, eye);
     m.data[3][3] = 1.0f;

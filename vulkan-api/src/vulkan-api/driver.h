@@ -122,7 +122,8 @@ void vkapi_driver_bind_vertex_buffer(
     vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding);
 void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle);
 
-void vkapi_driver_bind_gfx_pipeline(vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind);
+void vkapi_driver_bind_gfx_pipeline(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind);
 
 void vkapi_driver_map_gpu_buffer(
     vkapi_driver_t* driver, buffer_handle_t h, size_t size, size_t offset, void* data);
@@ -144,17 +145,15 @@ void vkapi_driver_map_gpu_vertex(
     void* indices,
     uint32_t indices_sz);
 
-// The pipeline layout must be bound either by a call to vkapi_driver_bind_gfx_pipeline or some other means before calling this function.
+// The pipeline layout must be bound either by a call to vkapi_driver_bind_gfx_pipeline or some
+// other means before calling this function.
 void vkapi_driver_set_push_constant(
     vkapi_driver_t* driver, shader_prog_bundle_t* bundle, void* data, enum ShaderStage stage);
 
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset);
 
 void vkapi_driver_draw_indexed(
-    vkapi_driver_t* driver,
-    uint32_t index_count,
-    int32_t vertex_offset,
-    int32_t index_offset);
+    vkapi_driver_t* driver, uint32_t index_count, int32_t vertex_offset, int32_t index_offset);
 
 void vkapi_driver_draw_indirect_indexed(
     vkapi_driver_t* driver,

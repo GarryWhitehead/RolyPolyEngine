@@ -77,10 +77,7 @@ void rpe_compute_add_storage_image(rpe_compute_t* c, texture_handle_t h, uint32_
 }
 
 void rpe_compute_add_image_sampler(
-    rpe_compute_t* c,
-    vkapi_driver_t* driver,
-    texture_handle_t h,
-    uint32_t binding)
+    rpe_compute_t* c, vkapi_driver_t* driver, texture_handle_t h, uint32_t binding)
 {
     shader_bundle_add_image_sampler(c->bundle, driver, h, binding);
 }

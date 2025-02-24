@@ -28,7 +28,8 @@
 rg_backboard_t rg_backboard_init(arena_t* arena)
 {
     rg_backboard_t i;
-    i.backboard = hash_set_create(arena, murmur2_hash_string, sizeof(const char*), sizeof(rg_handle_t));
+    i.backboard =
+        hash_set_create(arena, murmur2_hash_string, sizeof(const char*), sizeof(rg_handle_t));
     i.arena = arena;
     return i;
 }

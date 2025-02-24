@@ -62,8 +62,9 @@ shader_prog_bundle_t* shader_bundle_init(arena_t* arena)
     // Default rasterisation settings.
     out->raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
     out->render_prim.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    out->raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    out->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
     out->render_prim.prim_restart = VK_FALSE;
+    out->ds_state.compare_op = VK_COMPARE_OP_LESS;
 
     return out;
 }

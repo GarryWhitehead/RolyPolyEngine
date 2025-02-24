@@ -46,6 +46,7 @@ typedef struct RenderQueue rpe_render_queue_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
 typedef struct Ibl ibl_t;
+typedef struct Skybox rpe_skybox_t;
 
 struct DrawData;
 
@@ -89,6 +90,8 @@ typedef struct Scene
     rpe_camera_t* curr_camera;
     // Current IBL instance (optional).
     ibl_t* curr_ibl;
+    // Current skybox (optional).
+    rpe_skybox_t* curr_skybox;
 
     buffer_handle_t scene_ubo;
 

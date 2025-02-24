@@ -253,7 +253,8 @@ void vkapi_texture_create_image(
     vkBindImageMemory(context->device, texture->image, texture->image_memory, 0);
 }
 
-VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture, uint32_t mip_level, uint32_t mip_count)
+VkImageView vkapi_texture_create_image_view(
+    vkapi_context_t* context, vkapi_texture_t* texture, uint32_t mip_level, uint32_t mip_count)
 {
     // Work out the image view type.
     VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
@@ -316,7 +317,8 @@ void vkapi_texture_create_2d(
     vkapi_texture_create_image(context, texture, usage_flags);
 
     // First image view declares all mip levels for this image.
-    texture->image_views[0] = vkapi_texture_create_image_view(context, texture, 0, texture->info.mip_levels);
+    texture->image_views[0] =
+        vkapi_texture_create_image_view(context, texture, 0, texture->info.mip_levels);
     for (uint32_t i = 1; i < texture->info.mip_levels; ++i)
     {
         // Image view for use as render target per mip level.
@@ -847,7 +849,7 @@ VkImageAspectFlags vkapi_texture_aspect_flags(VkFormat format)
 
 VkPipelineStageFlags vkapi_texture_get_pline_stage_flag(VkImageLayout layout)
 {
-    switch(layout)
+    switch (layout)
     {
         case VK_IMAGE_LAYOUT_UNDEFINED:
         case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:

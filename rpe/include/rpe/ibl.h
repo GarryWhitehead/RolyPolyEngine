@@ -22,7 +22,9 @@
 #ifndef __RPE_IBL_H__
 #define __RPE_IBL_H__
 
+#include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct Ibl ibl_t;
 typedef struct Engine rpe_engine_t;

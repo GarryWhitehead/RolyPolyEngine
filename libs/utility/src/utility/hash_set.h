@@ -25,8 +25,8 @@
 
 #include "arena.h"
 #include "compiler.h"
-#include "string.h"
 #include "hash.h"
+#include "string.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -87,7 +87,7 @@ uint32_t hash_set_default_hasher(void* key, uint32_t size);
 void hash_set_clear(hash_set_t* set);
 
 #ifndef WIN32
-#define HASH_SET_CREATE(key_type, val_type, arena)                                      \
+#define HASH_SET_CREATE(key_type, val_type, arena)                                                 \
     hash_set_create(arena, murmur2_hash, sizeof(key_type), sizeof(val_type))
 
 #define HASH_SET_FIND(set, key)                                                                    \
@@ -130,7 +130,7 @@ void hash_set_clear(hash_set_t* set);
         hash_set_erase(set, _key);                                                                 \
     })
 #else
-#define HASH_SET_CREATE(key_type, val_type, arena)                                      \
+#define HASH_SET_CREATE(key_type, val_type, arena)                                                 \
     hash_set_create(arena, murmur2_hash, sizeof(key_type), sizeof(val_type))
 
 #define HASH_SET_FIND(set, key) hash_set_find(set, key)

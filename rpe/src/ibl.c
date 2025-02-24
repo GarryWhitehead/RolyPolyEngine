@@ -97,7 +97,10 @@ texture_handle_t ibl_eqirect_to_cubemap(
     // Upload the eqirect image to the GPU.
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE};
+        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+        .min = RPE_SAMPLER_FILTER_LINEAR,
+        .mag = RPE_SAMPLER_FILTER_LINEAR};
+
     texture_handle_t eqi_tex = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
@@ -161,7 +164,9 @@ texture_handle_t ibl_create_brdf_lut(ibl_t* ibl, rpe_engine_t* engine)
     // create the cube texture to render into
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE};
+        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+        .min = RPE_SAMPLER_FILTER_LINEAR,
+        .mag = RPE_SAMPLER_FILTER_LINEAR};
 
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
@@ -198,7 +203,9 @@ ibl_create_irradiance_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t
     // create the cube texture to render into
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE};
+        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+        .min = RPE_SAMPLER_FILTER_LINEAR,
+        .mag = RPE_SAMPLER_FILTER_LINEAR};
 
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
@@ -255,7 +262,9 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
     // create the cube texture to render into
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE};
+        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+        .min = RPE_SAMPLER_FILTER_LINEAR,
+        .mag = RPE_SAMPLER_FILTER_LINEAR};
 
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
@@ -342,7 +351,9 @@ bool rpe_ibl_upload_cubemap(
 
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE};
+        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+        .min = RPE_SAMPLER_FILTER_LINEAR,
+        .mag = RPE_SAMPLER_FILTER_LINEAR};
 
     bool gen_mipmaps = mip_levels <= 1 ? true : false;
     uint32_t levels = gen_mipmaps ? rpe_material_max_mipmaps(width, height) : mip_levels;

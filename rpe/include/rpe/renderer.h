@@ -53,8 +53,7 @@ void rpe_renderer_render_single_indexed(
     uint32_t push_block_count,
     bool multiview);
 
-void rpe_renderer_begin_renderpass(
-    rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview);
+void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview);
 
 void rpe_render_end_renderpass(rpe_renderer_t* rdr);
 

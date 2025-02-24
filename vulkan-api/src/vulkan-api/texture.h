@@ -84,7 +84,8 @@ uint32_t vkapi_texture_format_comp_size(VkFormat format);
 void vkapi_texture_create_image(
     vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);
 
-VkImageView vkapi_texture_create_image_view(vkapi_context_t* context, vkapi_texture_t* texture, uint32_t mip_level, uint32_t mip_count);
+VkImageView vkapi_texture_create_image_view(
+    vkapi_context_t* context, vkapi_texture_t* texture, uint32_t mip_level, uint32_t mip_count);
 
 void vkapi_texture_create_2d(
     vkapi_context_t* context,

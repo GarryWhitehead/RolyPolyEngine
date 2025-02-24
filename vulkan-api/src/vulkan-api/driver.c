@@ -375,7 +375,8 @@ void vkapi_driver_begin_rpass(
         {
             vkapi_texture_t* tex = vkapi_res_cache_get_tex2d(driver->res_cache, colour.handle);
 
-            fbo_key.views[idx] = colour.level > 0 ? tex->image_views[colour.level] : tex->framebuffer_imageview;
+            fbo_key.views[idx] =
+                colour.level > 0 ? tex->image_views[colour.level] : tex->framebuffer_imageview;
             assert(fbo_key.views[idx] && "ImageView for attachment is invalid.");
             ++count;
         }
@@ -531,6 +532,7 @@ void vkapi_driver_bind_gfx_pipeline(
     vkapi_pline_cache_bind_polygon_mode(driver->pline_cache, bundle->raster_state.polygon_mode);
     vkapi_pline_cache_bind_depth_test_enable(driver->pline_cache, bundle->ds_state.test_enable);
     vkapi_pline_cache_bind_depth_write_enable(driver->pline_cache, bundle->ds_state.write_enable);
+    vkapi_pline_cache_bind_depth_compare_op(driver->pline_cache, bundle->ds_state.compare_op);
 
     // TODO: Need to support differences in front/back stencil
     struct DepthStencilBlock ds_state = {0};
@@ -770,13 +772,7 @@ void vkapi_driver_transition_image(
     VkPipelineStageFlags new_flags = vkapi_texture_get_pline_stage_flag(new_layout);
 
     vkapi_texture_image_multi_transition(
-        texture,
-        old_layout,
-        new_layout,
-        cmds->instance,
-        old_flags,
-        new_flags,
-        mip_levels);
+        texture, old_layout, new_layout, cmds->instance, old_flags, new_flags, mip_levels);
 }
 
 void vkapi_driver_apply_global_barrier(

@@ -29,6 +29,7 @@
 #include <rpe/ibl.h>
 #include <rpe/material.h>
 #include <rpe/renderable_manager.h>
+#include <rpe/skybox.h>
 #include <stdlib.h>
 #include <utility/filesystem.h>
 
@@ -137,6 +138,10 @@ int main(int argc, char** argv)
         }
         rpe_ibl_create_env_maps(ibl, app.engine);
         rpe_scene_set_ibl(app.scene, ibl);
+
+        rpe_skybox_t* skybox = rpe_engine_create_skybox(app.engine);
+        rpe_skybox_set_cubemap_from_ibl(skybox, ibl, app.engine);
+        rpe_scene_set_current_skyox(app.scene, skybox);
     }
 
     // GLTF model parsing.

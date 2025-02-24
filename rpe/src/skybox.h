@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,51 +20,30 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_PRIV_CAMERA_H__
-#define __RPE_PRIV_CAMERA_H__
+#ifndef __RPE_SKYBOX_H__
+#define __RPE_SKYBOX_H__
 
-#include "rpe/camera.h"
+#include "material.h"
+#include "rpe/object.h"
 
-#include <utility/compiler.h>
 #include <utility/maths.h>
 #include <vulkan-api/resource_cache.h>
 
-typedef struct Frustum rpe_frustum_t;
-typedef struct Engine rpe_engine_t;
-
-typedef struct CameraUbo
+typedef struct Skybox
 {
-    math_mat4f mvp;
-    math_mat4f projection;
-    math_mat4f view;
-    math_mat4f model;
-    math_vec4f frustums[6];
-    math_vec4f position;
-} rpe_camera_ubo_t;
+    texture_handle_t cube_texture;
 
-typedef struct Camera
-{
-    // current matrices
-    math_mat4f projection;
-    math_mat4f view;
-    math_mat4f model;
+    rpe_material_t material;
+    rpe_object_t obj;
+    rpe_mesh_t* cube_mesh;
 
-    float fov;
-    float n;
-    float z;
-    float aspect;
-    enum ProjectionType type;
+    // not used if cube texture is specified
+    math_vec4f bg_colour;
 
-} rpe_camera_t;
+    // NOT USED
+    bool show_sun;
+} rpe_skybox_t;
 
-rpe_camera_t* rpe_camera_init(
-    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type);
-
-void rpe_camera_set_proj_matrix(
-    rpe_camera_t* cam, float fovy, float aspect, float n, float z, enum ProjectionType type);
-
-rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f);
-
-math_vec3f rpe_camera_get_position(rpe_camera_t* cam);
+rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena);
 
 #endif

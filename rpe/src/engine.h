@@ -76,6 +76,7 @@ typedef struct Engine
     arena_dyn_array_t renderables;
     arena_dyn_array_t scenes;
     arena_dyn_array_t cameras;
+    arena_dyn_array_t skyboxes;
 
     /// Current camera UBO - stored here as shared between shaders.
     buffer_handle_t camera_ubo;

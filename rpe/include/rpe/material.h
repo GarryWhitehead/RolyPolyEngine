@@ -32,6 +32,12 @@ typedef struct Engine rpe_engine_t;
 #define RPE_MATERIAL_IMAGE_TYPE_COUNT 6
 #define RPE_MATERIAL_MAX_MIP_COUNT 12
 
+enum MaterialType
+{
+    RPE_MATERIAL_DEFAULT,
+    RPE_MATERIAL_SKYBOX
+};
+
 enum MaterialImageType
 {
     RPE_MATERIAL_IMAGE_TYPE_BASE_COLOR,
@@ -84,6 +90,7 @@ void rpe_material_set_polygon_mode(rpe_material_t* m, enum PolygonMode mode);
 void rpe_material_set_front_face(rpe_material_t* m, enum FrontFace face);
 void rpe_material_set_cull_mode(rpe_material_t* m, enum CullMode mode);
 void rpe_material_set_topology(rpe_material_t* m, enum PrimitiveTopology topo);
+void rpe_material_set_type(rpe_material_t* m, enum MaterialType type);
 
 void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer);
 

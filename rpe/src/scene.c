@@ -34,6 +34,7 @@
 #include "managers/transform_manager.h"
 #include "material.h"
 #include "render_queue.h"
+#include "skybox.h"
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
 {
@@ -138,7 +139,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     for (size_t i = 0; i < batched_draws->size; ++i)
     {
         rpe_batch_renderable_t* batch = DYN_ARRAY_GET_PTR(rpe_batch_renderable_t, batched_draws, i);
-        for (size_t j = batch->first_idx; j < batch->count; ++j)
+        for (size_t j = batch->first_idx; j < batch->first_idx + batch->count; ++j)
         {
             rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, j);
             if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
@@ -181,9 +182,9 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
         cmd->stride = sizeof(struct IndirectDraw);
         cmd->count_handle = scene->draw_count_handle;
-        cmd->draw_count_offset = 0;
+        cmd->draw_count_offset = 0; // < offset for each batch??
         cmd->cmd_handle = scene->indirect_draw_handle;
-        cmd->offset = 0;
+        cmd->offset = batch->first_idx * sizeof(struct IndirectDraw);
     }
 
     vkapi_driver_map_gpu_buffer(
@@ -289,4 +290,19 @@ void rpe_scene_add_object(rpe_scene_t* scene, rpe_object_t obj)
 {
     assert(scene);
     DYN_ARRAY_APPEND(&scene->objects, &obj);
+}
+
+void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb)
+{
+    assert(scene);
+    assert(sb);
+    assert(vkapi_tex_handle_is_valid(sb->cube_texture));
+
+    // Avoid duplicated skybox requests as this will lead to the skybox being drawn multiple times.
+    if (scene->curr_skybox && scene->curr_skybox == sb)
+    {
+        return;
+    }
+    scene->curr_skybox = sb;
+    rpe_scene_add_object(scene, sb->obj);
 }

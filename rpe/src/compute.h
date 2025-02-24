@@ -48,10 +48,7 @@ rpe_compute_init_from_text(vkapi_driver_t* driver, const char* shader_code, aren
 
 void rpe_compute_add_storage_image(rpe_compute_t* c, texture_handle_t h, uint32_t binding);
 void rpe_compute_add_image_sampler(
-    rpe_compute_t* c,
-    vkapi_driver_t* driver,
-    texture_handle_t h,
-    uint32_t binding);
+    rpe_compute_t* c, vkapi_driver_t* driver, texture_handle_t h, uint32_t binding);
 
 // Creates a new UBO instance at the specified shader binding point.
 buffer_handle_t rpe_compute_bind_ubo(rpe_compute_t* c, vkapi_driver_t* driver, uint32_t binding);

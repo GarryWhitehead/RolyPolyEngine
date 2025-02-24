@@ -200,7 +200,8 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
 
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
 
-    // Set the scene UBO each update as the current scene may have changed (could instead just update on a call to set_current_scene?)
+    // Set the scene UBO each update as the current scene may have changed (could instead just
+    // update on a call to set_current_scene?)
     shader_bundle_update_ubo_desc(lm->program_bundle, 1, scene->scene_ubo);
 
     math_vec3f up = {0.0f, 1.0f, 0.0f};

@@ -1,5 +1,9 @@
 #version 460
 
+#extension GL_GOOGLE_include_directive : enable
+
+#include "include/common.h"
+
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec2 inUv0;
@@ -18,9 +22,11 @@ layout(location = 3) out vec4 outTangent;
 layout(location = 4) out vec4 outColour;
 layout(location = 5) out uint outModelDrawIdx;
 layout(location = 6) out vec3 outPos;
+layout(location = 7) out vec3 outCameraPos;
 
 layout (constant_id = 0) const bool HAS_SKIN = false;
 layout (constant_id = 1) const bool HAS_NORMAL = false;
+layout (constant_id = 2) const int MATERIAL_TYPE = MATERIAL_TYPE_DEFAULT;
 
 #define MAX_BONES 250
 
@@ -37,8 +43,14 @@ layout (set = 2, binding = 1) buffer TransformSSbo
 layout (binding = 0, set = 0) uniform CameraUbo
 {
     mat4 mvp;
+    mat4 proj;
+    mat4 view;
+    mat4 model;
+    vec4 fustrums[6];
+    vec4 position;
 } camera_ubo;
 
+#include "include/model_mesh_types.h"
 
 void main()
 {
@@ -69,7 +81,7 @@ void main()
     outUv1 = inUv1;
     outColour = inColour;
     outModelDrawIdx = inModelDrawIdx;
+    outCameraPos = camera_ubo.position.xyz;
 
-    outPos = pos.xyz /pos.w;
-    gl_Position = camera_ubo.mvp * vec4(outPos, 1.0);
+    modelVertex(pos);
 }

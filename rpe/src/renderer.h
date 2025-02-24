@@ -36,7 +36,8 @@ typedef struct RenderTarget
 {
     struct Attachment
     {
-        // FIXME: Should probably be a public facing object intermediate type when moved to public file.
+        // FIXME: Should probably be a public facing object intermediate type when moved to public
+        // file.
         texture_handle_t handle;
         uint8_t mipLevel;
         uint8_t layer;

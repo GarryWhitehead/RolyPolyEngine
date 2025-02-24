@@ -19,7 +19,5 @@ layout (binding = 1, set = 0) uniform Ubo
 void main()
 {
     outPos = inPos.xyz;
-    //outPos.xy *= -1.0;
-    
     gl_Position = camera_ubo.proj * ubo.faceViews[gl_ViewIndex] * vec4(inPos, 1.0);
 }

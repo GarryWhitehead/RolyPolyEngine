@@ -105,9 +105,9 @@ texture_handle_t vkapi_res_cache_create_tex2d(
     VkImageUsageFlags usage_flags,
     sampler_params_t* sampler_params)
 {
-    uint32_t levels = mip_levels == 0xffff ? (uint32_t)floorf(log2f((float)MAX(width, height)) + 1) : mip_levels;
-    vkapi_texture_t t =
-        vkapi_texture_init(width, height, levels, face_count, array_count, format);
+    uint32_t levels =
+        mip_levels == 0xffff ? (uint32_t)floorf(log2f((float)MAX(width, height)) + 1) : mip_levels;
+    vkapi_texture_t t = vkapi_texture_init(width, height, levels, face_count, array_count, format);
     texture_handle_t handle = {.id = cache->textures.size};
     vkapi_texture_create_2d(context, sampler_cache, &t, usage_flags, sampler_params);
     if (cache->free_tex_slots.size > 0)

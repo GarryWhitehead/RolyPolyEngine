@@ -26,9 +26,8 @@
 #include "material.h"
 #include "rpe/ibl.h"
 
-#include <vulkan-api/program_manager.h>
-
 #include <stdint.h>
+#include <vulkan-api/program_manager.h>
 
 typedef struct ShaderProgramBundle shader_prog_bundle_t;
 typedef struct Scene rpe_scene_t;
