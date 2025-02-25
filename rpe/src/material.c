@@ -90,10 +90,11 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
     return instance;
 }
 
-uint32_t rpe_material_max_mipmaps(rpe_mapped_texture_t* tex)
+uint32_t rpe_material_max_mipmaps(uint32_t width, uint32_t height)
 {
-    assert(tex);
-    uint32_t p = MAX(tex->width, tex->height);
+    assert(width > 0);
+    assert(width == height);
+    uint32_t p = MAX(width, height);
     return (uint32_t)floorf(log2f((float)p) + 1);
 }
 
@@ -228,6 +229,13 @@ void rpe_material_set_front_face(rpe_material_t* m, enum FrontFace face)
     m->material_key.front_face = face;
 }
 
+void rpe_material_set_topology(rpe_material_t* m, enum PrimitiveTopology topo)
+{
+    assert(m);
+    m->program_bundle->render_prim.topology = primitive_topology_to_vk(topo);
+    m->material_key.topo = topo;
+}
+
 void rpe_material_set_cull_mode(rpe_material_t* m, enum CullMode mode)
 {
     assert(m);
@@ -314,6 +322,22 @@ void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co)
     m->material_consts.has_alpha_mask_cutoff = true;
 }
 
+void rpe_material_set_type(rpe_material_t* m, enum MaterialType type)
+{
+    assert(m);
+    m->material_consts.material_type = type;
+    m->mesh_consts.material_type = type;
+    m->material_key.material_type = type;
+}
+
+void rpe_material_set_device_texture(
+    rpe_material_t* m, texture_handle_t h, enum MaterialImageType type, uint32_t uv_index)
+{
+    m->material_draw_data.image_indices[type] = h.id - VKAPI_RES_CACHE_MAX_RESERVED_COUNT;
+    m->material_draw_data.uv_indices[type] = uv_index;
+    rpe_material_add_variant(type, m);
+}
+
 void rpe_material_set_texture(
     rpe_material_t* m,
     rpe_engine_t* engine,
@@ -331,7 +355,8 @@ void rpe_material_set_texture(
 
     vkapi_driver_t* driver = engine->driver;
 
-    tex->mip_levels = generate_mipmaps ? rpe_material_max_mipmaps(tex) : tex->mip_levels;
+    tex->mip_levels =
+        generate_mipmaps ? rpe_material_max_mipmaps(tex->width, tex->height) : tex->mip_levels;
     params->mip_levels = tex->mip_levels;
 
     texture_handle_t h = vkapi_res_cache_create_tex2d(
@@ -352,8 +377,5 @@ void rpe_material_set_texture(
         engine->driver, h, tex->image_data, tex->image_data_size, tex->offsets, generate_mipmaps);
     // We have to adjust the image handles to take into account the four reserved slots - these are
     // not bound to the shader, so we need to take this into account.
-    m->material_draw_data.image_indices[type] = h.id - VKAPI_RES_CACHE_MAX_RESERVED_COUNT;
-    m->material_draw_data.uv_indices[type] = uv_index;
-
-    rpe_material_add_variant(type, m);
+    rpe_material_set_device_texture(m, h, type, uv_index);
 }

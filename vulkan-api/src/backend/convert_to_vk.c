@@ -234,49 +234,49 @@ VkCompareOp compare_op_to_vk(enum CompareOp op)
     return output;
 }
 
-/*vk::PrimitiveTopology primitiveTopologyToVk(PrimitiveTopology topo)
+VkPrimitiveTopology primitive_topology_to_vk(enum PrimitiveTopology topo)
 {
-    vk::PrimitiveTopology output;
+    VkPrimitiveTopology output;
     switch (topo)
     {
-        case PrimitiveTopology::PointList:
-            output = vk::PrimitiveTopology::ePointList;
+        case RPE_TOPOLOGY_POINT_LIST:
+            output = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             break;
-        case PrimitiveTopology::LineList:
-            output = vk::PrimitiveTopology::eLineList;
+        case RPE_TOPOLOGY_LINE_LIST:
+            output = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
             break;
-        case PrimitiveTopology::LineStrip:
-            output = vk::PrimitiveTopology::eLineStrip;
+        case RPE_TOPOLOGY_LINE_STRIP:
+            output = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
             break;
-        case PrimitiveTopology::TriangleList:
-            output = vk::PrimitiveTopology::eTriangleList;
+        case RPE_TOPOLOGY_TRIANGLE_LIST:
+            output = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
             break;
-        case PrimitiveTopology::TriangleStrip:
-            output = vk::PrimitiveTopology::eTriangleStrip;
+        case RPE_TOPOLOGY_TRIANGLE_STRIP:
+            output = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
             break;
-        case PrimitiveTopology::TriangleFan:
-            output = vk::PrimitiveTopology::eTriangleFan;
+        case RPE_TOPOLOGY_TRIANGLE_FAN:
+            output = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
             break;
-        case PrimitiveTopology::LineListWithAdjacency:
-            output = vk::PrimitiveTopology::eLineListWithAdjacency;
+        case RPE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY:
+            output = VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
             break;
-        case PrimitiveTopology::LineStripWithAdjacency:
-            output = vk::PrimitiveTopology::eLineStripWithAdjacency;
+        case RPE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY:
+            output = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
             break;
-        case PrimitiveTopology::TriangleListWithAdjacency:
-            output = vk::PrimitiveTopology::eTriangleListWithAdjacency;
+        case RPE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY:
+            output = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
             break;
-        case PrimitiveTopology::TriangleStripWithAdjacency:
-            output = vk::PrimitiveTopology::eTriangleStripWithAdjacency;
+        case RPE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY:
+            output = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY;
             break;
-        case PrimitiveTopology::PatchList:
-            output = vk::PrimitiveTopology::ePatchList;
+        case RPE_TOPOLOGY_PATCH_LIST:
+            output = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
             break;
     }
     return output;
 }
 
-vk::IndexType indexBufferTypeToVk(backend::IndexBufferType type)
+/*vk::IndexType indexBufferTypeToVk(backend::IndexBufferType type)
 {
     vk::IndexType output;
     switch (type)

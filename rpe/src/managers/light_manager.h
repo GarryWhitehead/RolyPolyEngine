@@ -88,6 +88,13 @@ struct LightSsbo
 
 typedef struct LightManager
 {
+    struct LightingConstants
+    {
+        bool has_ibl;
+        uint32_t light_count;
+
+    } light_consts;
+
     rpe_engine_t* engine;
 
     arena_dyn_array_t lights;
@@ -121,6 +128,6 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
 rpe_light_instance_t*
 rpe_light_manager_get_light_instance(rpe_light_manager_t* lm, rpe_object_t obj);
 
-void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_camera_t* camera);
+void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_camera_t* camera);
 
 #endif

@@ -43,8 +43,8 @@ vkapi_fbo_key_t vkapi_fbo_key_init()
 vkapi_fb_cache_t* vkapi_fb_cache_init(arena_t* arena)
 {
     vkapi_fb_cache_t* i = ARENA_MAKE_ZERO_STRUCT(arena, vkapi_fb_cache_t);
-    i->render_passes = HASH_SET_CREATE(vkapi_rpass_key_t, vkapi_rpass_t, arena, murmur_hash3);
-    i->fbos = HASH_SET_CREATE(vkapi_fbo_key_t, vkapi_fbo_t, arena, murmur_hash3);
+    i->render_passes = HASH_SET_CREATE(vkapi_rpass_key_t, vkapi_rpass_t, arena);
+    i->fbos = HASH_SET_CREATE(vkapi_fbo_key_t, vkapi_fbo_t, arena);
     return i;
 }
 

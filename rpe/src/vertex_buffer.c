@@ -99,12 +99,13 @@ void rpe_vertex_buffer_upload_to_gpu(rpe_vertex_buffer_t* vb, vkapi_driver_t* dr
         return;
     }
 
-    vkapi_buffer_t* vert_buffer = vkapi_res_cache_get_buffer(driver->res_cache, vb->vertex_buffer);
-    vkapi_buffer_t* index_buffer = vkapi_res_cache_get_buffer(driver->res_cache, vb->index_buffer);
-
-    vkapi_buffer_upload_vertex_data(
-        vert_buffer, driver, vb->vertex_data, vb->curr_vertex_size * sizeof(rpe_vertex_t), 0);
-    vkapi_buffer_upload_index_data(
-        index_buffer, driver, vb->index_data, vb->curr_index_size * sizeof(uint32_t), 0);
+    vkapi_driver_map_gpu_vertex(
+        driver,
+        vb->vertex_buffer,
+        vb->vertex_data,
+        vb->curr_vertex_size * sizeof(rpe_vertex_t),
+        vb->index_buffer,
+        vb->index_data,
+        vb->curr_index_size * sizeof(uint32_t));
     vb->is_dirty = false;
 }

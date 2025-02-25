@@ -25,8 +25,6 @@
 #include "camera_view.h"
 
 #include <rpe/renderer.h>
-#include <time.h>
-#include <unistd.h>
 #include <utility/sleep.h>
 
 int rpe_app_init(const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app)
@@ -66,7 +64,7 @@ void rpe_app_run(
 
         // update the camera if any changes in key state have been detected
         rpe_camera_view_update_key_events(&app->window.cam_view, (float)time_step);
-        rpe_camera_set_view_matrix(&app->window.camera, &app->window.cam_view.view);
+        rpe_camera_set_view_matrix(app->window.camera, &app->window.cam_view.view);
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);

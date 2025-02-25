@@ -128,6 +128,8 @@ typedef struct VkApiFbo
     uint32_t height;
 } vkapi_fbo_t;
 
+vkapi_render_target_t vkapi_render_target_init();
+
 vkapi_rpass_t vkapi_rpass_init(arena_t* arena);
 
 vkapi_attach_handle_t vkapi_rpass_add_attach(vkapi_rpass_t* rp, struct VkApiAttachment* attach);

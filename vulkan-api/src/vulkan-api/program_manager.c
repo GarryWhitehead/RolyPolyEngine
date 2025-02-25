@@ -62,7 +62,9 @@ shader_prog_bundle_t* shader_bundle_init(arena_t* arena)
     // Default rasterisation settings.
     out->raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
     out->render_prim.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    out->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
     out->render_prim.prim_restart = VK_FALSE;
+    out->ds_state.compare_op = VK_COMPARE_OP_LESS;
 
     return out;
 }
@@ -105,11 +107,13 @@ void shader_bundle_update_ssbo_desc(
 }
 
 void shader_bundle_add_image_sampler(
-    shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding, VkSampler sampler)
+    shader_prog_bundle_t* bundle, vkapi_driver_t* driver, texture_handle_t handle, uint8_t binding)
 {
     assert(binding < VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT && "Binding of is out of bounds.");
+    vkapi_texture_t* t = vkapi_res_cache_get_tex2d(driver->res_cache, handle);
+    assert(t->sampler);
     bundle->image_samplers[binding].handle = handle;
-    bundle->image_samplers[binding].sampler = sampler;
+    bundle->image_samplers[binding].sampler = t->sampler;
     bundle->use_bound_samplers = true;
 }
 
@@ -149,23 +153,16 @@ void shader_bundle_set_viewport(
     assert(width > 0);
     assert(height > 0);
 
+    // Negative viewport to mimic openGL co-ords.
     VkViewport vp = {
         .width = (float)width,
-        .height = (float)height,
+        .height = -(float)height,
         .x = 0,
-        .y = 0,
+        .y = (float)height,
         .minDepth = minDepth,
         .maxDepth = maxDepth,
     };
     bundle->viewport = vp;
-}
-
-void shader_bundle_add_texture_sampler(
-    shader_prog_bundle_t* bundle, VkSampler sampler, uint32_t binding)
-{
-    assert(bundle);
-    assert(binding < VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT);
-    bundle->image_samplers[binding].sampler = sampler;
 }
 
 void shader_bundle_create_push_block(
@@ -222,7 +219,7 @@ void shader_bundle_add_vertex_input_binding(
     VkVertexInputRate input_rate)
 {
     assert(bundle);
-    assert(firstIndex < lastIndex);
+    assert(firstIndex <= lastIndex);
     assert(lastIndex < VKAPI_PIPELINE_MAX_VERTEX_ATTR_COUNT);
 
     shader_t* shader = program_cache_get_shader(driver->prog_manager, handle);

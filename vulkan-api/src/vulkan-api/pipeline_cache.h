@@ -63,6 +63,7 @@ RPE_PACKED typedef struct GraphicsPipelineKey
         VkBool32 prim_restart;
         VkBool32 depth_test_enable;
         VkBool32 depth_write_enable;
+        VkCompareOp depth_compare_op;
     } raster_state;
 
     struct DepthStencilBlock
@@ -106,6 +107,12 @@ typedef struct ComputePipelineKey
     VkPipelineLayout pl_layout;
 } compute_pl_key_t;
 
+struct RenderPassState
+{
+    VkRenderPass instance;
+    uint32_t colour_attach_count;
+};
+
 typedef struct PipelineCache
 {
     vkapi_driver_t* driver;
@@ -122,12 +129,17 @@ typedef struct PipelineCache
     graphics_pl_key_t graphics_pline_requires;
     compute_pl_key_t compute_pline_requires;
 
+    struct RenderPassState rpass_state;
+
 } vkapi_pipeline_cache_t;
 
 vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* driver);
 
 void vkapi_pline_cache_bind_graphics_pline(
-    vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts);
+    vkapi_pipeline_cache_t* c,
+    VkCommandBuffer cmds,
+    struct SpecConstParams* spec_consts,
+    bool force_rebind);
 
 vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
     vkapi_pipeline_cache_t* c, struct SpecConstParams* spec_consts);
@@ -154,6 +166,7 @@ void vkapi_pline_cache_bind_blend_factor_block(
     vkapi_pipeline_cache_t* c, struct BlendFactorBlock* state);
 void vkapi_pline_cache_bind_depth_test_enable(vkapi_pipeline_cache_t* c, bool state);
 void vkapi_pline_cache_bind_depth_write_enable(vkapi_pipeline_cache_t* c, bool state);
+void vkapi_pline_cache_bind_depth_compare_op(vkapi_pipeline_cache_t* c, VkCompareOp op);
 
 void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
 

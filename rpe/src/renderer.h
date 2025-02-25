@@ -31,11 +31,14 @@ typedef struct RenderGraph render_graph_t;
 typedef struct MappedTexture rpe_mapped_texture_t;
 typedef struct Scene rpe_scene_t;
 
+// Intermediate struct - for use in the public domain - converted to the vulkan api backend format.
 typedef struct RenderTarget
 {
     struct Attachment
     {
-        rpe_mapped_texture_t* texture;
+        // FIXME: Should probably be a public facing object intermediate type when moved to public
+        // file.
+        texture_handle_t handle;
         uint8_t mipLevel;
         uint8_t layer;
     } attachments[VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT];
@@ -59,6 +62,14 @@ typedef struct Renderer
     // keep track of the depth texture - set by createBackBufferRT
     texture_handle_t depth_handle;
 } rpe_renderer_t;
+
+struct PushBlockEntry
+{
+    void* data;
+    enum ShaderStage stage;
+};
+
+rpe_render_target_t rpe_render_target_init();
 
 rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena);
 

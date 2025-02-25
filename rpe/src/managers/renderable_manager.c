@@ -87,7 +87,7 @@ void rpe_rend_manager_add(
 
     m->is_dirty = true;
     uint32_t material_key =
-        murmur_hash3(&renderable->material->material_key, sizeof(struct MaterialKey));
+        murmur2_hash(&renderable->material->material_key, sizeof(struct MaterialKey), 0);
     struct SortKey key = {
         .program_id = material_key,
         .view_layer = renderable->material->view_layer,
@@ -281,7 +281,9 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
 
     for (size_t i = 1; i < object_arr->size; ++i)
     {
+        obj = DYN_ARRAY_GET_PTR(rpe_object_t, object_arr, i);
         rend = rpe_rend_manager_get_mesh(m, obj);
+
         if (rend->sort_key == prev->sort_key)
         {
             ++curr_batch->count;
@@ -293,6 +295,7 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
             batch.count = 1;
             curr_batch = DYN_ARRAY_APPEND(&m->batched_renderables, &batch);
         }
+
         prev = rend;
     }
 

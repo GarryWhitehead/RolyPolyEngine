@@ -18,7 +18,7 @@ TEST(HashSetGroup, HashSet_GeneralTests)
     int res = arena_new(arena_cap, &arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
-    hash_set_t set = HASH_SET_CREATE(int, float, &arena, murmur_hash3);
+    hash_set_t set = HASH_SET_CREATE(int, float, &arena);
     TEST_ASSERT(set.size == 0);
 
     float vals[] = {1.0f, 2.0f, 4.0f, 10.0f};
@@ -57,7 +57,7 @@ TEST(HashSetGroup, HashSet_ResizeTests)
     int res = arena_new(arena_cap, &arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
-    hash_set_t set = HASH_SET_CREATE(int, int, &arena, murmur_hash3);
+    hash_set_t set = HASH_SET_CREATE(int, int, &arena);
     xoro_rand_t rand = xoro_rand_init(0xff, 0x1234);
 
     for (int i = 0; i < 1000; ++i)
@@ -77,11 +77,12 @@ TEST(HashSetGroup, HashSet_IteratorTests)
     int res = arena_new(arena_cap, &arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
-    hash_set_t set = HASH_SET_CREATE(int, int, &arena, murmur_hash3);
+    hash_set_t set = HASH_SET_CREATE(int, int, &arena);
     hash_set_iterator_t it = hash_set_iter_create(&set);
     int* ret = hash_set_iter_next(&it);
     TEST_ASSERT(ret == NULL);
 
+    // NOTE: unordered map so when iterating not necessarily in order.
     int key = 0;
     int val = 1;
     HASH_SET_INSERT(&set, &key, &val);
@@ -94,13 +95,13 @@ TEST(HashSetGroup, HashSet_IteratorTests)
     it = hash_set_iter_create(&set);
     ret = hash_set_iter_next(&it);
     TEST_ASSERT(ret != NULL);
-    TEST_ASSERT_EQUAL_INT(1, *ret);
-    ret = hash_set_iter_next(&it);
-    TEST_ASSERT(ret != NULL);
     TEST_ASSERT_EQUAL_INT(2, *ret);
     ret = hash_set_iter_next(&it);
     TEST_ASSERT(ret != NULL);
     TEST_ASSERT_EQUAL_INT(22, *ret);
+    ret = hash_set_iter_next(&it);
+    TEST_ASSERT(ret != NULL);
+    TEST_ASSERT_EQUAL_INT(1, *ret);
     ret = hash_set_iter_next(&it);
     TEST_ASSERT(ret == NULL);
 
@@ -111,10 +112,10 @@ TEST(HashSetGroup, HashSet_IteratorTests)
     hash_set_iter_erase(&it);
     int find_key = 2;
     TEST_ASSERT(hash_set_find(&set, &find_key) == false);
-    find_key = 21;
+    find_key = 1;
     TEST_ASSERT(hash_set_find(&set, &find_key) == true);
     hash_set_iter_next(&it);
     hash_set_iter_erase(&it);
-    TEST_ASSERT(hash_set_find(&set, &find_key) == false);
+    TEST_ASSERT(hash_set_find(&set, &find_key) == true);
     TEST_ASSERT_EQUAL_UINT(1, set.size);
 }

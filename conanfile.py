@@ -49,7 +49,7 @@ class VkSceneEditor3dPackage(ConanFile):
         self.requires("glfw/3.3.8")
         self.requires("glslang/1.3.236.0")
         self.requires("spirv-cross/1.3.236.0")
-        self.requires("stb/cci.20210910")
+        self.requires("stb/cci.20240531")
         self.requires("cgltf/1.12")
         self.requires("jsmn/1.1.0")
         self.requires("log.c/cci.20200620")

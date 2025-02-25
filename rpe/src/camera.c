@@ -22,18 +22,19 @@
 
 #include "camera.h"
 
+#include "engine.h"
 #include "frustum.h"
 
 #include <backend/enums.h>
 #include <vulkan-api/driver.h>
 
-rpe_camera_t rpe_camera_init(vkapi_driver_t* driver)
+rpe_camera_t* rpe_camera_init(
+    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type)
 {
-    rpe_camera_t cam;
-    memset(&cam, 0, sizeof(rpe_camera_t));
-    cam.projection = math_mat4f_identity();
-    cam.view = math_mat4f_identity();
-    cam.model = math_mat4f_identity();
+    rpe_camera_t* cam = ARENA_MAKE_ZERO_STRUCT(&engine->perm_arena, rpe_camera_t);
+    rpe_camera_set_proj_matrix(cam, fovy, aspect, n, f, type);
+    cam->view = math_mat4f_identity();
+    cam->model = math_mat4f_identity();
     return cam;
 }
 
@@ -49,7 +50,7 @@ void rpe_camera_set_proj_matrix(
     assert(cam);
     if (type == RPE_PROJECTION_TYPE_PERSPECTIVE)
     {
-        cam->projection = math_mat4f_projection(math_to_radians(fovy), aspect, n, f);
+        cam->projection = math_mat4f_projection(fovy, aspect, n, f);
     }
     else
     {
@@ -60,12 +61,12 @@ void rpe_camera_set_proj_matrix(
     cam->fov = fovy;
     cam->n = n;
     cam->z = f;
+    cam->type = type;
 }
 
 rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f)
 {
     assert(cam);
-    assert(f);
     math_mat4f mvp = math_mat4f_mul(cam->projection, math_mat4f_mul(cam->view, cam->model));
     rpe_camera_ubo_t ubo = {
         .mvp = mvp,
@@ -73,8 +74,16 @@ rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f)
         .view = cam->view,
         .model = cam->model,
         .position = math_vec4f_init_vec3(rpe_camera_get_position(cam), 1.0f)};
-    memcpy(ubo.frustums, f->planes, sizeof(math_vec4f) * 6);
+    if (f)
+    {
+        memcpy(ubo.frustums, f->planes, sizeof(math_vec4f) * 6);
+    }
     return ubo;
+}
+
+void rpe_camera_update_projection(rpe_camera_t* cam)
+{
+    rpe_camera_set_proj_matrix(cam, cam->fov, cam->aspect, cam->n, cam->z, cam->type);
 }
 
 /** Public functions **/
@@ -96,4 +105,5 @@ void rpe_camera_set_fov(rpe_camera_t* cam, float fovy)
 {
     assert(cam);
     cam->fov = fovy;
+    rpe_camera_update_projection(cam);
 }

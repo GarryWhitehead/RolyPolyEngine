@@ -39,6 +39,60 @@
 #include <vulkan-api/resource_cache.h>
 #include <vulkan-api/sampler_cache.h>
 
+rpe_render_target_t rpe_render_target_init()
+{
+    rpe_render_target_t rt = {0};
+    for (size_t i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT + 2; ++i)
+    {
+        vkapi_invalidate_tex_handle(&rt.attachments[i].handle);
+    }
+    return rt;
+}
+
+void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, bool multi_view)
+{
+    // convert attachment information to vulkan api format
+    vkapi_render_target_t vk_rt = vkapi_render_target_init();
+    vk_rt.samples = t->samples;
+
+    uint32_t min_width = UINT32_MAX;
+    uint32_t min_height = UINT32_MAX;
+    uint32_t max_width = 0;
+    uint32_t max_height = 0;
+
+    for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
+    {
+        if (vkapi_tex_handle_is_valid(t->attachments[i].handle))
+        {
+            vk_rt.colours[i].handle = t->attachments[i].handle;
+            vk_rt.colours[i].level = t->attachments[i].mipLevel;
+            vk_rt.colours[i].layer = t->attachments[i].layer;
+
+            vkapi_texture_t* tex =
+                vkapi_res_cache_get_tex2d(engine->driver->res_cache, t->attachments[i].handle);
+            uint32_t width = tex->info.width >> t->attachments[i].mipLevel;
+            uint32_t height = tex->info.height >> t->attachments[i].mipLevel;
+            min_width = MIN(min_width, width);
+            min_height = MIN(min_height, height);
+            max_width = MAX(max_width, width);
+            max_height = MAX(max_height, height);
+        }
+    }
+    t->width = min_width;
+    t->height = min_height;
+
+    if (vkapi_tex_handle_is_valid(t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].handle))
+    {
+        vk_rt.depth.handle = t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].handle;
+        vk_rt.depth.level = t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].mipLevel;
+    }
+
+    // Stencil ignored at the moment.
+    vkapi_attach_info_t stencil = {0};
+    t->handle = vkapi_driver_create_rt(
+        engine->driver, multi_view, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
+}
+
 rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
 {
     assert(engine);
@@ -102,29 +156,101 @@ void rpe_renderer_end_frame(rpe_renderer_t* r)
     arena_reset(&r->engine->frame_arena);
 }
 
-void rpe_renderer_render_single_scene(
-    rpe_renderer_t* rdr, rpe_scene_t* scene, rpe_render_target_t* rt)
+void setup_single_render(
+    rpe_engine_t* engine, vkapi_render_pass_data_t* data, rpe_render_target_t* rt, bool multiview)
 {
-    vkapi_driver_t* driver = rdr->engine->driver;
-    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    create_backend_rt(rt, engine, multiview);
 
-    vkapi_render_pass_data_t data;
-    data.width = rt->width;
-    data.height = rt->height;
+    data->width = rt->width;
+    data->height = rt->height;
+
+    for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
+    {
+        if (vkapi_tex_handle_is_valid(rt->attachments[i].handle))
+        {
+            // Making the assumption that all render targets will be sampled, hence the shader read
+            // usage state.
+            data->final_layouts[i] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+    }
+    if (vkapi_tex_handle_is_valid(rt->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].handle))
+    {
+        data->final_layouts[VKAPI_RENDER_TARGET_DEPTH_INDEX] =
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    }
 
     memcpy(
-        data.load_clear_flags,
+        data->load_clear_flags,
         rt->load_flags,
         sizeof(enum LoadClearFlags) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
     memcpy(
-        data.store_clear_flags,
+        data->store_clear_flags,
         rt->store_flags,
         sizeof(enum StoreClearFlags) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
+}
 
-    rpe_scene_update(scene, rdr->engine);
+void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview)
+{
+    assert(rdr);
+    vkapi_driver_t* driver = rdr->engine->driver;
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_render_pass_data_t data = {0};
 
+    setup_single_render(rdr->engine, &data, rt, multiview);
     vkapi_driver_begin_rpass(driver, cmds->instance, &data, &rt->handle);
-    rpe_render_queue_submit(scene->render_queue, driver);
+}
+
+void rpe_render_end_renderpass(rpe_renderer_t* rdr)
+{
+    assert(rdr);
+    vkapi_driver_t* driver = rdr->engine->driver;
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkapi_driver_end_rpass(cmds->instance);
+}
+
+void rpe_renderer_render_single_quad(
+    rpe_renderer_t* rdr, rpe_render_target_t* rt, shader_prog_bundle_t* bundle, bool multiview)
+{
+    assert(rdr);
+    assert(rt);
+    assert(bundle);
+
+    vkapi_driver_t* driver = rdr->engine->driver;
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    rpe_renderer_begin_renderpass(rdr, rt, multiview);
+    vkapi_driver_draw_quad(driver, bundle);
+    vkapi_driver_end_rpass(cmds->instance);
+}
+
+void rpe_renderer_render_single_indexed(
+    rpe_renderer_t* rdr,
+    rpe_render_target_t* rt,
+    shader_prog_bundle_t* bundle,
+    buffer_handle_t vertex_buffer,
+    buffer_handle_t index_buffer,
+    uint32_t index_count,
+    struct PushBlockEntry* pb_entries,
+    uint32_t push_block_count,
+    bool multiview)
+{
+    vkapi_driver_t* driver = rdr->engine->driver;
+    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    rpe_renderer_begin_renderpass(rdr, rt, multiview);
+
+    vkapi_driver_bind_vertex_buffer(driver, vertex_buffer, 0);
+    vkapi_driver_bind_index_buffer(driver, index_buffer);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle, true);
+
+    if (pb_entries)
+    {
+        assert(push_block_count > 0);
+        for (uint32_t i = 0; i < push_block_count; ++i)
+        {
+            assert(pb_entries[i].data);
+            vkapi_driver_set_push_constant(driver, bundle, pb_entries[i].data, pb_entries[i].stage);
+        }
+    }
+    vkapi_driver_draw_indexed(driver, index_count, 0, 0);
     vkapi_driver_end_rpass(cmds->instance);
 }
 
@@ -176,8 +302,9 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
     const uint32_t GBUFFER_TEX_WIDTH = 2048;
     const uint32_t GBUFFER_TEX_HEIGHT = 2048;
 
-    // Fill the gbuffers - this can't be the final render target unless gbuffers are disabled due
-    // to the gBuffers requiring resolving down to a single render target in the lighting pass.
+    // Fill the gbuffers - this can't be the final render target unless gbuffers are disabled
+    // due to the gBuffers requiring resolving down to a single render target in the lighting
+    // pass.
     rpe_colour_pass_render(rdr->rg, GBUFFER_TEX_WIDTH, GBUFFER_TEX_HEIGHT, depth_format);
 
     input_handle = rpe_light_pass_render(
@@ -199,48 +326,3 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
 
     rg_execute(rdr->rg, rdr->engine->driver, engine);
 }
-
-/*void rpe_render_target_build(
-    rpe_render_target_t* t, rpe_engine_t* engine, const char* name, bool multi_view)
-{
-    assert(t->attachments[0].texture || t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].texture);
-
-    // convert attachment information to vulkan api format
-    vkapi_render_target_t vk_rt;
-    vk_rt.samples = t->samples;
-
-    uint32_t min_width = UINT32_MAX;
-    uint32_t min_height = UINT32_MAX;
-    uint32_t max_width = 0;
-    uint32_t max_height = 0;
-
-    for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
-    {
-        if (t->attachments[i].texture)
-        {
-            rpe_mapped_texture_t* tex = t->attachments[i].texture;
-            vk_rt.colours[i].handle = tex->backend_handle;
-            vk_rt.colours[i].level = t->attachments[i].mipLevel;
-            vk_rt.colours[i].layer = t->attachments[i].layer;
-
-            uint32_t width = tex->width >> t->attachments[i].mipLevel;
-            uint32_t height = tex->height >> t->attachments[i].mipLevel;
-            min_width = MIN(min_width, width) min_height = MIN(min_height, height) max_width =
-                MAX(max_width, width) max_height = MAX(max_height, height)
-        }
-    }
-    t->width = min_width;
-    t->height = min_height;
-
-    if (t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].texture)
-    {
-        rpe_mapped_texture_t* tex = t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].texture;
-        vk_rt.depth.handle = tex->backend_handle;
-        vk_rt.depth.level = t->attachments[VKAPI_RENDER_TARGET_DEPTH_INDEX].mipLevel;
-    }
-
-    // Stencil ignored at the moment.
-    vkapi_attach_info_t stencil = {0};
-    t->handle = vkapi_driver_create_rt(
-        engine->driver, multi_view, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
-}*/

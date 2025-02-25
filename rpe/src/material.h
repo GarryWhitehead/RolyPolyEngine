@@ -58,6 +58,7 @@ typedef struct Material
     {
         int has_skin;
         int has_normal;
+        int material_type;
     } mesh_consts;
 
     struct MaterialConstants
@@ -76,6 +77,7 @@ typedef struct Material
         int has_normal;
         int has_tangent;
         int has_colour_attr;
+        int material_type;
     } material_consts;
 
     // A representation of the data buffer found in the shader.
@@ -94,6 +96,7 @@ typedef struct Material
         uint32_t uv_indices[RPE_MATERIAL_IMAGE_TYPE_COUNT];
     } material_draw_data;
 
+    // The material key is used for batching draw calls based upon pipeline state.
     struct MaterialKey
     {
         enum PolygonMode polygon_mode;
@@ -102,9 +105,9 @@ typedef struct Material
         bool depth_test_enable;
         bool depth_write_enable;
         enum CompareOp depth_compare_op;
-
+        enum PrimitiveTopology topo;
         struct MaterialBlendFactor blend_state;
-        struct MaterialConstants constants;
+        uint32_t material_type;
     } material_key;
 
     bool double_sided;
@@ -133,6 +136,9 @@ void rpe_material_set_viewport(
 
 void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh);
 
-uint32_t rpe_material_max_mipmaps(rpe_mapped_texture_t* tex);
+uint32_t rpe_material_max_mipmaps(uint32_t width, uint32_t height);
+
+void rpe_material_set_device_texture(
+    rpe_material_t* m, texture_handle_t h, enum MaterialImageType type, uint32_t uv_index);
 
 #endif

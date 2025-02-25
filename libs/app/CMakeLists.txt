@@ -38,6 +38,8 @@ target_sources(
     app.h
     camera_view.c
     camera_view.h
+    ibl_helper.c
+    ibl_helper.h
 )
 
 # add common compiler flags

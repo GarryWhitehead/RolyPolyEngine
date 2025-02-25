@@ -44,4 +44,6 @@ VkFrontFace front_face_to_vk(enum FrontFace ff);
 
 VkPolygonMode polygon_mode_to_vk(enum PolygonMode mode);
 
+VkPrimitiveTopology primitive_topology_to_vk(enum PrimitiveTopology topo);
+
 #endif

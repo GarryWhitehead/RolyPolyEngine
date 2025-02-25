@@ -21,12 +21,15 @@
  */
 
 #include <app/app.h>
+#include <app/ibl_helper.h>
 #include <getopt.h>
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
+#include <rpe/ibl.h>
 #include <rpe/material.h>
 #include <rpe/renderable_manager.h>
+#include <rpe/skybox.h>
 #include <stdlib.h>
 #include <utility/filesystem.h>
 
@@ -34,8 +37,10 @@ void print_usage()
 {
     printf("Usage:\n");
     printf("gltf_viewer [OPTIONS] <GLTF_MODEL_PATH> \n");
-    printf("--win_width\t Window width in pixels\n");
-    printf("--win_height\t Window height in pixels\n");
+    printf("--eqi-rect \t Eqirect HDR image for IBL in either png or jpg format.\n");
+    printf("--cubemap \t HDR cube-map for IBL in ktx format.\n");
+    printf("--win-width\t Window width in pixels\n");
+    printf("--win-height\t Window height in pixels\n");
 }
 
 int main(int argc, char** argv)
@@ -48,27 +53,37 @@ int main(int argc, char** argv)
 
     uint32_t win_width = 1920;
     uint32_t win_height = 1080;
+    const char* ibl_eqirect_image = NULL;
+    const char* ibl_cubemap_image = NULL;
 
     struct option options[] = {
         {"help", no_argument, NULL, 'h'},
+        {"eqi-rect", required_argument, NULL, 'e'},
+        {"cubemap", required_argument, NULL, 'c'},
         {"win-width", required_argument, NULL, 'w'},
-        {"win-height", required_argument, NULL, 'e'},
+        {"win-height", required_argument, NULL, 't'},
         {0, 0, NULL, 0}};
 
     int opt_index = 0;
     int opt;
 
-    while ((opt = getopt_long(argc, argv, "hw:h:", options, &opt_index)) != -1)
+    while ((opt = getopt_long(argc, argv, "he:c:w:h:", options, &opt_index)) != -1)
     {
         switch (opt)
         {
             case 'h':
                 print_usage();
                 exit(0);
+            case 'e':
+                ibl_eqirect_image = optarg;
+                break;
+            case 'c':
+                ibl_cubemap_image = optarg;
+                break;
             case 'w':
                 win_width = strtol(optarg, NULL, 0);
                 break;
-            case 'e':
+            case 't':
                 win_height = strtol(optarg, NULL, 0);
                 break;
             default:
@@ -102,6 +117,34 @@ int main(int argc, char** argv)
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(app.engine);
     rpe_renderer_t* renderer = rpe_engine_create_renderer(app.engine);
 
+    // IBL env maps.
+    if (ibl_eqirect_image || ibl_cubemap_image)
+    {
+        struct PreFilterOptions pf_options = {
+            .specular_level_count = 8, .brdf_sample_count = 1024, .specular_sample_count = 32};
+
+        ibl_t* ibl = rpe_ibl_init(app.engine, pf_options);
+        if (!ibl)
+        {
+            exit(1);
+        }
+
+        bool res = ibl_eqirect_image
+            ? ibl_load_eqirect_hdr_image(ibl, app.engine, ibl_eqirect_image)
+            : ibl_load_cubemap_ktx(ibl, app.engine, ibl_cubemap_image);
+        if (!res)
+        {
+            exit(1);
+        }
+        rpe_ibl_create_env_maps(ibl, app.engine);
+        rpe_scene_set_ibl(app.scene, ibl);
+
+        rpe_skybox_t* skybox = rpe_engine_create_skybox(app.engine);
+        rpe_skybox_set_cubemap_from_ibl(skybox, ibl, app.engine);
+        rpe_scene_set_current_skyox(app.scene, skybox);
+    }
+
+    // GLTF model parsing.
     FILE* fp = fopen(gltf_model_path, "r");
     if (!fp)
     {

@@ -861,11 +861,11 @@ static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, ma
     m.data[1][1] = cam_up.y;
     m.data[2][1] = cam_up.z;
 
-    m.data[0][2] = dir.x;
-    m.data[1][2] = dir.y;
-    m.data[2][2] = dir.z;
+    m.data[0][2] = -dir.x;
+    m.data[1][2] = -dir.y;
+    m.data[2][2] = -dir.z;
 
-    m.data[3][0] = -math_vec3f_dot(right, eye);
+    m.data[3][0] = math_vec3f_dot(right, eye);
     m.data[3][1] = -math_vec3f_dot(cam_up, eye);
     m.data[3][2] = -math_vec3f_dot(dir, eye);
     m.data[3][3] = 1.0f;
@@ -890,7 +890,7 @@ math_mat4f_frustum(float left, float right, float bottom, float top, float near,
 static inline math_mat4f
 math_mat4f_projection(float fov_y, float aspect_ratio, float near_z, float far_z)
 {
-    float w = tanf(fov_y) * near_z;
+    float w = tanf(fov_y * (float)M_PI / 360.0f) * near_z;
     float h = w / aspect_ratio;
     return math_mat4f_frustum(-w, w, -h, h, near_z, far_z);
 }

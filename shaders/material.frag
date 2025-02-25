@@ -4,7 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 #include "include/math.h"
-
+#include "include/common.h"
 
 #define METALLIC_ROUGHNESS_PIPELINE     0
 #define SPECULAR_GLOSSINESS_PIPELINE    1
@@ -44,6 +44,7 @@ layout(location = 3) in vec4 inTangent;
 layout(location = 4) in vec4 inColour;
 layout(location = 5) flat in uint inModelDrawIdx;
 layout(location = 6) in vec3 inPos;
+layout(location = 7) in vec3 inCameraPos;
 
 layout(location = 0) out vec4 outColour;
 layout(location = 1) out vec4 outPos;
@@ -65,15 +66,39 @@ layout (constant_id = 10) const bool HAS_UV = false;
 layout (constant_id = 11) const bool HAS_NORMAL = false;
 layout (constant_id = 12) const bool HAS_TANGENT = false;
 layout (constant_id = 13) const bool HAS_COLOUR_ATTR = false;
-
+layout (constant_id = 14) const uint MATERIAL_TYPE = MATERIAL_TYPE_DEFAULT;
 
 layout(set = 3, binding = 0) uniform sampler2D textures[];
-//layout(set = 3, binding = 0) uniform samplerCube texCubes[];
+layout(set = 3, binding = 0) uniform samplerCube cubeMaps[];
 
 layout (set = 2, binding = 2) buffer MeshDataSsbo
 {
     DrawData drawData[];
 };
+
+#include "include/model_material_types.h"
+
+// Taken from here:
+// http://www.thetenthplanet.de/archives/1180
+vec3 peturbNormal(vec2 uv, vec3 pos, vec3 norm)
+{
+    vec3 q1 = dFdx(pos); // edge1
+    vec3 q2 = dFdy(pos); // edge2
+    vec2 st1 = dFdx(uv); // uv1
+    vec2 st2 = dFdy(uv); // uv2
+
+    vec3 N = normalize(inNormal);
+
+    vec3 dq2 = cross(q2, N); 
+    vec3 dq1 = cross(N, q1); 
+    vec3 T = dq2 * st1.x + dq1 * st2.x; 
+    vec3 B = dq2 * st1.y + dq1 * st2.y;
+
+    float invmax = inversesqrt(max(dot(T, T), dot(B, B)));
+    mat3 TBN = mat3(T * invmax, B * invmax, N);
+
+    return normalize(TBN * norm);
+}
 
 float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 {
@@ -98,61 +123,52 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
     return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
 }
 
-// Taken from here:
-// http://www.thetenthplanet.de/archives/1180
-vec3 peturbNormal(vec2 tex_coord, vec3 tangentNormal)
-{
-    vec3 q1 = dFdx(inPos); // edge1
-    vec3 q2 = dFdy(inPos); // edge2
-    vec2 st1 = dFdx(tex_coord); // uv1
-    vec2 st2 = dFdy(tex_coord); // uv2
-
-    vec3 N = normalize(inNormal);
-    vec3 T = normalize(q1 * st2.t - q2 * st1.t);
-    vec3 B = -normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
-
-    return normalize(TBN * tangentNormal);
-}
-
 void main()
 {
+    vec3 V = normalize(inCameraPos - inPos);
+    
     DrawData iData = drawData[inModelDrawIdx];
-
-    outPos = vec4(inPos, 1.0);
-
-    // Normal.
+    
+     // Normal.
     if (HAS_NORMAL_SAMPLER && HAS_UV)
     {
         vec2 uv = iData.normalUv == 0 ? inUv0 : inUv1;
-        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - 1.0;
-
+        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - vec3(1.0);
+        
         if (HAS_NORMAL && HAS_TANGENT)
         {
             vec3 N = normalize(inNormal);
 	        vec3 T = normalize(inTangent.xyz);
-	        vec3 B = cross(inNormal, inTangent.xyz) * inTangent.w;
+	        vec3 B = cross(N, T) * inTangent.w;
 	        mat3 TBN = mat3(T, B, N);
-            outNormal = vec4(TBN * norm, 1.0);
+            outNormal = vec4(normalize(TBN * norm), 0.0);
         }
         else
         {
-            outNormal = vec4(peturbNormal(uv, norm), 1.0);
+            norm.y *= -1.0;
+            outNormal = vec4(peturbNormal(uv, -V, norm), 0.0);
         }
+         // Need to flip this along with the R vector y (maybe should be an option or something?)
+        outNormal.y *= -1.0;
     }
     else if (HAS_NORMAL)
     {
-        outNormal = vec4(normalize(inNormal), 1.0);
+        outNormal = vec4(normalize(inNormal), 0.0);
     }
     else
     {
-        outNormal = vec4(normalize(cross(dFdx(inPos), dFdy(inPos))), 1.0);
+        outNormal = vec4(normalize(cross(dFdx(-V), dFdy(-V))), 0.0);
     }
-
 
     // albedo
     vec4 baseColour = vec4(1.0);
 
+    // TODO: Remove this and set the colour to white by default.
+     if (HAS_COLOUR_ATTR)
+    {   
+        baseColour = inColour;
+    }
+    outColour = baseColour;
     
 	if (HAS_ALPHA_MASK)
     {
@@ -237,11 +253,11 @@ void main()
 
             const float minRoughness = 0.04;
             vec3 baseColourDiffusePart = diffuse.rgb *
-                ((1.0 - maxSpecular) / (1 - minRoughness) /
-                max(1 - metallic, EPSILON)) *
+                ((1.0 - maxSpecular) / (1.0 - minRoughness) /
+                max(1.0 - metallic, EPSILON)) *
                 iData.diffuseFactor.rgb;
             vec3 baseColourSpecularPart = specular -
-                (vec3(minRoughness) * (1 - metallic) * (1 / max(metallic, EPSILON))) *
+                (vec3(minRoughness) * (1.0 - metallic) * (1.0 / max(metallic, EPSILON))) *
                     iData.specularFactor.rgb;
             baseColour = vec4(
                 mix(baseColourDiffusePart, baseColourSpecularPart, metallic * metallic),
@@ -252,12 +268,6 @@ void main()
 
     // =========== fragment outputs ====================
 
-    if (HAS_COLOUR_ATTR)
-    {   
-        baseColour = inColour;
-    }
-
-    outColour = baseColour;
     outPbr = vec2(metallic, roughness);
 
     // occlusion
@@ -276,4 +286,6 @@ void main()
         emissive *= texture(textures[nonuniformEXT(iData.emissive)], uv).rgb;
     }
     outEmissive = vec4(emissive, 1.0);
+
+    modelFragment(iData);
 }

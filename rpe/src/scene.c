@@ -27,11 +27,14 @@
 #include "compute.h"
 #include "engine.h"
 #include "frustum.h"
+#include "ibl.h"
 #include "managers/component_manager.h"
+#include "managers/light_manager.h"
 #include "managers/renderable_manager.h"
 #include "managers/transform_manager.h"
 #include "material.h"
 #include "render_queue.h"
+#include "skybox.h"
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
 {
@@ -52,6 +55,7 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
 
     rpe_compute_bind_ubo_buffer(i->cull_compute, 0, engine->camera_ubo);
     i->scene_ubo = rpe_compute_bind_ubo(i->cull_compute, engine->driver, 1);
+
     i->extents_buffer = rpe_compute_bind_ssbo_host_gpu(
         i->cull_compute, engine->driver, 0, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
     i->mesh_data_handle = rpe_compute_bind_ssbo_host_gpu(
@@ -103,6 +107,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
 
     rpe_render_queue_clear(scene->render_queue);
 
+    rpe_light_manager_update(engine->light_manager, scene, scene->curr_camera);
+
     // Prepare the camera frustum - update the camera matrices before constructing the frustum.
     rpe_frustum_t frustum;
     math_mat4f vp = math_mat4f_mul(scene->curr_camera->projection, scene->curr_camera->view);
@@ -133,7 +139,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     for (size_t i = 0; i < batched_draws->size; ++i)
     {
         rpe_batch_renderable_t* batch = DYN_ARRAY_GET_PTR(rpe_batch_renderable_t, batched_draws, i);
-        for (size_t j = batch->first_idx; j < batch->count; ++j)
+        for (size_t j = batch->first_idx; j < batch->first_idx + batch->count; ++j)
         {
             rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, j);
             if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
@@ -176,9 +182,9 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
         cmd->stride = sizeof(struct IndirectDraw);
         cmd->count_handle = scene->draw_count_handle;
-        cmd->draw_count_offset = 0;
+        cmd->draw_count_offset = 0; // < offset for each batch??
         cmd->cmd_handle = scene->indirect_draw_handle;
-        cmd->offset = 0;
+        cmd->offset = batch->first_idx * sizeof(struct IndirectDraw);
     }
 
     vkapi_driver_map_gpu_buffer(
@@ -192,7 +198,9 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     rpe_camera_ubo_t cam_ubo = rpe_camera_update_ubo(scene->curr_camera, &frustum);
     vkapi_driver_map_gpu_buffer(driver, engine->camera_ubo, sizeof(rpe_camera_ubo_t), 0, &cam_ubo);
 
-    struct SceneUbo scene_ubo = {.model_count = scene->objects.size};
+    struct SceneUbo scene_ubo = {
+        .model_count = scene->objects.size,
+        .ibl_mip_levels = scene->curr_ibl ? scene->curr_ibl->options.specular_level_count : 0};
     vkapi_driver_map_gpu_buffer(
         engine->driver, scene->scene_ubo, sizeof(rpe_scene_ubo_t), 0, &scene_ubo);
 
@@ -266,19 +274,35 @@ void rpe_scene_upload_extents(
 
 /** Public functions **/
 
-rpe_scene_t* rpe_scene_create(rpe_engine_t* engine)
-{
-    return rpe_scene_init(engine, &engine->perm_arena);
-}
-
 void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_camera_t* cam)
 {
     assert(scene);
     scene->curr_camera = cam;
 }
 
+void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl)
+{
+    assert(scene);
+    scene->curr_ibl = ibl;
+}
+
 void rpe_scene_add_object(rpe_scene_t* scene, rpe_object_t obj)
 {
     assert(scene);
     DYN_ARRAY_APPEND(&scene->objects, &obj);
+}
+
+void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb)
+{
+    assert(scene);
+    assert(sb);
+    assert(vkapi_tex_handle_is_valid(sb->cube_texture));
+
+    // Avoid duplicated skybox requests as this will lead to the skybox being drawn multiple times.
+    if (scene->curr_skybox && scene->curr_skybox == sb)
+    {
+        return;
+    }
+    scene->curr_skybox = sb;
+    rpe_scene_add_object(scene, sb->obj);
 }

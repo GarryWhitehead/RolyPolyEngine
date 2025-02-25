@@ -68,10 +68,9 @@ vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* d
 {
     vkapi_pipeline_cache_t* c = ARENA_MAKE_ZERO_STRUCT(arena, vkapi_pipeline_cache_t);
     c->graphics_pline_requires = vkapi_graphics_pline_key_init();
-    c->gfx_pipelines = HASH_SET_CREATE(graphics_pl_key_t, vkapi_graphics_pl_t, arena, murmur_hash3);
-    c->compute_pipelines =
-        HASH_SET_CREATE(compute_pl_key_t, vkapi_compute_pl_t, arena, murmur_hash3);
-    c->pipeline_layouts = HASH_SET_CREATE(pl_layout_key_t, vkapi_pl_layout_t, arena, murmur_hash3);
+    c->gfx_pipelines = HASH_SET_CREATE(graphics_pl_key_t, vkapi_graphics_pl_t, arena);
+    c->compute_pipelines = HASH_SET_CREATE(compute_pl_key_t, vkapi_compute_pl_t, arena);
+    c->pipeline_layouts = HASH_SET_CREATE(pl_layout_key_t, vkapi_pl_layout_t, arena);
     c->driver = driver;
 
     return c;
@@ -88,16 +87,29 @@ bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_ke
 }
 
 void vkapi_pline_cache_bind_graphics_pline(
-    vkapi_pipeline_cache_t* c, VkCommandBuffer cmds, struct SpecConstParams* spec_consts)
+    vkapi_pipeline_cache_t* c,
+    VkCommandBuffer cmds,
+    struct SpecConstParams* spec_consts,
+    bool force_rebind)
 {
     assert(c);
+
+    // Set the renderpass separate from the key - that's because the key is cleared on each bind
+    // call, but when re-using the same renderpass for different draw-calls but rebinding pipeline,
+    // as the renderpass is set via being_rpass, it will be cleared with no way of getting the
+    // previous renderpass.
+    assert(c->rpass_state.instance && "[PipelineCahce] No render pass has been declared.");
+    c->graphics_pline_requires.render_pass = c->rpass_state.instance;
+    c->graphics_pline_requires.colour_attach_count = c->rpass_state.colour_attach_count;
 
     // Check if the required pipeline is already bound. If so, nothing to do
     // here.
     if (vkapi_pline_cache_compare_graphic_keys(
-            &c->graphics_pline_requires, &c->bound_graphics_pline))
+            &c->graphics_pline_requires, &c->bound_graphics_pline) &&
+        !force_rebind)
     {
         vkapi_graphics_pl_t* pl = HASH_SET_GET(&c->gfx_pipelines, &c->bound_graphics_pline);
+        assert(pl);
         pl->last_used_frame_stamp = c->driver->current_frame;
         c->graphics_pline_requires = vkapi_graphics_pline_key_init();
         return;
@@ -123,8 +135,6 @@ vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
         return pl;
     }
 
-    // If we are in a threaded environment, then we can't add to the list until we are out of the
-    // thread
     vkapi_graphics_pl_t new_pl =
         vkapi_graph_pl_create(c->driver->context, &c->graphics_pline_requires, spec_consts);
     return HASH_SET_INSERT(&c->gfx_pipelines, &c->graphics_pline_requires, &new_pl);
@@ -170,7 +180,8 @@ void vkapi_pline_cache_bind_compute_shader_modules(
 void vkapi_pline_cache_bind_rpass(vkapi_pipeline_cache_t* c, VkRenderPass rpass)
 {
     assert(c);
-    c->graphics_pline_requires.render_pass = rpass;
+    assert(rpass);
+    c->rpass_state.instance = rpass;
 }
 
 void vkapi_pline_cache_bind_gfx_pl_layout(vkapi_pipeline_cache_t* c, VkPipelineLayout layout)
@@ -234,10 +245,17 @@ void vkapi_pline_cache_bind_depth_write_enable(vkapi_pipeline_cache_t* c, bool s
     c->graphics_pline_requires.raster_state.depth_write_enable = state;
 }
 
+void vkapi_pline_cache_bind_depth_compare_op(vkapi_pipeline_cache_t* c, VkCompareOp op)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.depth_compare_op = op;
+}
+
 void vkapi_pline_cache_bind_colour_attach_count(vkapi_pipeline_cache_t* c, uint32_t count)
 {
     assert(c);
-    c->graphics_pline_requires.colour_attach_count = count;
+    assert(count > 0);
+    c->rpass_state.colour_attach_count = count;
 }
 
 void vkapi_pline_cache_bind_tess_vert_count(vkapi_pipeline_cache_t* c, size_t count)
@@ -324,8 +342,6 @@ vkapi_pline_cache_get_pl_layout(vkapi_pipeline_cache_t* c, shader_prog_bundle_t*
     // Not in the cache, create a new instance then.
     vkapi_pl_layout_t new_l = {0};
 
-    // create push constants - just the size for now. The data contents are set
-    // at draw time
     VkPushConstantRange constant_ranges[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
     uint32_t cr_count = 0;
 

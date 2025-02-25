@@ -29,7 +29,7 @@
 rpe_component_manager_t* rpe_comp_manager_init(arena_t* arena)
 {
     rpe_component_manager_t* m = ARENA_MAKE_ZERO_STRUCT(arena, rpe_component_manager_t);
-    m->objects = HASH_SET_CREATE(uint64_t, uint64_t, arena, murmur_hash3);
+    m->objects = HASH_SET_CREATE(uint64_t, uint64_t, arena);
     MAKE_DYN_ARRAY(uint64_t, arena, RPE_COMPONENT_MANAGER_MAX_FREE_ID_COUNT, &m->free_slots);
     m->index = 0;
     return m;

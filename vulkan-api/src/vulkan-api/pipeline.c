@@ -77,8 +77,7 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     ds_state.stencilTestEnable = key->depth_stencil_block.stencil_test_enable;
     ds_state.depthWriteEnable = key->raster_state.depth_write_enable;
     ds_state.depthTestEnable = key->raster_state.depth_test_enable;
-    // TODO: Add to the pipeline key.
-    ds_state.depthCompareOp = VK_COMPARE_OP_LESS;
+    ds_state.depthCompareOp = key->raster_state.depth_compare_op;
     ds_state.front.compareOp = key->depth_stencil_block.compare_op;
     ds_state.front.failOp = key->depth_stencil_block.depth_fail_op;
     ds_state.front.reference = key->depth_stencil_block.reference;

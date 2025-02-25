@@ -22,6 +22,7 @@
 #ifndef __RPE_ENGINE_H__
 #define __RPE_ENGINE_H__
 
+#include "camera.h"
 #include "vulkan-api/driver.h"
 
 #include <utility/arena.h>
@@ -36,6 +37,8 @@ typedef struct TransformManager rpe_transform_manager_t;
 typedef struct Renderable rpe_renderable_t;
 typedef struct Material rpe_material_t;
 typedef struct Mesh rpe_mesh_t;
+typedef struct Camera rpe_camera_t;
+typedef struct Skybox rpe_skybox_t;
 
 /**
  Create a new engine instance.
@@ -66,9 +69,17 @@ swapchain_handle_t* rpe_engine_create_swapchain(
 rpe_renderer_t* rpe_engine_create_renderer(rpe_engine_t* engine);
 rpe_renderable_t*
 rpe_engine_create_renderable(rpe_engine_t* engine, rpe_material_t* mat, rpe_mesh_t* mesh);
+rpe_scene_t* rpe_engine_create_scene(rpe_engine_t* engine);
+rpe_camera_t* rpe_engine_create_camera(
+    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type);
+rpe_skybox_t* rpe_engine_create_skybox(rpe_engine_t* engine);
 
 void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene);
 void rpe_engine_set_current_swapchain(rpe_engine_t* engine, swapchain_handle_t* handle);
+
+bool rpe_engine_destroy_scene(rpe_engine_t* engine, rpe_scene_t* scene);
+bool rpe_engine_destroy_camera(rpe_engine_t* engine, rpe_camera_t* camera);
+bool rpe_engine_destroy_renderer(rpe_engine_t* engine, rpe_renderer_t* renderer);
 
 rpe_rend_manager_t* rpe_engine_get_rend_manager(rpe_engine_t* engine);
 rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* engine);

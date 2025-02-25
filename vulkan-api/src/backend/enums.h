@@ -110,17 +110,17 @@ enum CompareOp
 
 enum PrimitiveTopology
 {
-    PointList,
-    LineList,
-    LineStrip,
-    TriangleList,
-    TriangleStrip,
-    TriangleFan,
-    LineListWithAdjacency,
-    LineStripWithAdjacency,
-    TriangleListWithAdjacency,
-    TriangleStripWithAdjacency,
-    PatchList
+    RPE_TOPOLOGY_POINT_LIST,
+    RPE_TOPOLOGY_LINE_LIST,
+    RPE_TOPOLOGY_LINE_STRIP,
+    RPE_TOPOLOGY_TRIANGLE_LIST,
+    RPE_TOPOLOGY_TRIANGLE_STRIP,
+    RPE_TOPOLOGY_TRIANGLE_FAN,
+    RPE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
+    RPE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
+    RPE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
+    RPE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY,
+    RPE_TOPOLOGY_PATCH_LIST
 };
 
 enum BufferElementType
@@ -207,6 +207,8 @@ typedef struct TextureSamplerParams
     enum SamplerAddressMode addr_w;
     enum CompareOp compare_op;
     float anisotropy;
+    // NOTE: When creating sampled textures, this value is automatically set by the createTex2d
+    // function based upon the level count specified in the texture info.
     uint32_t mip_levels;
     VkBool32 enable_compare;
     VkBool32 enable_anisotropy;

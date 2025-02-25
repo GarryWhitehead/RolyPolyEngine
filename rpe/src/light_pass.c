@@ -22,6 +22,8 @@
 
 #include "light_pass.h"
 
+#include "engine.h"
+#include "ibl.h"
 #include "managers/light_manager.h"
 #include "render_graph/render_graph.h"
 #include "render_graph/render_pass_node.h"
@@ -99,40 +101,44 @@ void execute_light_pass(
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
 
     // Use the GBuffer render targets as the samplers in this lighting pass.
-    sampler_params_t s_params = {
-        .min = RPE_SAMPLER_FILTER_NEAREST,
-        .mag = RPE_SAMPLER_FILTER_NEAREST,
-        .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
-        .anisotropy = 1.0f};
-    VkSampler* sampler =
-        vkapi_sampler_cache_create(driver->sampler_cache, &s_params, driver->context);
+    shader_bundle_add_image_sampler(
+        d->prog_bundle,
+        driver,
+        rg_res_get_tex_handle(res, d->position),
+        RPE_LIGHT_PASS_SAMPLER_POS_BINDING);
+    shader_bundle_add_image_sampler(
+        d->prog_bundle,
+        driver,
+        rg_res_get_tex_handle(res, d->colour),
+        RPE_LIGHT_PASS_SAMPLER_COLOUR_BINDING);
+    shader_bundle_add_image_sampler(
+        d->prog_bundle,
+        driver,
+        rg_res_get_tex_handle(res, d->normal),
+        RPE_LIGHT_PASS_SAMPLER_NORMAL_BINDING);
+    shader_bundle_add_image_sampler(
+        d->prog_bundle,
+        driver,
+        rg_res_get_tex_handle(res, d->pbr),
+        RPE_LIGHT_PASS_SAMPLER_PBR_BINDING);
+    shader_bundle_add_image_sampler(
+        d->prog_bundle,
+        driver,
+        rg_res_get_tex_handle(res, d->emissive),
+        RPE_LIGHT_PASS_SAMPLER_EMISSIVE_BINDING);
+
+    // Bind the IBL env maps (dummy textures if not used to keep the validation layers happy).
+    ibl_t* ibl = engine->curr_scene->curr_ibl;
+    texture_handle_t brdf_handle = ibl ? ibl->tex_brdf_lut : engine->tex_dummy;
+    texture_handle_t irr_handle = ibl ? ibl->tex_irradiance_map : engine->tex_dummy_cubemap;
+    texture_handle_t spec_handle = ibl ? ibl->tex_specular_map : engine->tex_dummy_cubemap;
 
     shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        rg_res_get_tex_handle(res, d->position),
-        RPE_LIGHT_PASS_SAMPLER_POS_BINDING,
-        *sampler);
+        d->prog_bundle, driver, brdf_handle, RPE_LIGHT_PASS_SAMPLER_BDRF_BINDING);
     shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        rg_res_get_tex_handle(res, d->colour),
-        RPE_LIGHT_PASS_SAMPLER_COLOUR_BINDING,
-        *sampler);
+        d->prog_bundle, driver, irr_handle, RPE_LIGHT_PASS_SAMPLER_IRRADIANCE_ENVMAP_BINDING);
     shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        rg_res_get_tex_handle(res, d->normal),
-        RPE_LIGHT_PASS_SAMPLER_NORMAL_BINDING,
-        *sampler);
-    shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        rg_res_get_tex_handle(res, d->pbr),
-        RPE_LIGHT_PASS_SAMPLER_PBR_BINDING,
-        *sampler);
-    shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        rg_res_get_tex_handle(res, d->emissive),
-        RPE_LIGHT_PASS_SAMPLER_EMISSIVE_BINDING,
-        *sampler);
+        d->prog_bundle, driver, spec_handle, RPE_LIGHT_PASS_SAMPLER_SPECULAR_ENVMAP_BINDING);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
     vkapi_driver_draw_quad(driver, d->prog_bundle);

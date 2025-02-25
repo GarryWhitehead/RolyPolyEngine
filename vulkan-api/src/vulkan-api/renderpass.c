@@ -28,12 +28,24 @@
 
 #include <utility/arena.h>
 
+vkapi_render_target_t vkapi_render_target_init()
+{
+    vkapi_render_target_t rt = {0};
+    for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
+    {
+        vkapi_invalidate_tex_handle(&rt.colours[i].handle);
+    }
+    vkapi_invalidate_tex_handle(&rt.depth.handle);
+    rt.clear_colour.a = 1.0f;
+    return rt;
+}
+
 vkapi_rpass_t vkapi_rpass_init(arena_t* arena)
 {
     vkapi_rpass_t rpass;
     memset(&rpass, 0, sizeof(vkapi_rpass_t));
-    MAKE_DYN_ARRAY(VkAttachmentDescription, arena, 50, &rpass.attach_descriptors);
-    MAKE_DYN_ARRAY(VkAttachmentReference, arena, 50, &rpass.colour_attach_refs);
+    MAKE_DYN_ARRAY(VkAttachmentDescription, arena, 10, &rpass.attach_descriptors);
+    MAKE_DYN_ARRAY(VkAttachmentReference, arena, 10, &rpass.colour_attach_refs);
     return rpass;
 }
 
@@ -160,16 +172,18 @@ void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiVie
         // is supported.
         for (size_t i = 0; i < rp->attach_descriptors.size; ++i)
         {
+            // 1 bit set per layer - TODO: check how many layers
             view_masks[i] = 0b00111111;
             correlation_masks[i] = view_masks[i];
         }
         mv_ci.correlationMaskCount = rp->attach_descriptors.size;
         mv_ci.pCorrelationMasks = correlation_masks;
-        mv_ci.dependencyCount = rp->attach_descriptors.size;
+        mv_ci.subpassCount = 1;
         mv_ci.pViewMasks = view_masks;
         ci.pNext = &mv_ci;
     }
     VK_CHECK_RESULT(vkCreateRenderPass(driver->context->device, &ci, VK_NULL_HANDLE, &rp->instance))
+    arena_reset(&driver->_scratch_arena);
 }
 
 vkapi_fbo_t vkapi_fbo_init()
@@ -191,12 +205,11 @@ void vkapi_fbo_create(
 {
     assert(width > 0);
     assert(height > 0);
-    assert(image_views);
+    assert(image_views > 0);
 
     fbo->width = width;
     fbo->height = height;
 
-    // and create the framebuffer.....
     VkFramebufferCreateInfo ci = {};
     ci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     ci.width = width;

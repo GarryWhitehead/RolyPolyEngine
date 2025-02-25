@@ -179,10 +179,7 @@ void shader_bundle_add_desc_binding(
     shader_prog_bundle_t* bundle, uint32_t size, uint32_t binding, VkDescriptorType type);
 
 void shader_bundle_add_image_sampler(
-    shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding, VkSampler sampler);
-
-void shader_bundle_add_texture_sampler(
-    shader_prog_bundle_t* bundle, VkSampler sampler, uint32_t binding);
+    shader_prog_bundle_t* bundle, vkapi_driver_t* driver, texture_handle_t handle, uint8_t binding);
 
 void shader_bundle_add_storage_image(
     shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding);
@@ -220,6 +217,9 @@ void shader_bundle_add_vertex_input_binding(
     uint32_t lastIndex,
     uint32_t binding,
     VkVertexInputRate input_rate);
+
+void shader_bundle_create_push_block(
+    shader_prog_bundle_t* bundle, size_t size, enum ShaderStage stage);
 
 /* Program cache functions */
 
