@@ -29,10 +29,16 @@
 #include <vulkan-api/driver.h>
 
 rpe_camera_t* rpe_camera_init(
-    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type)
+    rpe_engine_t* engine,
+    float fovy,
+    uint32_t width,
+    uint32_t height,
+    float n,
+    float f,
+    enum ProjectionType type)
 {
     rpe_camera_t* cam = ARENA_MAKE_ZERO_STRUCT(&engine->perm_arena, rpe_camera_t);
-    rpe_camera_set_proj_matrix(cam, fovy, aspect, n, f, type);
+    rpe_camera_set_proj_matrix(cam, fovy, width, height, n, f, type);
     cam->view = math_mat4f_identity();
     cam->model = math_mat4f_identity();
     return cam;
@@ -45,23 +51,30 @@ math_vec3f rpe_camera_get_position(rpe_camera_t* cam)
 }
 
 void rpe_camera_set_proj_matrix(
-    rpe_camera_t* cam, float fovy, float aspect, float n, float f, enum ProjectionType type)
+    rpe_camera_t* cam,
+    float fovy,
+    uint32_t width,
+    uint32_t height,
+    float n,
+    float f,
+    enum ProjectionType type)
 {
     assert(cam);
-    if (type == RPE_PROJECTION_TYPE_PERSPECTIVE)
-    {
-        cam->projection = math_mat4f_projection(fovy, aspect, n, f);
-    }
-    else
-    {
-        // TODO: add ortho
-    }
+    assert(width > 0);
+    assert(height > 0);
+    assert(n <= f);
 
-    cam->aspect = aspect;
+    cam->aspect = (float)width / (float)height;
+    cam->projection = type == RPE_PROJECTION_TYPE_PERSPECTIVE
+        ? math_mat4f_projection(fovy, cam->aspect, n, f)
+        : math_mat4f_ortho(0.0f, (float)width, 0.0f, (float)height, n, f);
+
     cam->fov = fovy;
     cam->n = n;
     cam->z = f;
     cam->type = type;
+    cam->width = width;
+    cam->height = height;
 }
 
 rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f)
@@ -83,16 +96,22 @@ rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f)
 
 void rpe_camera_update_projection(rpe_camera_t* cam)
 {
-    rpe_camera_set_proj_matrix(cam, cam->fov, cam->aspect, cam->n, cam->z, cam->type);
+    rpe_camera_set_proj_matrix(cam, cam->fov, cam->width, cam->height, cam->n, cam->z, cam->type);
 }
 
 /** Public functions **/
 
 void rpe_camera_set_projection(
-    rpe_camera_t* cam, float fovy, float aspect, float near, float far, enum ProjectionType type)
+    rpe_camera_t* cam,
+    float fovy,
+    uint32_t width,
+    uint32_t height,
+    float near,
+    float far,
+    enum ProjectionType type)
 {
     assert(cam);
-    rpe_camera_set_proj_matrix(cam, fovy, aspect, near, far, type);
+    rpe_camera_set_proj_matrix(cam, fovy, width, height, near, far, type);
 }
 
 void rpe_camera_set_view_matrix(rpe_camera_t* cam, math_mat4f* look_at)

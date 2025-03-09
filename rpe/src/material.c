@@ -338,20 +338,15 @@ void rpe_material_set_device_texture(
     rpe_material_add_variant(type, m);
 }
 
-void rpe_material_set_texture(
-    rpe_material_t* m,
+texture_handle_t rpe_material_map_texture(
     rpe_engine_t* engine,
     rpe_mapped_texture_t* tex,
-    enum MaterialImageType type,
     sampler_params_t* params,
-    uint32_t uv_index,
     bool generate_mipmaps)
 {
-    assert(m);
     assert(engine);
     assert(tex);
     assert(params);
-    assert(uv_index < RPE_RENDERABLE_MAX_UV_SET_COUNT);
 
     vkapi_driver_t* driver = engine->driver;
 
@@ -362,20 +357,20 @@ void rpe_material_set_texture(
     texture_handle_t h = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         tex->format,
         tex->width,
         tex->height,
         tex->mip_levels,
-        tex->face_count,
-        1,
+        tex->array_count,
+        tex->type,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         params);
     assert(vkapi_tex_handle_is_valid(h));
 
     vkapi_driver_map_gpu_texture(
         engine->driver, h, tex->image_data, tex->image_data_size, tex->offsets, generate_mipmaps);
-    // We have to adjust the image handles to take into account the four reserved slots - these are
-    // not bound to the shader, so we need to take this into account.
-    rpe_material_set_device_texture(m, h, type, uv_index);
+
+    return h;
 }

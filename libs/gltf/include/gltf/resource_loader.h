@@ -23,6 +23,8 @@
 #ifndef __GLTF_RESOURCE_LOADER_H__
 #define __GLTF_RESOURCE_LOADER_H__
 
+#include "material_cache.h"
+
 void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine);
 
 #endif

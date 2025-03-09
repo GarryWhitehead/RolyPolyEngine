@@ -2,7 +2,6 @@
 #include "unity_fixture.h"
 #include "utility/arena.h"
 #include "utility/job_queue.h"
-#include "utility/thread.h"
 
 TEST_GROUP(JobQueueGroup);
 
@@ -60,7 +59,7 @@ TEST(JobQueueGroup, JobQueue_GeneralTests)
 }
 
 atomic_int counter;
-void thread_func2(void* arg) { counter++; }
+void thread_func2(void*) { counter++; }
 
 TEST(JobQueueGroup, JobQueue_JobWithChildrenTests)
 {
@@ -70,7 +69,7 @@ TEST(JobQueueGroup, JobQueue_JobWithChildrenTests)
     TEST_ASSERT(ARENA_SUCCESS == res);
 
     int thread_count = 3;
-    job_queue_t* jq = job_queue_init(&arena, thread_count, 1);
+    job_queue_t* jq = job_queue_init(&arena, thread_count);
     job_queue_adopt_thread(jq);
 
     int work_size = 20;

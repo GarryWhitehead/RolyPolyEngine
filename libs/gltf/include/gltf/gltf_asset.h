@@ -23,6 +23,7 @@
 #ifndef __GLTF_ASSET_H__
 #define __GLTF_ASSET_H__
 
+#include "material_cache.h"
 #include <cgltf.h>
 #include <rpe/aabox.h>
 #include <rpe/material.h>
@@ -42,7 +43,7 @@ typedef struct AssetTextureParams
     rpe_material_t* mat;
     cgltf_texture_view* gltf_tex;
     // This is updated via the appropriate loader.
-    rpe_mapped_texture_t mat_texture;
+    gltf_image_handle_t mat_texture;
     enum MaterialImageType tex_type;
     uint32_t uv_index;
     image_free_func free_func;

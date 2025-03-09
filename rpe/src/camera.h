@@ -53,15 +53,23 @@ typedef struct Camera
     float n;
     float z;
     float aspect;
+    uint32_t width;
+    uint32_t height;
     enum ProjectionType type;
 
 } rpe_camera_t;
 
 rpe_camera_t* rpe_camera_init(
-    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type);
+    rpe_engine_t* engine, float fovy, uint32_t width, uint32_t height, float n, float f, enum ProjectionType type);
 
 void rpe_camera_set_proj_matrix(
-    rpe_camera_t* cam, float fovy, float aspect, float n, float z, enum ProjectionType type);
+    rpe_camera_t* cam,
+    float fovy,
+    uint32_t width,
+    uint32_t height,
+    float n,
+    float f,
+    enum ProjectionType type);
 
 rpe_camera_ubo_t rpe_camera_update_ubo(rpe_camera_t* cam, rpe_frustum_t* f);
 

@@ -23,6 +23,8 @@
 #define __RPE_MATERIAL_H__
 
 #include <backend/enums.h>
+#include <vulkan-api/texture.h> // For TextureType enum - move to backend enums.h??
+#include <vulkan-api/resource_cache.h>
 #include <stdbool.h>
 #include <utility/maths.h>
 
@@ -63,8 +65,9 @@ typedef struct MappedTexture
     uint32_t width;
     uint32_t height;
     uint32_t mip_levels;
-    uint32_t face_count;
-    size_t* offsets;
+    uint32_t array_count;
+    enum TextureType type;
+    size_t offsets[RPE_MATERIAL_MAX_MIP_COUNT * 6];
 } rpe_mapped_texture_t;
 
 struct MaterialBlendFactor
@@ -104,13 +107,13 @@ void rpe_material_set_metallic_factor(rpe_material_t* m, float f);
 void rpe_material_set_alpha_mask(rpe_material_t* m, float mask);
 void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co);
 
-void rpe_material_set_texture(
-    rpe_material_t* m,
+texture_handle_t rpe_material_map_texture(
     rpe_engine_t* engine,
     rpe_mapped_texture_t* tex,
-    enum MaterialImageType type,
     sampler_params_t* params,
-    uint32_t uv_index,
     bool generate_mipmaps);
+
+void rpe_material_set_device_texture(
+    rpe_material_t* m, texture_handle_t h, enum MaterialImageType type, uint32_t uv_index);
 
 #endif

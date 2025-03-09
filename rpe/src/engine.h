@@ -27,20 +27,24 @@
 #define RPE_ENGINE_PERM_ARENA_SIZE 1 << 30
 #define RPE_ENGINE_FRAME_ARENA_SIZE 1 << 30
 
-#include <stdint.h>
-#include <stdlib.h>
+#include "rpe/settings.h"
 #include <utility/arena.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/swapchain.h>
+
+#include <stdint.h>
+#include <stdlib.h>
 
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
 typedef struct LightManager rpe_light_manager_t;
 typedef struct ObjectManager rpe_obj_manager_t;
+typedef struct ShadowManager rpe_shadow_manager_t;
 typedef struct Scene rpe_scene_t;
 typedef struct Renderer rpe_renderer_t;
 typedef struct VertexBuffer rpe_vertex_buffer_t;
+typedef struct JobQueue job_queue_t;
 
 typedef struct SwapchainHandle
 {
@@ -67,6 +71,7 @@ typedef struct Engine
     rpe_rend_manager_t* rend_manager;
     rpe_transform_manager_t* transform_manager;
     rpe_light_manager_t* light_manager;
+    rpe_shadow_manager_t* shadow_manager;
 
     /// Vertex information stored in one large buffer.
     rpe_vertex_buffer_t* vbuffer;
@@ -88,6 +93,9 @@ typedef struct Engine
     texture_handle_t tex_dummy_cubemap;
     texture_handle_t tex_dummy;
 
+    job_queue_t* job_queue;
+
+    rpe_settings_t settings;
 } rpe_engine_t;
 
 #endif

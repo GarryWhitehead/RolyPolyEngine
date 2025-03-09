@@ -30,48 +30,36 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-void* _item_queue_ptr_offset(work_stealing_queue_t* q, ptrdiff_t offset)
-{
-    return (uint8_t*)q->items + offset * q->type_size;
-}
-
-void _set_item(work_stealing_queue_t* queue, int idx, void* item)
+void _set_item(work_stealing_queue_t* queue, int idx, int item)
 {
     int mask_idx = idx & queue->idx_mask;
-    memcpy(_item_queue_ptr_offset(queue, mask_idx), item, queue->type_size);
+    queue->items[mask_idx] = item;
 }
 
-void* _get_item(work_stealing_queue_t* queue, int idx)
+int _get_item(work_stealing_queue_t* queue, int idx)
 {
     int mask_idx = idx & queue->idx_mask;
-    return _item_queue_ptr_offset(queue, mask_idx);
+    return queue->items[mask_idx];
 }
 
-work_stealing_queue_t
-work_stealing_queue_init(arena_t* arena, uint32_t queue_count, uint32_t type_size)
+work_stealing_queue_t work_stealing_queue_init(arena_t* arena, uint32_t queue_count)
 {
-    assert(type_size > 0);
     assert(queue_count > 0);
     assert(arena);
 
-    work_stealing_queue_t q;
-    q.bottom_idx = 0;
-    q.top_idx = 0;
-    q.type_size = type_size;
+    work_stealing_queue_t q = {0};
     q.idx_mask = queue_count - 1;
-    q.items = arena_alloc(arena, type_size, type_size, queue_count, ARENA_ZERO_MEMORY);
     return q;
 }
 
-void work_stealing_queue_push(work_stealing_queue_t* queue, void* item)
+void work_stealing_queue_push(work_stealing_queue_t* queue, int item)
 {
     int bottom = atomic_load_explicit(&queue->bottom_idx, memory_order_relaxed);
     _set_item(queue, bottom, item);
-    atomic_store_explicit(&queue->bottom_idx, bottom + 1, memory_order_release);
+    atomic_store_explicit(&queue->bottom_idx, bottom + 1, memory_order_seq_cst);
 }
 
-void* work_stealing_queue_pop(work_stealing_queue_t* queue)
+int work_stealing_queue_pop(work_stealing_queue_t* queue)
 {
     atomic_int bottom = atomic_fetch_sub_explicit(&queue->bottom_idx, 1, memory_order_seq_cst) - 1;
 
@@ -87,7 +75,7 @@ void* work_stealing_queue_pop(work_stealing_queue_t* queue)
         return _get_item(queue, bottom);
     }
 
-    void* item = NULL;
+    int item = INT32_MAX;
     if (top == bottom)
     {
         item = _get_item(queue, bottom);
@@ -99,14 +87,16 @@ void* work_stealing_queue_pop(work_stealing_queue_t* queue)
         }
         else
         {
-            item = NULL;
+            item = INT32_MAX;
         }
     }
-    atomic_store_explicit(&queue->bottom_idx, top, memory_order_relaxed);
+    // Note: Was using relaxed memory ordering but Helgrind reports a potential issue when using
+    // this, using seq_cst instead.
+    atomic_store_explicit(&queue->bottom_idx, top, memory_order_seq_cst);
     return item;
 }
 
-void* work_stealing_queue_steal(work_stealing_queue_t* queue)
+int work_stealing_queue_steal(work_stealing_queue_t* queue)
 {
     // Keep spinning until we successfully manage to steal a job.
     while (true)
@@ -117,10 +107,10 @@ void* work_stealing_queue_steal(work_stealing_queue_t* queue)
         // The queue is empty.
         if (top >= bottom)
         {
-            return NULL;
+            return INT32_MAX;
         }
 
-        void* item = _get_item(queue, top);
+        int item = _get_item(queue, top);
         if (atomic_compare_exchange_strong_explicit(
                 &queue->top_idx, &top, top + 1, memory_order_seq_cst, memory_order_relaxed))
         {

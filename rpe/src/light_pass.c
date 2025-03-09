@@ -54,6 +54,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
         .height = local_d->height,
         .mip_levels = 1,
         .depth = 1,
+        .layers = 1,
         .format = VK_FORMAT_R16G16B16A16_UNORM};
     d->light = rg_add_resource(
         rg,
@@ -69,7 +70,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
         NULL);
 
     d->light = rg_add_write(
-        rg, d->light, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+        rg, d->light, node, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     d->depth = rg_add_write(rg, d->depth, node, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
     // inputs into the pass

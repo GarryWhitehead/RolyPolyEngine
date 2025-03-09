@@ -35,6 +35,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
 {
     rpe_light_manager_t* lm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_light_manager_t);
     vkapi_driver_t* driver = engine->driver;
+    MAKE_DYN_ARRAY(struct LightInstance, arena, 50, &lm->lights);
 
     lm->ssbo_vk_buffer_handle = vkapi_res_cache_create_ssbo(
         driver->res_cache,
@@ -79,6 +80,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
     shader_bundle_update_ubo_desc(
         lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, engine->camera_ubo);
 
+    lm->dir_light_obj.id = UINT32_MAX;
     lm->engine = engine;
     lm->comp_manager = rpe_comp_manager_init(arena);
     lm->program_bundle->raster_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
@@ -158,7 +160,6 @@ void set_sun_halo_falloff(rpe_light_manager_t* lm, rpe_light_instance_t* light, 
 }
 
 /** Public entry function **/
-
 void rpe_light_manager_create_light(
     rpe_light_manager_t* lm, rpe_light_create_info_t* ci, rpe_object_t obj, enum LightType type)
 {

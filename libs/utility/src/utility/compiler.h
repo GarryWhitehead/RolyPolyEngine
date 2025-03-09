@@ -62,3 +62,9 @@
 #elif WIN32
 #define RPE_PUSH_PACKED
 #endif
+
+#ifdef __GNUC__
+#define RPE_ALIGNAS(sz) __attribute__((aligned(sz)))
+#elif WIN32
+#define RPE_ALIGNAS(sz) __declspec(align(sz))
+#endif

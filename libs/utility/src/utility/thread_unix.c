@@ -58,7 +58,7 @@ thread_t thread_current()
     return out;
 }
 
-void mutex_init(mutex_t* m) { memset(m, 0, sizeof(mutex_t)); }
+void mutex_init(mutex_t* m) { pthread_mutex_init(m, NULL); }
 
 bool mutex_lock(mutex_t* m)
 {
@@ -71,7 +71,7 @@ bool mutex_lock(mutex_t* m)
 
 void mutex_unlock(mutex_t* m) { pthread_mutex_unlock(m); }
 
-void condition_init(cond_wait_t* c) { memset(c, 0, sizeof(cond_wait_t)); }
+void condition_init(cond_wait_t* c) { pthread_cond_init(c, NULL); }
 
 bool condition_wait(cond_wait_t* c, mutex_t* m)
 {

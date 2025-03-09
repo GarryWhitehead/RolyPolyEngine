@@ -61,7 +61,7 @@ typedef struct Application
  @returns an error code.
  */
 int rpe_app_init(
-    const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app);
+    const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app, rpe_settings_t* settings);
 
 /**
  Destroy all resource associated with this app - this will terminate all Vulkan and RPE resources.

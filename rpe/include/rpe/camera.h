@@ -23,6 +23,7 @@
 #ifndef __APP_CAMERA_H__
 #define __APP_CAMERA_H__
 
+#include <stdint.h>
 #include <utility/maths.h>
 
 typedef struct Camera rpe_camera_t;
@@ -34,7 +35,13 @@ enum ProjectionType
 };
 
 void rpe_camera_set_projection(
-    rpe_camera_t* cam, float fovy, float aspect, float near, float far, enum ProjectionType type);
+    rpe_camera_t* cam,
+    float fovy,
+    uint32_t width,
+    uint32_t height,
+    float near,
+    float far,
+    enum ProjectionType type);
 
 void rpe_camera_set_view_matrix(rpe_camera_t* cam, math_mat4f* look_at);
 

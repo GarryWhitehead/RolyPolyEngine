@@ -138,7 +138,4 @@ void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh)
 
 uint32_t rpe_material_max_mipmaps(uint32_t width, uint32_t height);
 
-void rpe_material_set_device_texture(
-    rpe_material_t* m, texture_handle_t h, enum MaterialImageType type, uint32_t uv_index);
-
 #endif

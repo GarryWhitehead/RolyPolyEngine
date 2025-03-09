@@ -63,7 +63,7 @@ typedef struct VkApiRenderTarget
     vkapi_attach_info_t colours[VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT];
     math_vec4f clear_colour;
     uint8_t samples;
-    bool multi_view;
+    uint32_t multi_view_count;
 
 } vkapi_render_target_t;
 
@@ -134,7 +134,7 @@ vkapi_rpass_t vkapi_rpass_init(arena_t* arena);
 
 vkapi_attach_handle_t vkapi_rpass_add_attach(vkapi_rpass_t* rp, struct VkApiAttachment* attach);
 
-void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiView);
+void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, uint32_t multi_view_count);
 
 vkapi_fbo_t vkapi_fbo_init();
 

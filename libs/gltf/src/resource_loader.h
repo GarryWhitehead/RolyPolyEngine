@@ -23,15 +23,29 @@
 #ifndef __GLTF_RESOURCE_LOADER_PRIV_H__
 #define __GLTF_RESOURCE_LOADER_PRIV_H__
 
+#include "gltf/gltf_asset.h"
+#include "material_cache.h"
 #include <utility/arena.h>
-#include <utility/hash_set.h>
 #include <utility/string.h>
+#include <utility/job_queue.h>
+
+typedef struct GltfAsset gltf_asset_t;
+
+struct DecodeEntry
+{
+    void* image_data;
+    size_t image_sz;
+    rpe_mapped_texture_t* mapped_texture;
+    image_free_func* free_func;
+    string_t mime_type;
+    job_t* decoder_job;
+};
 
 typedef struct ResoureLoader
 {
-    hash_set_t uri_filename_cache;
-    hash_set_t buffer_texture_cache;
-
+    gltf_material_cache_t texture_cache;
+    arena_dyn_array_t decode_queue;
+    job_t* parent_job;
 } gltf_resource_loader_t;
 
 #endif

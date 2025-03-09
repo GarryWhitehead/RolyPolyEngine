@@ -24,11 +24,12 @@
 #define __RPE_PRIV_LIGHT_MANAGER_H__
 
 #include "component_manager.h"
-
-#include <stdint.h>
+#include "rpe/light_manager.h"
 #include <utility/maths.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/resource_cache.h>
+
+#include <stdint.h>
 
 typedef struct Engine rpe_engine_t;
 typedef struct Scene rpe_scene_t;
@@ -40,13 +41,6 @@ typedef struct Camera rpe_camera_t;
 #define RPE_LIGHTING_SAMPLER_END_OF_BUFFER_SIGNAL 0xFF
 
 #define RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING 0
-
-enum LightType
-{
-    RPE_LIGHTING_TYPE_SPOT,
-    RPE_LIGHTING_TYPE_POINT,
-    RPE_LIGHTING_TYPE_DIRECTIONAL
-};
 
 typedef struct LightInstance
 {
@@ -129,5 +123,7 @@ rpe_light_instance_t*
 rpe_light_manager_get_light_instance(rpe_light_manager_t* lm, rpe_object_t obj);
 
 void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_camera_t* camera);
+
+rpe_light_instance_t* rpe_light_manager_get_dir_light_params(rpe_light_manager_t* lm);
 
 #endif

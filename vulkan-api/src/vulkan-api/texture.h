@@ -38,6 +38,14 @@ typedef struct SamplerCache vkapi_sampler_cache_t;
 
 #define VKAPI_TEXTURE_MAX_MIP_COUNT 12
 
+enum TextureType
+{
+    VKAPI_TEXTURE_2D,
+    VKAPI_TEXTURE_2D_ARRAY,
+    VKAPI_TEXTURE_2D_CUBE,
+    VKAPI_TEXTURE_2D_CUBE_ARRAY
+};
+
 typedef struct Texture
 {
     struct ImageInfo
@@ -46,13 +54,13 @@ typedef struct Texture
         uint32_t width;
         uint32_t height;
         uint32_t mip_levels;
-        uint32_t face_count;
         uint32_t array_count;
+        enum TextureType type;
     } info;
 
     VkImageLayout image_layout;
     VkImage image;
-    VkDeviceMemory image_memory;
+    VmaAllocation vma_alloc;
 
     // Includes omage views for using different mip levels as render targets.
     VkImageView image_views[VKAPI_TEXTURE_MAX_MIP_COUNT];
@@ -71,24 +79,24 @@ vkapi_texture_t vkapi_texture_init(
     uint32_t width,
     uint32_t height,
     uint32_t mip_levels,
-    uint32_t face_count,
     uint32_t array_count,
+    enum TextureType type,
     VkFormat format);
 
-void vkapi_texture_destroy(vkapi_context_t* context, vkapi_texture_t* texture);
+void vkapi_texture_destroy(vkapi_context_t* context, VmaAllocator vma, vkapi_texture_t* texture);
 
 uint32_t vkapi_texture_format_byte_size(VkFormat format);
 
 uint32_t vkapi_texture_format_comp_size(VkFormat format);
 
-void vkapi_texture_create_image(
-    vkapi_context_t* context, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);
+void vkapi_texture_create_image(VmaAllocator vma, vkapi_texture_t* texture, VkImageUsageFlags usage_flags);
 
 VkImageView vkapi_texture_create_image_view(
     vkapi_context_t* context, vkapi_texture_t* texture, uint32_t mip_level, uint32_t mip_count);
 
 void vkapi_texture_create_2d(
     vkapi_context_t* context,
+    VmaAllocator vma,
     vkapi_sampler_cache_t* sc,
     vkapi_texture_t* texture,
     VkImageUsageFlags usage_flags,

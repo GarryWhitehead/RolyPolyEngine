@@ -71,6 +71,7 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     raster_state.polygonMode = key->raster_state.polygon_mode;
     raster_state.cullMode = key->raster_state.cull_mode;
     raster_state.frontFace = key->raster_state.front_face;
+    raster_state.depthClampEnable = key->raster_state.depth_clamp_enable;
 
     VkPipelineDepthStencilStateCreateInfo ds_state = {0};
     ds_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;

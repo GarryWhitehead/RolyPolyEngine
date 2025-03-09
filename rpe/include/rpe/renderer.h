@@ -39,7 +39,7 @@ void rpe_renderer_render_single_quad(
     rpe_render_target_t* rt,
     // FIXME: Need to hide this from public (using a material?).
     shader_prog_bundle_t* bundle,
-    bool multiview);
+    uint32_t multi_view_index);
 
 void rpe_renderer_render_single_indexed(
     rpe_renderer_t* rdr,
@@ -51,9 +51,9 @@ void rpe_renderer_render_single_indexed(
     uint32_t index_count,
     struct PushBlockEntry* pb_entries,
     uint32_t push_block_count,
-    bool multiview);
+    uint32_t multi_view_index);
 
-void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview);
+void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count);
 
 void rpe_render_end_renderpass(rpe_renderer_t* rdr);
 

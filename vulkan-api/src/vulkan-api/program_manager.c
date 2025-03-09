@@ -23,6 +23,7 @@
 #include "program_manager.h"
 
 #include "backend/enums.h"
+#include "backend/convert_to_vk.h"
 #include "driver.h"
 #include "pipeline_cache.h"
 #include "shader.h"
@@ -130,6 +131,26 @@ void shader_bundle_add_render_primitive(
     assert(bundle);
     bundle->render_prim.prim_restart = prim_restart;
     bundle->render_prim.topology = topo;
+}
+
+void shader_bundle_set_cull_mode(shader_prog_bundle_t* bundle, enum CullMode mode)
+{
+    assert(bundle);
+    bundle->raster_state.cull_mode = cull_mode_to_vk(mode);
+}
+
+void shader_bundle_set_depth_read_write_state(shader_prog_bundle_t* bundle, bool test_state, bool write_state, enum CompareOp depth_op)
+{
+    assert(bundle);
+    bundle->ds_state.test_enable = test_state;
+    bundle->ds_state.write_enable = write_state;
+    bundle->ds_state.compare_op = compare_op_to_vk(depth_op);
+}
+
+void shader_bundle_set_depth_clamp_state(shader_prog_bundle_t* bundle, bool state)
+{
+    assert(bundle);
+    bundle->raster_state.depth_clamp_enable = state;
 }
 
 void shader_bundle_set_scissor(

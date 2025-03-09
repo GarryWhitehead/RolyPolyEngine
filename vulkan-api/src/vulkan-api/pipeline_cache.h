@@ -63,6 +63,7 @@ RPE_PACKED typedef struct GraphicsPipelineKey
         VkBool32 prim_restart;
         VkBool32 depth_test_enable;
         VkBool32 depth_write_enable;
+        VkBool32 depth_clamp_enable;
         VkCompareOp depth_compare_op;
     } raster_state;
 
@@ -167,6 +168,7 @@ void vkapi_pline_cache_bind_blend_factor_block(
 void vkapi_pline_cache_bind_depth_test_enable(vkapi_pipeline_cache_t* c, bool state);
 void vkapi_pline_cache_bind_depth_write_enable(vkapi_pipeline_cache_t* c, bool state);
 void vkapi_pline_cache_bind_depth_compare_op(vkapi_pipeline_cache_t* c, VkCompareOp op);
+void vkapi_pline_cache_bind_depth_clamp(vkapi_pipeline_cache_t* c, bool state);
 
 void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
 

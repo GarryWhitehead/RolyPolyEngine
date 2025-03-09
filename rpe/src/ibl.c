@@ -104,13 +104,14 @@ texture_handle_t ibl_eqirect_to_cubemap(
     texture_handle_t eqi_tex = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         format,
         hdr_width,
         hdr_height,
         1,
         1,
-        1,
+        VKAPI_TEXTURE_2D,
         VK_IMAGE_USAGE_SAMPLED_BIT,
         &sampler);
     vkapi_driver_map_gpu_texture(driver, eqi_tex, hdr_image, sz, NULL, false);
@@ -121,13 +122,14 @@ texture_handle_t ibl_eqirect_to_cubemap(
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R32G32B32A32_SFLOAT,
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
         0xffff,
-        6,
         1,
+        VKAPI_TEXTURE_2D_CUBE,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         &sampler);
@@ -142,7 +144,7 @@ texture_handle_t ibl_eqirect_to_cubemap(
         bundle, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, 0.0f, 1.0f);
 
     rpe_renderer_render_single_indexed(
-        ibl->renderer, &rt, bundle, ibl->cubemap_vertices, ibl->cubemap_indices, 36, NULL, 0, true);
+        ibl->renderer, &rt, bundle, ibl->cubemap_vertices, ibl->cubemap_indices, 36, NULL, 0, 6);
 
     uint32_t mip_levels = rpe_material_max_mipmaps(
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS);
@@ -171,13 +173,14 @@ texture_handle_t ibl_create_brdf_lut(ibl_t* ibl, rpe_engine_t* engine)
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R16G16B16A16_SFLOAT,
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
         1,
         1,
-        1,
+        VKAPI_TEXTURE_2D,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &sampler);
 
@@ -187,7 +190,7 @@ texture_handle_t ibl_create_brdf_lut(ibl_t* ibl, rpe_engine_t* engine)
     rt.load_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR;
     rt.store_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
 
-    rpe_renderer_render_single_quad(ibl->renderer, &rt, ibl->brdf.bundle, false);
+    rpe_renderer_render_single_quad(ibl->renderer, &rt, ibl->brdf.bundle, 0);
 
     vkapi_driver_destroy_rt(driver, &rt.handle);
     return target_handle;
@@ -210,13 +213,14 @@ ibl_create_irradiance_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R32G32B32A32_SFLOAT,
         RPE_IBL_IRRADIANCE_ENV_MAP_DIMENSIONS,
         RPE_IBL_IRRADIANCE_ENV_MAP_DIMENSIONS,
         1,
-        6,
         1,
+        VKAPI_TEXTURE_2D_CUBE,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &sampler);
 
@@ -242,7 +246,7 @@ ibl_create_irradiance_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t
         36,
         NULL,
         0,
-        true);
+        6);
     vkapi_driver_destroy_rt(driver, &rt.handle);
 
     return target_handle;
@@ -269,13 +273,14 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
     texture_handle_t target_handle = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R16G16B16A16_SFLOAT,
         RPE_IBL_SPECULAR_ENV_MAP_DIMENSIONS,
         RPE_IBL_SPECULAR_ENV_MAP_DIMENSIONS,
         ibl->options.specular_level_count,
-        6,
         1,
+        VKAPI_TEXTURE_2D_CUBE,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         &sampler);
@@ -315,7 +320,7 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
             36,
             &entry,
             1,
-            true);
+            6);
         vkapi_driver_destroy_rt(driver, &rt.handle);
 
         dim >>= 1;
@@ -361,13 +366,14 @@ bool rpe_ibl_upload_cubemap(
     ibl->tex_cube_map = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R16G16B16A16_SFLOAT,
         width,
         height,
         levels,
-        6,
         1,
+        VKAPI_TEXTURE_2D_CUBE,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &sampler);
     vkapi_driver_map_gpu_texture(
@@ -535,7 +541,7 @@ ibl_t* rpe_ibl_init(rpe_engine_t* engine, struct PreFilterOptions options)
     vkapi_driver_t* driver = engine->driver;
 
     ibl->camera = rpe_engine_create_camera(
-        engine, 90.0f, 1.0f, 0.1f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
+        engine, 90.0f, 1, 1, 0.1f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
     rpe_camera_ubo_t cam_ubo = rpe_camera_update_ubo(ibl->camera, NULL);
     vkapi_driver_map_gpu_buffer(
         engine->driver, engine->camera_ubo, sizeof(rpe_camera_ubo_t), 0, &cam_ubo);

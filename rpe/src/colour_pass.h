@@ -50,6 +50,6 @@ struct GBufferLocalData
 };
 
 rg_handle_t
-rpe_colour_pass_render(render_graph_t* rg, uint32_t width, uint32_t height, VkFormat depth_format);
+rpe_colour_pass_render(render_graph_t* rg, uint32_t dimensions, VkFormat depth_format);
 
 #endif

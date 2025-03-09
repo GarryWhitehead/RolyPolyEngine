@@ -33,6 +33,8 @@
 #endif
 #include "render_queue.h"
 #include "scene.h"
+#include "shadow_pass.h"
+#include "rpe/settings.h"
 
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
@@ -49,7 +51,7 @@ rpe_render_target_t rpe_render_target_init()
     return rt;
 }
 
-void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, bool multi_view)
+void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, uint32_t multi_view_count)
 {
     // convert attachment information to vulkan api format
     vkapi_render_target_t vk_rt = vkapi_render_target_init();
@@ -90,7 +92,7 @@ void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, bool multi_
     // Stencil ignored at the moment.
     vkapi_attach_info_t stencil = {0};
     t->handle = vkapi_driver_create_rt(
-        engine->driver, multi_view, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
+        engine->driver, multi_view_count, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
 }
 
 rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
@@ -110,6 +112,7 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
     i->depth_handle = vkapi_res_push_reserved_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         sc->extent.width,
         sc->extent.height,
         depth_format,
@@ -134,7 +137,7 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
         math_vec4f col = {0.0f, 0.0f, 0.0f, 1.0f};
         vkapi_attach_info_t stencil = {.level = 0, .layer = 0, .handle = UINT32_MAX};
         i->rt_handles[idx] =
-            vkapi_driver_create_rt(engine->driver, false, col, colour, depth, stencil);
+            vkapi_driver_create_rt(engine->driver, 0, col, colour, depth, stencil);
     }
     return i;
 }
@@ -157,9 +160,9 @@ void rpe_renderer_end_frame(rpe_renderer_t* r)
 }
 
 void setup_single_render(
-    rpe_engine_t* engine, vkapi_render_pass_data_t* data, rpe_render_target_t* rt, bool multiview)
+    rpe_engine_t* engine, vkapi_render_pass_data_t* data, rpe_render_target_t* rt, uint32_t multi_view_count)
 {
-    create_backend_rt(rt, engine, multiview);
+    create_backend_rt(rt, engine, multi_view_count);
 
     data->width = rt->width;
     data->height = rt->height;
@@ -189,14 +192,14 @@ void setup_single_render(
         sizeof(enum StoreClearFlags) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
 }
 
-void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview)
+void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count)
 {
     assert(rdr);
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_render_pass_data_t data = {0};
 
-    setup_single_render(rdr->engine, &data, rt, multiview);
+    setup_single_render(rdr->engine, &data, rt, multi_view_count);
     vkapi_driver_begin_rpass(driver, cmds->instance, &data, &rt->handle);
 }
 
@@ -209,7 +212,7 @@ void rpe_render_end_renderpass(rpe_renderer_t* rdr)
 }
 
 void rpe_renderer_render_single_quad(
-    rpe_renderer_t* rdr, rpe_render_target_t* rt, shader_prog_bundle_t* bundle, bool multiview)
+    rpe_renderer_t* rdr, rpe_render_target_t* rt, shader_prog_bundle_t* bundle, uint32_t multi_view_count)
 {
     assert(rdr);
     assert(rt);
@@ -217,7 +220,7 @@ void rpe_renderer_render_single_quad(
 
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    rpe_renderer_begin_renderpass(rdr, rt, multiview);
+    rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
     vkapi_driver_draw_quad(driver, bundle);
     vkapi_driver_end_rpass(cmds->instance);
 }
@@ -231,11 +234,11 @@ void rpe_renderer_render_single_indexed(
     uint32_t index_count,
     struct PushBlockEntry* pb_entries,
     uint32_t push_block_count,
-    bool multiview)
+    uint32_t multi_view_count)
 {
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    rpe_renderer_begin_renderpass(rdr, rt, multiview);
+    rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
 
     vkapi_driver_bind_vertex_buffer(driver, vertex_buffer, 0);
     vkapi_driver_bind_index_buffer(driver, index_buffer);
@@ -258,6 +261,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
 {
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
+    rpe_settings_t settings = engine->settings;
 
     rg_clear(rdr->rg);
 
@@ -298,21 +302,29 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
         rg_import_render_target(rdr->rg, "BackBuffer", desc, rdr->rt_handles[driver->image_index]);
     VkFormat depth_format = vkapi_driver_get_supported_depth_format(rdr->engine->driver);
 
-    // TODO: Pass these as user-defined options.
-    const uint32_t GBUFFER_TEX_WIDTH = 2048;
-    const uint32_t GBUFFER_TEX_HEIGHT = 2048;
-
     // Fill the gbuffers - this can't be the final render target unless gbuffers are disabled
     // due to the gBuffers requiring resolving down to a single render target in the lighting
     // pass.
-    rpe_colour_pass_render(rdr->rg, GBUFFER_TEX_WIDTH, GBUFFER_TEX_HEIGHT, depth_format);
+    rpe_colour_pass_render(rdr->rg, settings.gbuffer_dims, depth_format);
+
+    // Render the shadow maps - cascade and point/spot maps.
+    if (settings.draw_shadows)
+    {
+        rpe_shadow_pass_render(
+            engine->shadow_manager, rdr->rg, settings.shadow.cascade_dims, depth_format);
+    }
 
     input_handle = rpe_light_pass_render(
         engine->light_manager, rdr->rg, desc.width, desc.height, depth_format);
 
+    // TODO: move to post-processing when added.
+    if (settings.shadow.enable_debug_cascade)
+    {
+        input_handle = rpe_cascade_shadow_debug_render(engine->shadow_manager, rdr->rg, desc.width, desc.height);
+    }
+
     rg_move_resource(rdr->rg, input_handle, bb_handle);
     rg_add_present_pass(rdr->rg, bb_handle);
-
     rg_compile(rdr->rg);
 
 #ifndef NDEBUG

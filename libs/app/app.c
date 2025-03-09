@@ -27,14 +27,14 @@
 #include <rpe/renderer.h>
 #include <utility/sleep.h>
 
-int rpe_app_init(const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app)
+int rpe_app_init(const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app, rpe_settings_t* settings)
 {
     new_app->should_close = false;
     new_app->camera_near = 0.1f;
     new_app->camera_far = 100.0f;
     new_app->camera_fov = 60.0f;
 
-    int err = app_window_init(new_app, win_title, win_width, win_height, &new_app->window);
+    int err = app_window_init(new_app, win_title, win_width, win_height, &new_app->window, settings);
 
     return err;
 }

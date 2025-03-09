@@ -36,6 +36,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 
 #define MAX(a, b) a > b ? a : b
 #define MIN(a, b) a < b ? a : b
@@ -210,6 +211,24 @@ static inline math_vec4f math_vec4f_sub(math_vec4f a, math_vec4f b)
 #else
     math_vec4f out = {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z, .w = a.w - b.w};
 #endif
+    return out;
+}
+
+static inline math_vec2f math_vec2f_sub_sca(math_vec2f a, float sca)
+{
+    math_vec2f out = {.x = a.x - sca, .y = a.y - sca};
+    return out;
+}
+
+static inline math_vec3f math_vec3f_sub_sca(math_vec3f a, float sca)
+{
+    math_vec3f out = {.x = a.x - sca, .y = a.y - sca, .z = a.z - sca};
+    return out;
+}
+
+static inline math_vec4f math_vec4f_sub_sca(math_vec4f a, float sca)
+{
+    math_vec4f out = {.x = a.x - sca, .y = a.y - sca, .z = a.z - sca, .w = a.w - sca};
     return out;
 }
 
@@ -874,6 +893,20 @@ static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, ma
 }
 
 static inline math_mat4f
+math_mat4f_ortho(float left, float right, float bottom, float top, float near, float far)
+{
+    math_mat4f m = {0};
+    m.data[0][0] = 2.0f / (right - left);
+    m.data[1][1] = -2.0f / (top - bottom);
+    m.data[2][2] = 1.0f / (near - far);
+    m.data[3][0] = -(right + left) / (right - left);
+    m.data[3][1] = -(top + bottom) / (top - bottom);
+    m.data[3][2] = near / (near - far);
+    m.data[3][3] = 1.0f;
+    return m;
+}
+
+static inline math_mat4f
 math_mat4f_frustum(float left, float right, float bottom, float top, float near, float far)
 {
     math_mat4f m = {0};
@@ -941,6 +974,18 @@ static inline math_vec3f math_mat4f_translation_vec(math_mat4f m)
 {
     math_vec3f out = {.x = m.data[3][0], .y = m.data[3][1], .z = m.data[3][2]};
     return out;
+}
+
+static inline void math_mat4f_print(math_mat4f m)
+{
+    for (int j = 0; j < 4; ++j)
+    {
+        for(int i = 0; i < 4; ++i)
+        {
+            printf("%f, ", m.data[i][j]);
+        }
+        printf("\n");
+    }
 }
 
 /** ================================ Quaternion functions ================================= **/

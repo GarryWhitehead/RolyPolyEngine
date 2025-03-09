@@ -31,17 +31,20 @@
 #include "scene.h"
 #include "skybox.h"
 #include "vertex_buffer.h"
+#include "shadow_manager.h"
 
 #include <assert.h>
 #include <log.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
+#include <utility/job_queue.h>
 
-rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver)
+rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings)
 {
     assert(driver);
 
     rpe_engine_t* instance = calloc(1, sizeof(struct Engine));
+    instance->settings = *settings;
     assert(instance);
 
     instance->driver = driver;
@@ -86,37 +89,43 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver)
     instance->transform_manager = rpe_transform_manager_init(instance, &instance->perm_arena);
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
     instance->light_manager = rpe_light_manager_init(instance, &instance->perm_arena);
+    instance->shadow_manager = rpe_shadow_manager_init(instance, settings->shadow, &instance->perm_arena);
     instance->vbuffer = rpe_vertex_buffer_init(driver, &instance->perm_arena);
 
     // Create dummy textures - only needed for bound samplers to prevent validation warnings.
-    uint32_t zero_buffer[6] = {0};
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
         .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE};
     instance->tex_dummy_cubemap = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R8G8B8A8_UNORM,
         1,
         1,
         1,
-        6,
         1,
+        VKAPI_TEXTURE_2D_CUBE,
         VK_IMAGE_USAGE_SAMPLED_BIT,
         &sampler);
     instance->tex_dummy = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         VK_FORMAT_R8G8B8A8_UNORM,
         1,
         1,
         1,
         1,
-        1,
+        VKAPI_TEXTURE_2D,
         VK_IMAGE_USAGE_SAMPLED_BIT,
         &sampler);
+
+    // Start the job queue.
+    instance->job_queue = job_queue_init(&instance->perm_arena, 10);
+    job_queue_adopt_thread(instance->job_queue);
 
     return instance;
 }
@@ -128,6 +137,9 @@ void rpe_engine_shutdown(rpe_engine_t* engine)
         vkapi_swapchain_t* sc = DYN_ARRAY_GET_PTR(vkapi_swapchain_t, &engine->swapchains, i);
         vkapi_swapchain_destroy(engine->driver, sc);
     }
+
+    // Gracefully shutdown the job queue.
+    job_queue_destroy(engine->job_queue);
 
     arena_release(&engine->perm_arena);
     arena_release(&engine->scratch_arena);
@@ -172,10 +184,10 @@ rpe_scene_t* rpe_engine_create_scene(rpe_engine_t* engine)
 }
 
 rpe_camera_t* rpe_engine_create_camera(
-    rpe_engine_t* engine, float fovy, float aspect, float n, float f, enum ProjectionType type)
+    rpe_engine_t* engine, float fovy, uint32_t width, uint32_t height, float n, float f, enum ProjectionType type)
 {
     assert(engine);
-    rpe_camera_t* cam = rpe_camera_init(engine, fovy, aspect, n, f, type);
+    rpe_camera_t* cam = rpe_camera_init(engine, fovy, width, height, n, f, type);
     DYN_ARRAY_APPEND(&engine->cameras, &cam);
     return cam;
 }
@@ -255,6 +267,8 @@ void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)
 {
     assert(engine);
     engine->curr_scene = scene;
+    // Update the shadow manager with the draw data buffer now.
+    rpe_shadow_manager_update_draw_buffer(engine->shadow_manager, scene);
 }
 
 void rpe_engine_set_current_swapchain(rpe_engine_t* engine, swapchain_handle_t* handle)
@@ -280,4 +294,16 @@ rpe_transform_manager_t* rpe_engine_get_transform_manager(rpe_engine_t* engine)
 {
     assert(engine);
     return engine->transform_manager;
+}
+
+rpe_light_manager_t* rpe_engine_get_light_manager(rpe_engine_t* engine)
+{
+    assert(engine);
+    return engine->light_manager;
+}
+
+job_queue_t* rpe_engine_get_job_queue(rpe_engine_t* engine)
+{
+    assert(engine);
+    return engine->job_queue;
 }

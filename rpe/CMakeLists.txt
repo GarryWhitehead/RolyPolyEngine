@@ -30,6 +30,7 @@ set (public_headers
     include/rpe/aabox.h
     include/rpe/ibl.h
     include/rpe/skybox.h
+    include/rpe/settings.h
 )
 
 set (src_files
@@ -39,6 +40,7 @@ set (src_files
     src/render_queue.c
     src/colour_pass.c
     src/light_pass.c
+    src/shadow_pass.c
     src/scene.c
     src/frustum.c
     src/renderer.c
@@ -47,6 +49,7 @@ set (src_files
     src/ibl.c
     src/skybox.c
     src/vertex_buffer.c
+    src/shadow_manager.c
     src/render_graph/render_graph.c
     src/render_graph/render_pass_node.c
     src/render_graph/resources.c
@@ -68,6 +71,7 @@ set (hdr_files
     src/render_queue.h
     src/colour_pass.h
     src/light_pass.h
+    src/shadow_pass.h
     src/scene.h
     src/engine.h
     src/frustum.h
@@ -77,6 +81,7 @@ set (hdr_files
     src/ibl.h
     src/skybox.h
     src/vertex_buffer.h
+    src/shadow_manager.h
     src/render_graph/render_graph.h
     src/render_graph/render_pass_node.h
     src/render_graph/resources.h
@@ -110,6 +115,7 @@ target_link_libraries(
     UtilityLib
     log.c::log.c
     stb::stb
+    Threads::Threads
 )
 
 add_dependencies(RPE Shaders)

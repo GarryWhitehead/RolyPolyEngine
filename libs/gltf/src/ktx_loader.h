@@ -31,8 +31,12 @@
 #include <utility/arena.h>
 
 typedef struct MappedTexture rpe_mapped_texture_t;
+struct DecodeEntry;
+struct Job;
 
 bool gltf_ktx_loader_decode_image(
-    void* data, size_t sz, rpe_mapped_texture_t* tex, arena_t* arena, image_free_func* free_func);
+    void* data, size_t sz, rpe_mapped_texture_t* tex, image_free_func* free_func);
+
+void gltf_ktx_loader_push_job(rpe_engine_t* engine, struct DecodeEntry* job_entry, struct Job* parent_job);
 
 #endif

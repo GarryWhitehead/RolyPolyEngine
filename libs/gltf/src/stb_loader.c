@@ -21,8 +21,11 @@
  */
 
 #include "stb_loader.h"
+#include "resource_loader.h"
 
+#include <rpe/engine.h>
 #include <utility/string.h>
+#include <utility/job_queue.h>
 
 #include <stb_image.c>
 
@@ -52,10 +55,26 @@ bool gltf_stb_loader_decode_image(
     tex->image_data_size = width * height * 4;
     tex->width = width;
     tex->height = height;
-    tex->face_count = 1;
+    tex->array_count = 1;
     tex->format = VK_FORMAT_R8G8B8A8_UNORM;
 
     *free_func = NULL;
 
     return true;
+}
+
+void stb_job_runner(void* data)
+{
+    struct DecodeEntry* entry = (struct DecodeEntry*)data;
+    gltf_stb_loader_decode_image(entry->image_data, entry->image_sz, entry->mapped_texture, entry->free_func);
+}
+
+void gltf_stb_loader_push_job(rpe_engine_t* engine, struct DecodeEntry* job_entry, struct Job* parent_job)
+{
+    assert(engine);
+    assert(job_entry);
+
+    job_queue_t* jq = rpe_engine_get_job_queue(engine);
+    job_entry->decoder_job = job_queue_create_job(jq, &stb_job_runner, job_entry, parent_job);
+    job_queue_run_ref_job(jq, job_entry->decoder_job);
 }

@@ -170,7 +170,7 @@ VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver)
 
 vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_driver_t* driver,
-    bool multiView,
+    uint32_t multi_view_count,
     math_vec4f clear_col,
     vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
@@ -185,7 +185,7 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
         .clear_colour.b = clear_col.b,
         .clear_colour.a = clear_col.a,
         .samples = 1,
-        .multi_view = multiView};
+        .multi_view_count = multi_view_count};
     memcpy(
         rt.colours,
         colours,
@@ -332,7 +332,7 @@ void vkapi_driver_begin_rpass(
         ++attach_count;
     }
     rpass_key.samples = rt->samples;
-    rpass_key.multi_view = rt->multi_view;
+    rpass_key.multi_view_count = rt->multi_view_count;
 
     for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
     {
@@ -533,6 +533,7 @@ void vkapi_driver_bind_gfx_pipeline(
     vkapi_pline_cache_bind_depth_test_enable(driver->pline_cache, bundle->ds_state.test_enable);
     vkapi_pline_cache_bind_depth_write_enable(driver->pline_cache, bundle->ds_state.write_enable);
     vkapi_pline_cache_bind_depth_compare_op(driver->pline_cache, bundle->ds_state.compare_op);
+    vkapi_pline_cache_bind_depth_clamp(driver->pline_cache, bundle->raster_state.depth_clamp_enable);
 
     // TODO: Need to support differences in front/back stencil
     struct DepthStencilBlock ds_state = {0};

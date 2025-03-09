@@ -28,6 +28,7 @@
 #include "random.h"
 #include "thread.h"
 #include "work_stealing_queue.h"
+#include "compiler.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -35,6 +36,7 @@
 
 #define JOB_QUEUE_MAX_JOB_COUNT 1024
 #define JOB_QUEUE_MAX_THREAD_COUNT 32
+#define JOB_QUEUE_CACHELINE_SIZE 64
 
 // Forward declarations.
 typedef struct JobQueue job_queue_t;
@@ -44,7 +46,7 @@ typedef void (*job_func_t)(void* args);
 /**
  Information on each job created.
  */
-typedef struct Job
+typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) Job
 {
     /// Function pointer to the function which will be called by this job.
     job_func_t func;
@@ -53,7 +55,7 @@ typedef struct Job
     /// The number of references to this job.
     atomic_uint_fast16_t ref_count;
     /// The number of jobs running for this particular job.
-    atomic_uint_fast16_t run_count;
+    atomic_uint_fast16_t child_run_count;
     /// A index into the job cache which points to the parent of this job. Used for linking jobs to
     /// each other, so multiple jobs can be executed via one job.
     atomic_uint_fast16_t parent;
@@ -62,7 +64,7 @@ typedef struct Job
 /**
  Per thread state.
  */
-typedef struct ThreadInfo
+typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) ThreadInfo
 {
     /// The work stealing queue for this thread.
     work_stealing_queue_t work_queue;
@@ -74,7 +76,6 @@ typedef struct ThreadInfo
     job_queue_t* job_queue;
     /// Random number generator used for generating random thread ids when stealing.
     xoro_rand_t rand_gen;
-
 } thread_info_t;
 
 typedef struct JobQueue
@@ -96,9 +97,9 @@ typedef struct JobQueue
     /// A map of thread ids and their index in the thread state buffer.
     hash_set_t thread_map;
     /// A mutex used for accessing the thread map.
-    mutex_t thread_map_mutex;
+    RPE_ALIGNAS(32) mutex_t thread_map_mutex;
     /// A mutex used for the wait condition.
-    mutex_t wait_mutex;
+    RPE_ALIGNAS(32) mutex_t wait_mutex;
     /// The arena used for allocations for this job queue.
     arena_t* arena;
 } job_queue_t;
@@ -109,10 +110,9 @@ typedef struct JobQueue
  @param arena The arena to use for allocations.
  @param num_threads The number of thread pools to initialise. If zero, the number of threads will be
  the maximum that can be created on the running system.
- @param num_adpoted_threads The number of threads that will be adopted by this job queue.
  @return A pointer to a new job queue instance.
  */
-job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_adpoted_threads);
+job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads);
 
 /**
  Creates a new job instance.
@@ -137,6 +137,8 @@ void job_queue_destroy(job_queue_t* jq);
  @param job The job to run.
  */
 void job_queue_run_job(job_queue_t* jq, job_t* job);
+
+void job_queue_run_ref_job(job_queue_t* jq, job_t* job);
 
 /**
  Run a specified job and wait for completion.

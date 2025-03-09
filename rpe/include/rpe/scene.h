@@ -30,7 +30,7 @@ typedef struct Camera rpe_camera_t;
 typedef struct Ibl ibl_t;
 typedef struct Skybox rpe_skybox_t;
 
-void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_camera_t* cam);
+void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_engine_t* engine, rpe_camera_t* cam);
 
 void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl);
 

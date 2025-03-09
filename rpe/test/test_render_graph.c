@@ -331,7 +331,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
     vkapi_attach_info_t depth_attach = {.layer = 0, .level = 0, .handle = 0};
 
     vkapi_rt_handle_t pp_handle =
-        vkapi_driver_create_rt(driver, false, col, col_attach, depth_attach, depth_attach);
+        vkapi_driver_create_rt(driver, 0, col, col_attach, depth_attach, depth_attach);
 
     rg_import_rt_desc_t i_desc;
     i_desc.width = 100;

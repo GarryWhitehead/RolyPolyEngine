@@ -37,7 +37,7 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data, void* l
     struct GBufferLocalData* local_d = (struct GBufferLocalData*)local_data;
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     rg_texture_desc_t t_desc = {
-        .width = local_d->width, .height = local_d->height, .mip_levels = 1, .depth = 1};
+        .width = local_d->width, .height = local_d->height, .mip_levels = 1, .depth = 1, .layers = 1};
 
     t_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
     d->colour = rg_add_resource(
@@ -142,7 +142,7 @@ void execute_gbuffer(
 
     rpe_scene_t* scene = engine->curr_scene;
     assert(scene && "No scene has been registered with the engine");
-    rpe_render_queue_submit(scene->render_queue, driver);
+    rpe_render_queue_submit_one(scene->render_queue, driver, RPE_RENDER_QUEUE_GBUFFER);
 
     vkapi_driver_end_rpass(cmd_buffer->instance);
 
@@ -159,10 +159,10 @@ void execute_gbuffer(
 }
 
 rg_handle_t
-rpe_colour_pass_render(render_graph_t* rg, uint32_t width, uint32_t height, VkFormat depth_format)
+rpe_colour_pass_render(render_graph_t* rg, uint32_t dimensions, VkFormat depth_format)
 {
     struct GBufferLocalData local_d = {
-        .width = width, .height = height, .depth_format = depth_format};
+        .width = dimensions, .height = dimensions, .depth_format = depth_format};
 
     rg_pass_t* p = rg_add_pass(
         rg, "ColourPass", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer), &local_d);

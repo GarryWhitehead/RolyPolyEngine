@@ -34,6 +34,7 @@
 #include "managers/transform_manager.h"
 #include "material.h"
 #include "render_queue.h"
+#include "shadow_manager.h"
 #include "skybox.h"
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
@@ -104,10 +105,13 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     rpe_rend_manager_t* rm = engine->rend_manager;
     rpe_transform_manager_t* tm = engine->transform_manager;
     vkapi_driver_t* driver = engine->driver;
+    struct Settings settings = engine->settings;
 
     rpe_render_queue_clear(scene->render_queue);
 
     rpe_light_manager_update(engine->light_manager, scene, scene->curr_camera);
+    rpe_shadow_manager_update(
+        engine->shadow_manager, scene->curr_camera, scene, engine, engine->light_manager);
 
     // Prepare the camera frustum - update the camera matrices before constructing the frustum.
     rpe_frustum_t frustum;
@@ -161,19 +165,53 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
             }
         }
 
-        // 1. Bind the graphics pipeline (along with descriptor sets).
+        {
+            // ==================== Colour GBuffer =========================
+            // 1. Bind the graphics pipeline (along with descriptor sets).
+            rpe_cmd_packet_t* pkt0 = rpe_command_bucket_add_command(
+                scene->render_queue->gbuffer_bucket,
+                0,
+                sizeof(struct PipelineBindCommand),
+                &engine->frame_arena,
+                rpe_cmd_dispatch_pline_bind);
+            struct PipelineBindCommand* pl_cmd = pkt0->cmds;
+            pl_cmd->bundle = batch->material->program_bundle;
+
+            // 2. The actual indirect draw (indexed) command.
+            rpe_cmd_packet_t* pkt1 = rpe_command_bucket_append_command(
+                scene->render_queue->gbuffer_bucket,
+                pkt0,
+                0,
+                sizeof(struct DrawIndirectIndexCommand),
+                &engine->frame_arena,
+                rpe_cmd_dispatch_draw_indirect_indexed);
+            struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
+            cmd->stride = sizeof(struct IndirectDraw);
+            cmd->count_handle = scene->draw_count_handle;
+            cmd->draw_count_offset = 0; // < offset for each batch??
+            cmd->cmd_handle = scene->indirect_draw_handle;
+            cmd->offset = batch->first_idx * sizeof(struct IndirectDraw);
+        }
+    }
+
+    rpe_shadow_manager_t* sm = engine->shadow_manager;
+
+    // ==================== Depth pass =========================
+    if (settings.draw_shadows)
+    {
+        // All visible shadow casters drawn with one draw call using the data generated via
+        // the compute-shader (no batching required as the pipeline remians the same for all calls).
         rpe_cmd_packet_t* pkt0 = rpe_command_bucket_add_command(
-            scene->render_queue->gbuffer_bucket,
+            scene->render_queue->depth_bucket,
             0,
             sizeof(struct PipelineBindCommand),
             &engine->frame_arena,
             rpe_cmd_dispatch_pline_bind);
         struct PipelineBindCommand* pl_cmd = pkt0->cmds;
-        pl_cmd->bundle = batch->material->program_bundle;
+        pl_cmd->bundle = sm->csm_bundle;
 
-        // 2. The actual indirect draw (indexed) command.
         rpe_cmd_packet_t* pkt1 = rpe_command_bucket_append_command(
-            scene->render_queue->gbuffer_bucket,
+            scene->render_queue->depth_bucket,
             pkt0,
             0,
             sizeof(struct DrawIndirectIndexCommand),
@@ -182,9 +220,9 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
         cmd->stride = sizeof(struct IndirectDraw);
         cmd->count_handle = scene->draw_count_handle;
-        cmd->draw_count_offset = 0; // < offset for each batch??
+        cmd->draw_count_offset = 0; // < total draw buffer?
         cmd->cmd_handle = scene->indirect_draw_handle;
-        cmd->offset = batch->first_idx * sizeof(struct IndirectDraw);
+        cmd->offset = 0;
     }
 
     vkapi_driver_map_gpu_buffer(
@@ -274,10 +312,13 @@ void rpe_scene_upload_extents(
 
 /** Public functions **/
 
-void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_camera_t* cam)
+void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_engine_t* engine, rpe_camera_t* cam)
 {
     assert(scene);
     scene->curr_camera = cam;
+
+    // Update the shadow cascade maps based upon the current camera near/far values.
+    rpe_shadow_manager_compute_cascade_proj(engine->shadow_manager, cam);
 }
 
 void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl)

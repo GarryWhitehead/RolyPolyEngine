@@ -29,7 +29,10 @@
 #include <rpe/ibl.h>
 #include <rpe/material.h>
 #include <rpe/renderable_manager.h>
+#include <rpe/object_manager.h>
+#include <rpe/settings.h>
 #include <rpe/skybox.h>
+#include <rpe/light_manager.h>
 #include <stdlib.h>
 #include <utility/filesystem.h>
 
@@ -41,6 +44,7 @@ void print_usage()
     printf("--cubemap \t HDR cube-map for IBL in ktx format.\n");
     printf("--win-width\t Window width in pixels\n");
     printf("--win-height\t Window height in pixels\n");
+    printf("--disable-skybox\t Disables the rendering of the skybox when a IBL cubemap is specified.\n");
 }
 
 int main(int argc, char** argv)
@@ -55,6 +59,7 @@ int main(int argc, char** argv)
     uint32_t win_height = 1080;
     const char* ibl_eqirect_image = NULL;
     const char* ibl_cubemap_image = NULL;
+    bool draw_skybox = true;
 
     struct option options[] = {
         {"help", no_argument, NULL, 'h'},
@@ -62,12 +67,13 @@ int main(int argc, char** argv)
         {"cubemap", required_argument, NULL, 'c'},
         {"win-width", required_argument, NULL, 'w'},
         {"win-height", required_argument, NULL, 't'},
+        {"disable-skybox", no_argument, NULL, 's'},
         {0, 0, NULL, 0}};
 
     int opt_index = 0;
     int opt;
 
-    while ((opt = getopt_long(argc, argv, "he:c:w:h:", options, &opt_index)) != -1)
+    while ((opt = getopt_long(argc, argv, "he:c:w:h:s", options, &opt_index)) != -1)
     {
         switch (opt)
         {
@@ -86,6 +92,9 @@ int main(int argc, char** argv)
             case 't':
                 win_height = strtol(optarg, NULL, 0);
                 break;
+            case 's':
+                draw_skybox = false;
+                break;
             default:
                 break;
         }
@@ -99,8 +108,16 @@ int main(int argc, char** argv)
     }
     const char* gltf_model_path = argv[optind];
 
+    rpe_settings_t settings = {
+        .gbuffer_dims = 2048,
+        .draw_shadows = false,
+        .shadow.cascade_dims = 1024,
+        .shadow.split_lambda = 0.9f,
+        .shadow.cascade_count = 4,
+        .shadow.enable_debug_cascade = false};
+
     rpe_app_t app;
-    int error = rpe_app_init("model loader", win_width, win_height, &app);
+    int error = rpe_app_init("GLTF Viewer", win_width, win_height, &app, &settings);
     if (error != APP_SUCCESS)
     {
         exit(1);
@@ -114,8 +131,15 @@ int main(int argc, char** argv)
     }
     rpe_engine_set_current_swapchain(app.engine, sc);
 
+    rpe_obj_manager_t* om = rpe_engine_get_obj_manager(app.engine);
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(app.engine);
+    rpe_light_manager_t* lm = rpe_engine_get_light_manager(app.engine);
     rpe_renderer_t* renderer = rpe_engine_create_renderer(app.engine);
+
+    // Add a directional light for shadows.
+    rpe_object_t dir_obj = rpe_obj_manager_create_obj(om);
+    rpe_light_create_info_t ci = {.position = 0.7f, -1.0f, -0.8f};
+    rpe_light_manager_create_light(lm, &ci, dir_obj, RPE_LIGHTING_TYPE_DIRECTIONAL);
 
     // IBL env maps.
     if (ibl_eqirect_image || ibl_cubemap_image)
@@ -139,9 +163,12 @@ int main(int argc, char** argv)
         rpe_ibl_create_env_maps(ibl, app.engine);
         rpe_scene_set_ibl(app.scene, ibl);
 
-        rpe_skybox_t* skybox = rpe_engine_create_skybox(app.engine);
-        rpe_skybox_set_cubemap_from_ibl(skybox, ibl, app.engine);
-        rpe_scene_set_current_skyox(app.scene, skybox);
+        if (draw_skybox)
+        {
+            rpe_skybox_t* skybox = rpe_engine_create_skybox(app.engine);
+            rpe_skybox_set_cubemap_from_ibl(skybox, ibl, app.engine);
+            rpe_scene_set_current_skyox(app.scene, skybox);
+        }
     }
 
     // GLTF model parsing.

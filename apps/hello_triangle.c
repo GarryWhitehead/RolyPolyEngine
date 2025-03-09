@@ -26,6 +26,7 @@
 #include <rpe/object_manager.h>
 #include <rpe/renderable_manager.h>
 #include <rpe/transform_manager.h>
+#include <rpe/settings.h>
 
 #define MODELS_PER_AXIS 5
 
@@ -35,7 +36,8 @@ int main()
     const uint32_t win_height = 1080;
 
     rpe_app_t app;
-    int error = rpe_app_init("model loader", win_width, win_height, &app);
+    struct Settings settings = {.gbuffer_dims = 2048, .draw_shadows = false};
+    int error = rpe_app_init("model loader", win_width, win_height, &app, &settings);
     if (error != APP_SUCCESS)
     {
         exit(1);

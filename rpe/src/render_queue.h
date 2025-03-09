@@ -24,6 +24,7 @@
 #define __RPE_RENDER_QUEUE_H__
 
 #define RPE_RENDER_QUEUE_GBUFFER_SIZE 2048
+#define RPE_RENDER_QUEUE_DEPTH_SIZE 2048
 #define RPE_RENDER_QUEUE_LIGHTING_SIZE 2048
 #define RPE_RENDER_QUEUE_POST_PROCESS_SIZE 2048
 #define RPE_RENDER_QUEUE_MAX_VIEW_LAYER_COUNT 6
@@ -38,6 +39,14 @@
 typedef struct CommandBucket rpe_cmd_bucket_t;
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct Arena arena_t;
+
+enum QueueBucketType
+{
+    RPE_RENDER_QUEUE_GBUFFER,
+    RPE_RENDER_QUEUE_DEPTH,
+    RPE_RENDER_QUEUE_LIGHTING,
+    RPE_RENDER_QUEUE_POST_PROCESS
+};
 
 enum SortKeyType
 {
@@ -63,13 +72,16 @@ typedef struct SortKey
 typedef struct RenderQueue
 {
     rpe_cmd_bucket_t* gbuffer_bucket;
+    rpe_cmd_bucket_t* depth_bucket;
     rpe_cmd_bucket_t* lighting_bucket;
     rpe_cmd_bucket_t* post_process_bucket;
 } rpe_render_queue_t;
 
 rpe_render_queue_t* rpe_render_queue_init(arena_t* arena);
 
-void rpe_render_queue_submit(rpe_render_queue_t* q, vkapi_driver_t* driver);
+void rpe_render_queue_submit_all(rpe_render_queue_t* q, vkapi_driver_t* driver);
+void rpe_render_queue_submit_one(
+    rpe_render_queue_t* q, vkapi_driver_t* driver, enum QueueBucketType type);
 
 void rpe_render_queue_clear(rpe_render_queue_t* q);
 

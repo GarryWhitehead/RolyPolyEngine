@@ -24,11 +24,12 @@
 
 #include "app.h"
 #include "rpe/engine.h"
+#include "rpe/settings.h"
 #include "vulkan-api/driver.h"
 #include "vulkan-api/error_codes.h"
 
 int app_window_init(
-    rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win)
+    rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win, rpe_settings_t* settings)
 {
     memset(new_win, 0, sizeof(app_window_t));
 
@@ -99,7 +100,7 @@ int app_window_init(
     }
 
     // create the engine (dependent on the glfw window for creating the device).
-    app->engine = rpe_engine_create(app->driver);
+    app->engine = rpe_engine_create(app->driver, settings);
 
     uint32_t g_width, g_height;
     glfwGetWindowSize(app->window.glfw_window, (int*)&g_width, (int*)&g_height);
@@ -108,14 +109,15 @@ int app_window_init(
     new_win->camera = rpe_camera_init(
         app->engine,
         app->camera_fov,
-        (float)g_width / (float)g_height,
+        g_width,
+        g_height,
         app->camera_near,
         app->camera_far,
         RPE_PROJECTION_TYPE_PERSPECTIVE);
 
     // Create a scene for our application.
     app->scene = rpe_engine_create_scene(app->engine);
-    rpe_scene_set_current_camera(app->scene, new_win->camera);
+    rpe_scene_set_current_camera(app->scene, app->engine, new_win->camera);
     rpe_engine_set_current_scene(app->engine, app->scene);
 
     return APP_SUCCESS;

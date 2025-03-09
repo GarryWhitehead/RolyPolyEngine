@@ -157,7 +157,7 @@ void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_dr
     }
 
     info->desc.rt_handle = vkapi_driver_create_rt(
-        driver, false, info->desc.clear_col, col_info, depthStencilInfo[0], depthStencilInfo[1]);
+        driver, info->desc.multi_view_count, info->desc.clear_col, col_info, depthStencilInfo[0], depthStencilInfo[1]);
 }
 
 void rg_pass_node_add_to_bake_list(rg_pass_node_t* node, rg_resource_t* r)

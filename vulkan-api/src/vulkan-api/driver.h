@@ -101,7 +101,7 @@ VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver);
 
 vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_driver_t* driver,
-    bool multiView,
+    uint32_t multi_view_count,
     math_vec4f clear_col,
     vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
