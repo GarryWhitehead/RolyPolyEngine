@@ -49,7 +49,7 @@ enum MeshAttributeFlags
 // TODO: Packed needs adding for Windows.
 // Note: On linux (not sure about windows) we get an extra 8bytes of packing, so disable otherwise
 // messes up attribute strides on the shader.
-typedef struct RPE_PACKED Vertex
+RPE_PACKED(typedef struct Vertex
 {
     math_vec3f position;
     math_vec3f normal;
@@ -59,7 +59,7 @@ typedef struct RPE_PACKED Vertex
     math_vec4f colour;
     math_vec4f bone_weight;
     math_vec4f bone_id;
-} rpe_vertex_t;
+} rpe_vertex_t);
 
 typedef struct Mesh
 {

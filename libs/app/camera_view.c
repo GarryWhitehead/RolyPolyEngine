@@ -26,6 +26,7 @@
 #include "window.h"
 
 #include <utility/hash.h>
+#include "math.h"
 
 rpe_camera_view_t rpe_camera_view_init(rpe_engine_t* engine)
 {

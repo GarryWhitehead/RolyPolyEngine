@@ -32,6 +32,7 @@
 
 #include <stdlib.h>
 #include <utility/hash.h>
+#include <utility/sort.h>
 
 
 rpe_renderable_t rpe_renderable_init()
@@ -240,7 +241,11 @@ rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t*
     return DYN_ARRAY_GET_PTR(rpe_renderable_t, &m->renderables, idx);
 }
 
+#ifdef __linux__ 
 int sort_renderables(const void* a, const void* b, void* rend_manager)
+#elif WIN32
+int sort_renderables(void* rend_manager, const void* a, const void* b)
+#endif
 {
     assert(rend_manager);
     rpe_object_t* a_obj = (rpe_object_t*)a;
@@ -271,7 +276,7 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
     }
 
     dyn_array_clear(&m->batched_renderables);
-    qsort_r(object_arr->data, object_arr->size, sizeof(rpe_object_t), sort_renderables, (void*)m);
+    QSORT_RS(object_arr->data, object_arr->size, sizeof(rpe_object_t), sort_renderables, (void*)m);
 
     rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, object_arr, 0);
     rpe_renderable_t* rend = rpe_rend_manager_get_mesh(m, obj);

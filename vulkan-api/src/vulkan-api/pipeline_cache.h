@@ -51,7 +51,7 @@ typedef struct PipelineLayout
     uint64_t frame_last_used;
 } vkapi_pl_layout_t;
 
-RPE_PACKED typedef struct GraphicsPipelineKey
+RPE_PACKED(typedef struct GraphicsPipelineKey
 {
     struct RasterStateBlock
     {
@@ -100,7 +100,7 @@ RPE_PACKED typedef struct GraphicsPipelineKey
     uint32_t spec_map_entry_count[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
     uint32_t tesse_vert_count;
     uint32_t colour_attach_count;
-} graphics_pl_key_t;
+} graphics_pl_key_t);
 
 typedef struct ComputePipelineKey
 {

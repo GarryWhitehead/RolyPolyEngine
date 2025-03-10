@@ -58,10 +58,12 @@
 #endif
 
 #ifdef __GNUC__
-#define RPE_PACKED __attribute__((packed))
-#elif WIN32
-#define RPE_PUSH_PACKED
+#define RPE_PACKED(DECL) DECL __attribute__((__packed__))
 #endif
+#ifdef _MSC_VER
+#define RPE_PACKED(DECL) __pragma(pack(push, 1)) DECL __pragma(pack(pop))
+#endif
+
 
 #ifdef __GNUC__
 #define RPE_ALIGNAS(sz) __attribute__((aligned(sz)))

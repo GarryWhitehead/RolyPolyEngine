@@ -32,15 +32,25 @@
 #include <arm_neon.h>
 #endif
 
+#ifdef WIN32
+#include <windows.h>
+#undef near
+#undef far
+#endif
+
+
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
-#include <string.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #define MAX(a, b) a > b ? a : b
 #define MIN(a, b) a < b ? a : b
 
+#ifdef __linux__
 #define CLAMP(x, low, high)                                                                        \
     ({                                                                                             \
         __typeof__(x) __x = (x);                                                                   \
@@ -48,6 +58,9 @@
         __typeof__(high) __high = (high);                                                          \
         __x > __high ? __high : (__x < __low ? __low : __x);                                       \
     })
+#elif WIN32
+#define CLAMP(x, low, high) (x > high ? high : (x < low ? low : x))   
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -779,12 +792,12 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f m)
 {
     math_mat4f out = math_mat4f_identity();
 
-    for (size_t i = 0; i < 4; ++i)
+    for (uint32_t i = 0; i < 4; ++i)
     {
         // Find the largest element in the i'th column.
-        size_t pivot = i;
+        uint32_t pivot = i;
         float t = fabsf(m.data[i][i]);
-        for (size_t j = i + 1; j < 4; ++j)
+        for (uint32_t j = i + 1; j < 4; ++j)
         {
             float tmp = fabsf(m.data[j][i]);
             if (tmp > t)
@@ -812,19 +825,19 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f m)
         }
 
         float denom = m.data[i][i];
-        for (size_t k = 0; k < 4; ++k)
+        for (uint32_t k = 0; k < 4; ++k)
         {
             m.data[i][k] /= denom;
             out.data[i][k] /= denom;
         }
 
         // Factor out the lower triangle.
-        for (size_t j = 0; j < 4; ++j)
+        for (uint32_t j = 0; j < 4; ++j)
         {
             if (j != i)
             {
                 float t = m.data[j][i];
-                for (size_t k = 0; k < 4; ++k)
+                for (uint32_t k = 0; k < 4; ++k)
                 {
                     m.data[j][k] -= m.data[i][k] * t;
                     out.data[j][k] -= out.data[i][k] * t;

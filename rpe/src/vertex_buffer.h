@@ -27,6 +27,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <vulkan-api/resource_cache.h>
 
 #define RPE_VERTEX_GPU_BUFFER_SIZE (1 << 20)

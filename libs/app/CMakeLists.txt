@@ -22,11 +22,18 @@ target_link_libraries(
     ${glfw3_LIBRARIES}
 )
 
+set(util_defs 
+    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}" 
+    RPE_ASSETS_DIRECTORY="${RPE_ASSETS_DIRECTORY}"
+)
+if (MSVC)
+    list(APPEND util_defs "_USE_MATH_DEFINES=1 NOMINMAX=1 _CRT_SECURE_NO_WARNINGS=1")
+endif()
+
 target_compile_definitions(
     AppLib
     PRIVATE
-    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}"
-    RPE_ASSETS_DIRECTORY="${RPE_ASSETS_DIRECTORY}"
+    ${util_defs}
 )
 
 target_sources(
@@ -50,3 +57,4 @@ rpe_source_group(
     TARGET AppLib
     ROOT_DIR ${RPE_UTILITY_ROOT_PATH}
 )
+

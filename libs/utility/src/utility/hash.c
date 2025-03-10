@@ -78,7 +78,7 @@ uint32_t murmur2_hash(void* data, uint32_t len, uint32_t seed)
     return h1;
 }
 
-uint32_t murmur2_hash_string(void* key, uint32_t, uint32_t)
+uint32_t murmur2_hash_string(void* key, uint32_t l, uint32_t s)
 {
     uint32_t str_size = strlen((const char*)key);
     return murmur2_hash(key, str_size, 0);
