@@ -14,9 +14,11 @@ layout(set = 3, binding = 4) uniform sampler2D EmissiveSampler;
 layout(set = 3, binding = 5) uniform sampler2D BrdfSampler;
 layout(set = 3, binding = 6) uniform samplerCube IrradianceEnvMap;
 layout(set = 3, binding = 7) uniform samplerCube SpecularEnvMap;
+layout(set = 3, binding = 8) uniform sampler2DArray shadowMap;
 
 layout (constant_id = 0) const bool HAS_IBL = false;
 layout (constant_id = 1) const uint LIGHT_COUNT = 0;
+layout (constant_id = 2) const uint SHADOW_CASCADE_COUNT = 1;
 
 #define LIGHT_TYPE_POINT        0
 #define LIGHT_TYPE_SPOT         1   
@@ -41,8 +43,26 @@ layout (binding = 1, set = 0) uniform SceneUbo
 #include "include/pbr.h"
 #include "include/lights.h"
 #include "include/tonemapping.h"
+#include "include/shadow.h"
 
-//layout (constant_id = 0) const int LIGHT_COUNT = 0;
+layout (binding = 0, set = 2) buffer CascadeSSbo
+{
+    CascadeInfo cascades[];
+};
+
+uint getCascadeIndex(vec3 position)
+{
+    uint idx = 0;
+	for (uint i = 0; i < SHADOW_CASCADE_COUNT - 1; ++i)
+    {
+		vec3 viewPos = (camera_ubo.view * vec4(position, 1.0)).xyz;
+        if (position.z < cascades[i].splitDepth)
+        {	
+			idx++;
+		}
+	}
+    return idx + 1;
+}
 
 void main()
 {   
@@ -139,6 +159,12 @@ void main()
 
     // Apply emission to final colour.
     colour += emissive;
+
+    // Apply shadow mapping.
+    uint cascadeIdx = getCascadeIndex(inPos);
+    vec4 shadowCoord = biasMat * cascades[cascadeIdx].vp * vec4(inPos, 1.0);
+    float shadow = filterPCF(shadowCoord / shadowCoord.z, cascadeIdx, shadowMap);
+    colour *= shadow;
 
     // Apply tonemapping (ACES only)
     colour = toneMap(colour);

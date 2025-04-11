@@ -63,9 +63,10 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
 {
     assert(arena->begin && arena->end);
 
-    ptrdiff_t padding = -(uintptr_t)arena->begin & (align - 1);
     uint8_t* offset_ptr = arena->begin + arena->offset;
-    ptrdiff_t available = arena->end - offset_ptr - padding;
+    uintptr_t aligned_ptr = (uintptr_t)(offset_ptr + (align - 1)) & ~(align - 1);
+
+    ptrdiff_t available = arena->end - (uint8_t*)aligned_ptr;
     if (available < 0 || count > available / type_size)
     {
         log_error(
@@ -78,8 +79,7 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
         }
         abort();
     }
-    uint8_t* padded_ptr = offset_ptr + padding;
-    arena->offset += padding + count * type_size;
+    arena->offset += ((uint8_t*)aligned_ptr - offset_ptr) + count * type_size;
 #if ENABLE_DEBUG_ARENA
     log_info(
         "[Arena Allocation Log] Alloc Size: %lu; Current Size: %lu; Available: %lu",
@@ -87,7 +87,7 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
         arena->offset,
         available);
 #endif
-    return flags & ARENA_ZERO_MEMORY ? memset(padded_ptr, 0, count * type_size) : padded_ptr;
+    return flags & ARENA_ZERO_MEMORY ? memset((void*)aligned_ptr, 0, count * type_size) : (void*)aligned_ptr;
 }
 
 uint64_t arena_current_size(arena_t* arena) { return (uint64_t)arena->offset; }
@@ -279,11 +279,12 @@ void* dyn_array_pop_back(arena_dyn_array_t* arr)
     return out;
 }
 
-void dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item)
+void* dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item)
 {
     assert(idx < arr->size);
     void* ptr = _offset_ptr(arr->data, idx, arr->type_size);
     memcpy(ptr, item, arr->type_size);
+    return ptr;
 }
 
 bool dyn_array_find(arena_dyn_array_t* arr, void* item)

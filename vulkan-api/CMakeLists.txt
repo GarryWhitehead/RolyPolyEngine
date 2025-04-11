@@ -90,7 +90,7 @@ target_include_directories(
 
 target_compile_definitions(
     VulkanApi
-    PUBLIC
+    PRIVATE
     RPE_SHADER_DIRECTORY="${RPE_SHADER_SIPRV_DIRECTORY}"
     VULKAN_VALIDATION_DEBUG=${WITH_VALIDATION_LAYERS}
     RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}

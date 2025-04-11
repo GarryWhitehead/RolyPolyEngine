@@ -48,6 +48,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     rg_handle_t normal = rg_backboard_get(bb, "normal");
     rg_handle_t emissive = rg_backboard_get(bb, "emissive");
     rg_handle_t pbr = rg_backboard_get(bb, "pbr");
+    rg_handle_t cascade_shadow_map = rg_backboard_get(bb, "CascadeShadowDepth");
 
     rg_texture_desc_t t_desc = {
         .width = local_d->width,
@@ -79,6 +80,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     d->normal = rg_add_read(rg, normal, node, VK_IMAGE_USAGE_SAMPLED_BIT);
     d->emissive = rg_add_read(rg, emissive, node, VK_IMAGE_USAGE_SAMPLED_BIT);
     d->pbr = rg_add_read(rg, pbr, node, VK_IMAGE_USAGE_SAMPLED_BIT);
+    d->cascade_shadow_map = rg_add_read(rg, cascade_shadow_map, node, VK_IMAGE_USAGE_SAMPLED_BIT);
 
     rg_backboard_add(bb, "light", d->light);
     rg_backboard_add(bb, "lightDepth", d->depth);
@@ -127,6 +129,13 @@ void execute_light_pass(
         driver,
         rg_res_get_tex_handle(res, d->emissive),
         RPE_LIGHT_PASS_SAMPLER_EMISSIVE_BINDING);
+
+    // Shadow maps.
+    shader_bundle_add_image_sampler(
+        d->prog_bundle,
+        driver,
+        rg_res_get_tex_handle(res, d->cascade_shadow_map),
+        RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP);
 
     // Bind the IBL env maps (dummy textures if not used to keep the validation layers happy).
     ibl_t* ibl = engine->curr_scene->curr_ibl;

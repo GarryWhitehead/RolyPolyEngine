@@ -3,6 +3,8 @@
 #include <compute.h>
 #include <unity_fixture.h>
 
+#include <string.h>
+
 TEST_GROUP(ComputeGroup);
 
 TEST_SETUP(ComputeGroup) {}

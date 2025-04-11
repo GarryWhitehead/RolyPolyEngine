@@ -28,6 +28,8 @@
 #include "vulkan-api/driver.h"
 #include "vulkan-api/error_codes.h"
 
+#include <string.h>
+
 int app_window_init(
     rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win, rpe_settings_t* settings)
 {

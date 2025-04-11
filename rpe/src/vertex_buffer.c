@@ -26,6 +26,8 @@
 #include <vulkan-api/buffer.h>
 #include <vulkan-api/driver.h>
 
+#include <string.h>
+
 rpe_vertex_buffer_t* rpe_vertex_buffer_init(vkapi_driver_t* driver, arena_t* arena)
 {
     rpe_vertex_buffer_t* i = ARENA_MAKE_ZERO_STRUCT(arena, rpe_vertex_buffer_t);

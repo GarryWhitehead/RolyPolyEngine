@@ -880,7 +880,7 @@ static inline void math_mat4f_from_mat3f(math_mat3f r, math_mat4f* m)
 
 static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, math_vec3f up)
 {
-    math_vec3f dir = math_vec3f_normalise(math_vec3f_sub(target, eye));
+    math_vec3f dir = math_vec3f_normalise(math_vec3f_sub(eye, target));
     math_vec3f right = math_vec3f_normalise(math_vec3f_cross(up, dir));
     math_vec3f cam_up = math_vec3f_cross(dir, right);
 
@@ -897,9 +897,9 @@ static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, ma
     m.data[1][2] = -dir.y;
     m.data[2][2] = -dir.z;
 
-    m.data[3][0] = math_vec3f_dot(right, eye);
+    m.data[3][0] = -math_vec3f_dot(right, eye);
     m.data[3][1] = -math_vec3f_dot(cam_up, eye);
-    m.data[3][2] = -math_vec3f_dot(dir, eye);
+    m.data[3][2] = math_vec3f_dot(dir, eye);
     m.data[3][3] = 1.0f;
 
     return m;
@@ -910,10 +910,10 @@ math_mat4f_ortho(float left, float right, float bottom, float top, float near, f
 {
     math_mat4f m = {0};
     m.data[0][0] = 2.0f / (right - left);
-    m.data[1][1] = -2.0f / (top - bottom);
-    m.data[2][2] = 1.0f / (near - far);
-    m.data[3][0] = -(right + left) / (right - left);
-    m.data[3][1] = -(top + bottom) / (top - bottom);
+    m.data[1][1] = 2.0f / (top - bottom);
+    m.data[2][2] = -1.0f / (near - far);
+    m.data[3][0] = (right + left) / (left - right);
+    m.data[3][1] = -(top + bottom) / (bottom - top);
     m.data[3][2] = near / (near - far);
     m.data[3][3] = 1.0f;
     return m;
@@ -924,9 +924,9 @@ math_mat4f_frustum(float left, float right, float bottom, float top, float near,
 {
     math_mat4f m = {0};
     m.data[0][0] = (2.0f * near) / (right - left);
-    m.data[1][1] = -(2.0f * near) / (top - bottom);
+    m.data[1][1] = (2.0f * near) / (top - bottom);
     m.data[2][0] = (right + left) / (right - left);
-    m.data[2][1] = (top + bottom) / (top - bottom);
+    m.data[2][1] = -(top + bottom) / (top - bottom);
     m.data[2][2] = (far + near) / (far - near);
     m.data[2][3] = 1.0f;
     m.data[3][2] = -(2.0f * far * near) / (far - near);

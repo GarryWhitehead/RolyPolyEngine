@@ -25,8 +25,7 @@
 #include "engine.h"
 #include "frustum.h"
 
-#include <backend/enums.h>
-#include <vulkan-api/driver.h>
+#include <string.h>
 
 rpe_camera_t* rpe_camera_init(
     rpe_engine_t* engine,

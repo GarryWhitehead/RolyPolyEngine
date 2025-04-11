@@ -80,8 +80,13 @@ typedef struct Scene
     buffer_handle_t indirect_draw_handle;
     // Model draw data - indices based upon culling by the compute shader (GPU only).
     buffer_handle_t model_draw_data_handle;
+    // The shadow indirect draw cmds based upon culling by the compute (GPU only)
+    buffer_handle_t shadow_indirect_draw_handle;
+    // Shadow Model draw data - indices based upon culling by the compute shader (GPU only).
+    buffer_handle_t shadow_model_draw_data_handle;
     // Draw count for each batch (GPU only).
     buffer_handle_t draw_count_handle;
+    buffer_handle_t shadow_draw_count_handle;
     // Total draw count buffer (GPU only)
     buffer_handle_t total_draw_handle;
     rpe_compute_t* cull_compute;

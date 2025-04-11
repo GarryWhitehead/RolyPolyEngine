@@ -9,6 +9,7 @@ struct IndexedIndirectCommand
 	uint firstInstance;
     uint objectId;
     uint batchId;
+    bool shadowCaster;
 };
 
 struct Instance
@@ -53,19 +54,36 @@ layout (std430, binding = 2, set = 2) buffer ModelDrawDataSSBO
     ModelDrawData modelDrawData[];
 };
 
-layout (std430, binding = 3, set = 2) writeonly buffer OutIndirectDrawSSBO
+layout (std430, binding = 3, set = 2) buffer ShadowModelDrawDataSSBO
+{
+    ModelDrawData shadowModelDrawData[];
+};
+
+layout (std430, binding = 4, set = 2) writeonly buffer OutIndirectDrawSSBO
 {
     IndexedIndirectCommand outIndirectCmds[];
 };
 
-layout (std430, binding = 4, set = 2) buffer BatchDrawCountSSBO
+layout (std430, binding = 5, set = 2) writeonly buffer OutShadowIndirectDrawSSBO
+{
+    IndexedIndirectCommand outShadowIndirectCmds[];
+};
+
+layout (std430, binding = 6, set = 2) buffer BatchDrawCountSSBO
 {
     uint batchDrawCounts[];
 };
 
-layout (std430, binding = 5, set = 2) buffer TotalDrawCountSSBO
+layout (std430, binding = 7, set = 2) buffer ShadowBatchDrawCountSSBO
 {
-    uint totalDrawCount;
+    uint shadowBatchDrawCounts[];
+};
+
+layout (std430, binding = 8, set = 2) buffer TotalDrawCountSSBO
+{
+    // First index - total count for colour pass materials;
+    // Second index - total count for shadow draws.
+    uint totalDrawCount[2];
 };
 
 layout (local_size_x = 128, local_size_y = 1) in;
@@ -87,28 +105,50 @@ bool checkIntersection(vec4 center, vec4 extent)
 
 void main()
 {
-	uint idx = gl_GlobalInvocationID.x;
-    if (idx >= scene_ubo.modelCount)
+	uint threadIdx = gl_GlobalInvocationID.x;
+    if (threadIdx >= scene_ubo.modelCount)
     {
         return;
     }
 
-    Instance i = instances[idx];
-    IndexedIndirectCommand indirectCmd = inputIndirectCmds[idx];
+    Instance i = instances[threadIdx];
+    IndexedIndirectCommand indirectCmd = inputIndirectCmds[threadIdx];
 
     bool isVis = true; //checkIntersection(i.center, i.extent);
     if (isVis)
     {
-        atomicAdd(batchDrawCounts[inputIndirectCmds[idx].batchId], 1);
-        uint di = atomicAdd(totalDrawCount, 1);
+        atomicAdd(batchDrawCounts[inputIndirectCmds[threadIdx].batchId], 1);
+        uint di = atomicAdd(totalDrawCount[0], 1);
 
-        modelDrawData[di].drawDataIndex = idx;
+        modelDrawData[di].drawDataIndex = threadIdx;
         modelDrawData[di].objectId = indirectCmd.objectId;
-
+        
         outIndirectCmds[di].firstInstance = di; //inputIndirectCmds[idx].firstInstance;
-        outIndirectCmds[di].indexCount = inputIndirectCmds[idx].indexCount;
+        outIndirectCmds[di].indexCount = inputIndirectCmds[threadIdx].indexCount;
         outIndirectCmds[di].instanceCount = 1;
-        outIndirectCmds[di].vertexOffset = inputIndirectCmds[idx].vertexOffset;
-        outIndirectCmds[di].firstIndex = inputIndirectCmds[idx].firstIndex;
+        outIndirectCmds[di].vertexOffset = inputIndirectCmds[threadIdx].vertexOffset;
+        outIndirectCmds[di].firstIndex = inputIndirectCmds[threadIdx].firstIndex;
+
+        // If the material is a shadow caster then add to the separate indirect calls buffer.
+        // This seems a little wasteful for memory as the case will probably be that most
+        // material will be shadow casters. There seems few other ways to solve this with 
+        // the indirect draw call method - ideally casters could be partitioned and the
+        // `firstInstance` set to take this into account when drawing into the shadow depth
+        // buffer but this isn't really possible when using compute shaders. So for now,
+        // will use this method unless something better comes to mind.
+        if (indirectCmd.shadowCaster)
+        {
+            atomicAdd(shadowBatchDrawCounts[inputIndirectCmds[threadIdx].batchId], 1);
+            di = atomicAdd(totalDrawCount[1], 1);
+
+            shadowModelDrawData[di].drawDataIndex = threadIdx;
+            shadowModelDrawData[di].objectId = indirectCmd.objectId;
+            
+            outShadowIndirectCmds[di].firstInstance = di; //inputIndirectCmds[idx].firstInstance;
+            outShadowIndirectCmds[di].indexCount = inputIndirectCmds[threadIdx].indexCount;
+            outShadowIndirectCmds[di].instanceCount = 1;
+            outShadowIndirectCmds[di].vertexOffset = inputIndirectCmds[threadIdx].vertexOffset;
+            outShadowIndirectCmds[di].firstIndex = inputIndirectCmds[threadIdx].firstIndex;
+        }
     }
 }

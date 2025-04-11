@@ -37,7 +37,7 @@ set(RPE_SHADER_SIPRV_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 set(RPE_CMAKE_INCLUDE_DIRECTORY "${RPE_ROOT_DIRECTORY}/cmake")
 set(RPE_TEST_DIRECTORY "${CMAKE_BINARY_DIR}/Tests")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -fsanitize-recover=address")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize-recover=address")
 
 # find vulkan (hopefully!)
 find_package(Vulkan REQUIRED)

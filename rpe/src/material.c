@@ -41,6 +41,8 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
     rpe_material_t instance = {0};
     instance.view_layer = 0x2;
     instance.double_sided = false;
+    // Material will cast shadows by default.
+    instance.shadow_caster = true;
     MAKE_DYN_ARRAY(struct BufferInfo, arena, 50, &instance.buffers);
     instance.program_bundle = program_cache_create_program_bundle(e->driver->prog_manager, arena);
 
@@ -255,6 +257,12 @@ void rpe_material_set_viewport(
 {
     assert(m);
     shader_bundle_set_viewport(m->program_bundle, width, height, minDepth, maxDepth);
+}
+
+void rpe_material_set_shadow_caster_state(rpe_material_t* m, bool state)
+{
+    assert(m);
+    m->shadow_caster = state;
 }
 
 void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer)

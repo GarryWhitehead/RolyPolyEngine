@@ -84,9 +84,9 @@ void execute_shadow_pass(
     // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset
     // into this buffer.
     // NOTE: The vertex data is currently uploaded in the colour pass so the shadow pass must be
-    // called after. If multithreaded rendering is added, this will need changing.
+    // called after. If multi threaded rendering is added, this will need changing.
     vkapi_driver_bind_vertex_buffer(driver, engine->vbuffer->vertex_buffer, 0);
-    vkapi_driver_bind_vertex_buffer(driver, engine->curr_scene->model_draw_data_handle, 1);
+    vkapi_driver_bind_vertex_buffer(driver, engine->curr_scene->shadow_model_draw_data_handle, 1);
     vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
 
     rpe_scene_t* scene = engine->curr_scene;

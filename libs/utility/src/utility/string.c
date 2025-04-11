@@ -13,8 +13,8 @@ string_t string_init(const char* str, arena_t* arena)
     string_t s;
     s.len = strlen(str);
     s.data = arena_alloc(arena, sizeof(char), _Alignof(char), s.len + 1, 0);
-    s.data[s.len - 1] = '\0';
     strcpy(s.data, str);
+    s.data[s.len] = '\0';
     return s;
 }
 
@@ -25,7 +25,6 @@ string_t string_init_index(const char* str, int start, int end, arena_t* arena)
     string_t s;
     s.len = end - start + 1;
     s.data = arena_alloc(arena, sizeof(char), _Alignof(char), s.len + 1, 0);
-    s.data[s.len - 1] = '\0';
     strncpy(s.data, str, s.len);
     return s;
 }
@@ -47,7 +46,6 @@ bool string_cmp(string_t* a, string_t* b)
 string_t string_substring(string_t* s, uint32_t start, uint32_t end, arena_t* arena)
 {
     assert(s);
-    assert(start >= 0);
     assert(end >= start);
     assert(end < s->len);
 
@@ -149,8 +147,7 @@ string_t string_append(string_t* a, const char* b, arena_t* arena)
     assert(new_str.data);
 
     strcpy(new_str.data, a->data);
-    strcat(new_str.data, b);
-    new_str.data[new_str.len] = '\0';
+    strncat(new_str.data, b, strlen(b));
 
     return new_str;
 }

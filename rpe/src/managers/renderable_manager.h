@@ -46,7 +46,6 @@ enum MeshAttributeFlags
     RPE_MESH_ATTRIBUTE_BONE_ID = 1 << 7
 };
 
-// TODO: Packed needs adding for Windows.
 // Note: On linux (not sure about windows) we get an extra 8bytes of packing, so disable otherwise
 // messes up attribute strides on the shader.
 RPE_PACKED(typedef struct Vertex
@@ -59,7 +58,7 @@ RPE_PACKED(typedef struct Vertex
     math_vec4f colour;
     math_vec4f bone_weight;
     math_vec4f bone_id;
-} rpe_vertex_t);
+}) rpe_vertex_t;
 
 typedef struct Mesh
 {
@@ -72,12 +71,11 @@ typedef struct Mesh
 
 typedef struct Renderable
 {
-    VkPrimitiveTopology topology;
-    VkBool32 prim_restart;
-
+    //VkPrimitiveTopology topology;
+    //VkBool32 prim_restart;
     rpe_mesh_t* mesh_data;
     rpe_material_t* material;
-    uint64_t material_flags;
+    //uint64_t material_flags;
     rpe_object_t transform_obj;
 
     // The extents of this primitive.
@@ -97,6 +95,7 @@ struct IndirectDraw
     VkDrawIndexedIndirectCommand indirect_cmd;
     uint32_t object_id;
     uint32_t batch_id;
+    bool shadow_caster;
 };
 
 typedef struct RenderableManager

@@ -34,6 +34,7 @@
 #define RPE_LIGHT_PASS_SAMPLER_BDRF_BINDING 5
 #define RPE_LIGHT_PASS_SAMPLER_IRRADIANCE_ENVMAP_BINDING 6
 #define RPE_LIGHT_PASS_SAMPLER_SPECULAR_ENVMAP_BINDING 7
+#define RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP 8
 
 typedef struct ShaderProgramBundle shader_prog_bundle_t;
 typedef struct LightManager rpe_light_manager_t;
@@ -50,6 +51,7 @@ struct LightPassData
     rg_handle_t colour;
     rg_handle_t pbr;
     rg_handle_t emissive;
+    rg_handle_t cascade_shadow_map;
     // Passed from setup local data.
     shader_prog_bundle_t* prog_bundle;
 };

@@ -23,6 +23,7 @@
 #include "transform_manager.h"
 
 #include "engine.h"
+#include "rpe/object_manager.h"
 #include "rpe/transform_manager.h"
 #include "scene.h"
 
@@ -90,24 +91,46 @@ void rpe_transform_manager_add_node(
         parent_node->first_child = child_obj;
     }
 
-    // Update the model transform.
-    rpe_transform_manager_update_world(m, &child_node);
-
     // Request a slot for this object.
     uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, *child_obj);
-
     ADD_OBJECT_TO_MANAGER(&m->nodes, idx, &child_node);
+
+    // Update the model transform.
+    rpe_transform_manager_update_world(m, *child_obj);
+
     m->is_dirty = true;
 }
 
 void rpe_transform_manager_add_local_transform(
     rpe_transform_manager_t* m, rpe_model_transform_t* transform, rpe_object_t* obj)
 {
-    math_mat4f mat = math_mat4f_identity();
-    math_mat4f_translate(transform->translation, &mat);
-    math_mat4f_from_mat3f(transform->rot, &mat);
-    math_mat4f_scale(transform->scale, &mat);
-    rpe_transform_manager_add_node(m, &mat, NULL, obj);
+    math_mat4f T = math_mat4f_identity();
+    math_mat4f R = math_mat4f_identity();
+    math_mat4f S = math_mat4f_identity();
+    math_mat4f_translate(transform->translation, &T);
+    math_mat4f_from_mat3f(transform->rot, &R);
+    math_mat4f_scale(transform->scale, &S);
+    math_mat4f TRS = math_mat4f_mul(T, math_mat4f_mul(R, S));
+    rpe_transform_manager_add_node(m, &TRS, NULL, obj);
+}
+
+void rpe_transform_manager_insert_node(
+    rpe_transform_manager_t* m, rpe_object_t* new_obj, rpe_object_t* parent_obj)
+{
+    assert(m);
+    assert(new_obj->id != UINT32_MAX);
+    assert(parent_obj->id != UINT32_MAX);
+
+    uint64_t parent_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *parent_obj);
+    rpe_transform_node_t* parent_node =
+        DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, parent_idx);
+
+    uint64_t new_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *new_obj);
+    rpe_transform_node_t* new_node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, new_idx);
+
+    parent_node->first_child = new_obj;
+    new_node->parent = parent_obj;
+    new_node->next = parent_node->first_child;
 }
 
 void update_world_children(rpe_transform_manager_t* m, rpe_object_t* child)
@@ -133,9 +156,10 @@ void update_world_children(rpe_transform_manager_t* m, rpe_object_t* child)
     }
 }
 
-void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_transform_node_t* node)
+void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_object_t obj)
 {
-    assert(node);
+    uint32_t child_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, child_idx);
 
     rpe_object_t* parent = node->parent;
     if (parent)
@@ -144,9 +168,76 @@ void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_transfor
         rpe_transform_node_t* parent_node =
             DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, parent_idx);
         node->world_transform = math_mat4f_mul(parent_node->world_transform, node->local_transform);
-
-        update_world_children(m, node->first_child);
     }
+    else
+    {
+        node->world_transform = node->local_transform;
+    }
+    update_world_children(m, node->first_child);
+}
+
+void copy_child_nodes(
+    rpe_transform_manager_t* tm,
+    rpe_obj_manager_t* om,
+    rpe_object_t* child_obj,
+    rpe_object_t* parent_obj,
+    rpe_transform_node_t* parent_node,
+    arena_dyn_array_t* objects)
+{
+    while (child_obj)
+    {
+        uint32_t child_idx = rpe_comp_manager_get_obj_idx(tm->comp_manager, *child_obj);
+        rpe_transform_node_t* child_node =
+            DYN_ARRAY_GET_PTR(rpe_transform_node_t, &tm->nodes, child_idx);
+
+        rpe_object_t new_child_obj = rpe_obj_manager_create_obj(om);
+        rpe_object_t* new_child_obj_ptr = DYN_ARRAY_APPEND(objects, &new_child_obj);
+        uint32_t new_child_idx = rpe_comp_manager_add_obj(tm->comp_manager, new_child_obj);
+
+        rpe_transform_node_t new_child_node = rpe_transform_node_init();
+        new_child_node.world_transform = child_node->world_transform;
+        new_child_node.local_transform = child_node->local_transform;
+        new_child_node.parent = parent_obj;
+        rpe_transform_node_t* new_child_node_ptr =
+            ADD_OBJECT_TO_MANAGER_UNSAFE(&tm->nodes, new_child_idx, &new_child_node);
+
+        parent_node->first_child = new_child_obj_ptr;
+
+        if (child_node->first_child)
+        {
+            copy_child_nodes(
+                tm, om, parent_node->first_child, new_child_obj_ptr, new_child_node_ptr, objects);
+        }
+        child_obj = child_node->next;
+    }
+}
+
+rpe_object_t rpe_transform_manager_copy(
+    rpe_transform_manager_t* tm,
+    rpe_obj_manager_t* om,
+    rpe_object_t* parent_obj,
+    arena_dyn_array_t* objects)
+{
+    rpe_object_t new_parent_obj = rpe_obj_manager_create_obj(om);
+    rpe_object_t* new_parent_obj_ptr = DYN_ARRAY_APPEND(objects, &new_parent_obj);
+
+    uint32_t new_parent_idx = rpe_comp_manager_add_obj(tm->comp_manager, new_parent_obj);
+
+    uint32_t parent_idx = rpe_comp_manager_get_obj_idx(tm->comp_manager, *parent_obj);
+    rpe_transform_node_t* parent_node =
+        DYN_ARRAY_GET_PTR(rpe_transform_node_t, &tm->nodes, parent_idx);
+
+    rpe_transform_node_t new_parent_node = rpe_transform_node_init();
+    new_parent_node.world_transform = parent_node->world_transform;
+    new_parent_node.local_transform = parent_node->local_transform;
+
+    rpe_transform_node_t* new_parent_node_ptr =
+        ADD_OBJECT_TO_MANAGER_UNSAFE(&tm->nodes, new_parent_idx, &new_parent_node);
+
+    copy_child_nodes(
+        tm, om, parent_node->first_child, new_parent_obj_ptr, new_parent_node_ptr, objects);
+
+    return new_parent_obj;
 }
 
 /*void rpe_transform_manager_update_model_transform(
@@ -204,15 +295,6 @@ void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_transfor
     }
 }*/
 
-void rpe_transform_manager_update_model(rpe_transform_manager_t* m, rpe_object_t obj)
-{
-    assert(m);
-    uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
-    assert(idx != UINT64_MAX);
-    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
-    rpe_transform_manager_update_world(m, node);
-}
-
 rpe_transform_node_t* rpe_transform_manager_get_node(rpe_transform_manager_t* m, rpe_object_t obj)
 {
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
@@ -262,4 +344,33 @@ void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m)
             m->skinned_transforms->data);
     }*/
     m->is_dirty = false;
+}
+
+rpe_object_t* rpe_transform_manager_get_parent(rpe_transform_manager_t* m, rpe_object_t obj)
+{
+    assert(m);
+    uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
+    assert(idx != UINT64_MAX);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
+    return node->parent;
+}
+
+void rpe_transform_manager_set_translation(
+    rpe_transform_manager_t* m, rpe_object_t obj, math_vec3f trans)
+{
+    assert(m);
+    uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
+    assert(idx != UINT64_MAX);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
+    math_mat4f_translate(trans, &node->local_transform);
+    rpe_transform_manager_update_world(m, obj);
+}
+
+rpe_object_t* rpe_transform_manager_get_child(rpe_transform_manager_t* m, rpe_object_t obj)
+{
+    assert(m);
+    uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
+    assert(idx != UINT64_MAX);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
+    return node->first_child;
 }

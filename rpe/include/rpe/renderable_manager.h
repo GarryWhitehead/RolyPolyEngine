@@ -28,6 +28,7 @@
 #include <utility/maths.h>
 
 typedef struct RenderableManager rpe_rend_manager_t;
+typedef struct TransformManager rpe_transform_manager_t;
 typedef struct Mesh rpe_mesh_t;
 typedef struct Material rpe_material_t;
 typedef struct Renderable rpe_renderable_t;
@@ -82,9 +83,22 @@ void rpe_rend_manager_add(
     rpe_object_t rend_obj,
     rpe_object_t transform_obj);
 
+/**
+ Copy a renderable object from src to dst. Optional override of transform associated with this
+ renderable.
+ */
+void rpe_rend_manager_copy(
+    rpe_rend_manager_t* rm,
+    rpe_transform_manager_t* tm,
+    rpe_object_t src_obj,
+    rpe_object_t dst_obj,
+    rpe_object_t* transform_obj);
+
 void rpe_renderable_set_box(rpe_renderable_t* r, rpe_aabox_t* box);
 void rpe_renderable_set_min_max_dimensions(rpe_renderable_t* r, math_vec3f min, math_vec3f max);
 
 bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj);
+
+rpe_object_t rpe_rend_manager_get_transform(rpe_rend_manager_t* rm, rpe_object_t rend_obj);
 
 #endif

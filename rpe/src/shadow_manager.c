@@ -50,12 +50,12 @@ void compute_cascade_partitions(
 }
 
 rpe_shadow_manager_t*
-rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, arena_t* arena)
+rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, arena_t* arena)
 {
-    assert(settings.cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
+    assert(settings->cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
 
     rpe_shadow_manager_t* sm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_shadow_manager_t);
-    sm->settings = settings;
+    sm->settings = *settings;
 
     vkapi_driver_t* driver = engine->driver;
 
@@ -64,13 +64,13 @@ rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, ar
         driver->context,
         "shadow.vert.spv",
         RPE_BACKEND_SHADER_STAGE_VERTEX,
-        &engine->perm_arena);
+        arena);
     sm->csm_shaders[RPE_BACKEND_SHADER_STAGE_FRAGMENT] = program_cache_from_spirv(
         driver->prog_manager,
         driver->context,
         "shadow.frag.spv",
         RPE_BACKEND_SHADER_STAGE_FRAGMENT,
-        &engine->perm_arena);
+        arena);
 
     if ((!vkapi_is_valid_shader_handle(sm->csm_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX]) ||
          (!vkapi_is_valid_shader_handle(sm->csm_shaders[RPE_BACKEND_SHADER_STAGE_FRAGMENT]))))
@@ -87,7 +87,7 @@ rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, ar
 
     shader_bundle_set_depth_read_write_state(
         sm->csm_bundle, true, true, RPE_COMPARE_OP_LESS_OR_EQUAL);
-    shader_bundle_set_depth_clamp_state(sm->csm_bundle, true);
+    //shader_bundle_set_depth_clamp_state(sm->csm_bundle, true);
     shader_bundle_set_cull_mode(sm->csm_bundle, RPE_CULL_MODE_NONE);
 
     // Using the same layout as the material shaders though not all elements required for shadow.
@@ -116,6 +116,11 @@ rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, ar
         0,
         VKAPI_BUFFER_HOST_TO_GPU);
 
+    // The light manager has some dependencies on the shadow manager. We expect the light manager
+    // to be initialised first - so update the light manager with any shadow dependency info.
+    assert(engine->light_manager);
+    rpe_light_manager_set_shadow_ssbo(engine->light_manager, sm->cascade_ubo);
+
     // Bind the SSBO to their positions in the shader.
     shader_bundle_update_ssbo_desc(
         sm->csm_bundle,
@@ -128,7 +133,7 @@ rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, ar
         engine->transform_manager->transform_buffer_handle,
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 
-    if (settings.enable_debug_cascade)
+    if (settings->enable_debug_cascade)
     {
         sm->csm_debug_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX] = program_cache_from_spirv(
             driver->prog_manager,
@@ -226,6 +231,7 @@ void rpe_shadow_manager_update(
             corners[j].x = f.x;
             corners[j].y = f.y;
             corners[j].z = f.z;
+            //corners[j] = math_vec3f_div_sca(corners[j], f.w);
         }
 
         // Find the center of the frustrum.
@@ -252,12 +258,14 @@ void rpe_shadow_manager_update(
 
         // Create the look-at matrix from the perspective of the light and scale it.
         math_vec3f up = {0.0f, 1.0f, 0.0f};
-        math_vec3f target = {0.0f, 0.0f, 0.0f};
-        math_mat4f light_lookat = math_mat4f_lookat(target, light_dir, up);
+        math_vec3f zero = {0.0f, 0.0f, 0.0f};
+        math_mat4f light_lookat = math_mat4f_lookat(light_dir, zero, up);
         light_lookat = math_mat4f_mul(scalar_mat, light_lookat);
         math_mat4f inv_lookat = math_mat4f_inverse(light_lookat);
+        //printf("light lookat:\n");
+        //math_mat4f_print(light_lookat);
 
-        math_vec4f t_center = math_mat4f_mul_vec(light_lookat, math_vec4f_init_vec3(center, 1.0f));
+        /*math_vec4f t_center = math_mat4f_mul_vec(light_lookat, math_vec4f_init_vec3(center, 1.0f));
         // Clamp to texel increment.
         t_center.x = floorf(t_center.x);
         t_center.y = floorf(t_center.y);
@@ -266,17 +274,22 @@ void rpe_shadow_manager_update(
 
         center.x = t_center.x;
         center.y = t_center.y;
-        center.z = t_center.z;
+        center.z = t_center.z;*/
 
         math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, radius * 2.0f));
 
         // View matrix looking at the texel-corrected frustum center from the directional light
         // source.
-        math_mat4f light_view = math_mat4f_lookat(eye, center, up);
+        math_mat4f light_view = math_mat4f_lookat(center, eye, up);
         math_mat4f light_ortho =
             math_mat4f_ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
-
+        /*printf("light view:\n");
+        math_mat4f_print(light_view);
+        printf("light ortho:\n");
+        math_mat4f_print(light_ortho);*/
         m->shadow_map.cascades[i].vp = math_mat4f_mul(light_ortho, light_view);
+        //printf("vp:\n");
+        //math_mat4f_print(m->shadow_map.cascades[i].vp);
         m->shadow_map.cascades[i].split_depth =
             (camera->n + m->cascade_offsets[i] * clip_range) * -1.0f;
     }

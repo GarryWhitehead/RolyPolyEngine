@@ -3,6 +3,8 @@
 #include <commands.h>
 #include <unity_fixture.h>
 
+#include <string.h>
+
 int bucket_test_val1 = 0;
 
 struct BucketTestCommand1

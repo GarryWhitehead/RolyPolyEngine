@@ -26,7 +26,9 @@
 #include "engine.h"
 #include "rpe/light_manager.h"
 #include "scene.h"
+#include "shadow_manager.h"
 
+#include <string.h>
 #include <utility/arena.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/sampler_cache.h>
@@ -86,6 +88,15 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
     lm->program_bundle->raster_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
     lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
     return lm;
+}
+
+void rpe_light_manager_set_shadow_ssbo(rpe_light_manager_t* lm , buffer_handle_t cascade_ubo)
+{
+    shader_bundle_update_ssbo_desc(
+        lm->program_bundle,
+        RPE_LIGHT_MANAGER_SHADOW_CASCADE_SSBO_BINDING,
+        cascade_ubo,
+        RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
 }
 
 void rpe_light_manager_calculate_spot_cone(
@@ -199,7 +210,10 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     assert(lm);
     assert(scene);
 
+    rpe_shadow_manager_t* sm = lm->engine->shadow_manager;
+
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
+    lm->light_consts.csm_split_count = sm->settings.cascade_count;
 
     // Set the scene UBO each update as the current scene may have changed (could instead just
     // update on a call to set_current_scene?)
@@ -221,7 +235,6 @@ void rpe_light_manager_update_ssbo(
     assert(lm);
     assert(count < RPE_LIGHTING_SAMPLER_MAX_LIGHT_COUNT);
 
-    // Clear the buffer, so we don't get any invalid values.
     memset(
         (void*)lm->ssbo_buffers,
         0,

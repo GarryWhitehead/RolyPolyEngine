@@ -114,7 +114,7 @@ enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value, void** ne
     }
 
     uint32_t begin_idx = idx;
-    uint16_t remaining = set->capacity - idx;
+    int remaining = (int)set->capacity - (int)idx;
     assert(remaining >= 0);
     // Not found via leap-frogging, so revert to linear probing.
     for (; idx < set->capacity; ++idx)

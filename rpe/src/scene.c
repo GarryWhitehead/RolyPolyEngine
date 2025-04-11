@@ -57,10 +57,14 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     rpe_compute_bind_ubo_buffer(i->cull_compute, 0, engine->camera_ubo);
     i->scene_ubo = rpe_compute_bind_ubo(i->cull_compute, engine->driver, 1);
 
+    // Extents buffer for frustum culling visibility checks.
     i->extents_buffer = rpe_compute_bind_ssbo_host_gpu(
         i->cull_compute, engine->driver, 0, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
+    // Initial indirect draw data - created on the CPU, updated into the indirect_draw buffers by
+    // the compute shader.
     i->mesh_data_handle = rpe_compute_bind_ssbo_host_gpu(
         i->cull_compute, engine->driver, 1, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
+    // For colour pass draws.
     i->model_draw_data_handle = rpe_compute_bind_ssbo_gpu_only(
         i->cull_compute,
         engine->driver,
@@ -70,16 +74,39 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     i->indirect_draw_handle = rpe_compute_bind_ssbo_gpu_only(
         i->cull_compute,
         engine->driver,
-        3,
+        4,
         RPE_SCENE_MAX_STATIC_MODEL_COUNT,
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    // For shadow draws.
+    i->shadow_model_draw_data_handle = rpe_compute_bind_ssbo_gpu_only(
+        i->cull_compute,
+        engine->driver,
+        3,
+        RPE_SCENE_MAX_STATIC_MODEL_COUNT,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    i->shadow_indirect_draw_handle = rpe_compute_bind_ssbo_gpu_only(
+        i->cull_compute,
+        engine->driver,
+        5,
+        RPE_SCENE_MAX_STATIC_MODEL_COUNT,
+        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+
+    // Batched draw counts buffer.
     i->draw_count_handle = rpe_compute_bind_ssbo_gpu_only(
         i->cull_compute,
         engine->driver,
-        4,
+        6,
         VKAPI_DRIVER_MAX_DRAW_COUNT,
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-    i->total_draw_handle = rpe_compute_bind_ssbo_gpu_only(i->cull_compute, engine->driver, 5, 1, 0);
+    // Shadow batched draw counts buffer.
+    i->shadow_draw_count_handle = rpe_compute_bind_ssbo_gpu_only(
+        i->cull_compute,
+        engine->driver,
+        7,
+        VKAPI_DRIVER_MAX_DRAW_COUNT,
+        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    // Total draw counts for both colour pass and shadow. This is only used in the compute shader.
+    i->total_draw_handle = rpe_compute_bind_ssbo_gpu_only(i->cull_compute, engine->driver, 8, 2, 0);
 
     i->render_queue = rpe_render_queue_init(arena);
     i->rend_extents =
@@ -123,7 +150,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     rpe_scene_upload_extents(scene, engine, rm, tm);
 
     arena_dyn_array_t indirect_draws;
-    MAKE_DYN_ARRAY(struct IndirectDraw, &engine->frame_arena, 1000, &indirect_draws);
+    MAKE_DYN_ARRAY(struct IndirectDraw, &engine->frame_arena, 500, &indirect_draws);
 
     vkapi_cmdbuffer_t* cmds = vkapi_driver_get_compute_cmds(driver);
 
@@ -157,6 +184,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
                 draw.object_id = rpe_comp_manager_get_obj_idx(
                     engine->transform_manager->comp_manager, rend->transform_obj);
                 draw.batch_id = i;
+                draw.shadow_caster = rend->material->shadow_caster;
                 DYN_ARRAY_APPEND(&indirect_draws, &draw);
 
                 // The draw data is the per-material instance - different texture samplers can be
@@ -200,7 +228,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     if (settings.draw_shadows)
     {
         // All visible shadow casters drawn with one draw call using the data generated via
-        // the compute-shader (no batching required as the pipeline remians the same for all calls).
+        // the compute-shader (no batching required as the pipeline remains the same for all calls).
         rpe_cmd_packet_t* pkt0 = rpe_command_bucket_add_command(
             scene->render_queue->depth_bucket,
             0,
@@ -219,9 +247,9 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
             rpe_cmd_dispatch_draw_indirect_indexed);
         struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
         cmd->stride = sizeof(struct IndirectDraw);
-        cmd->count_handle = scene->draw_count_handle;
+        cmd->count_handle = scene->shadow_draw_count_handle;
         cmd->draw_count_offset = 0; // < total draw buffer?
-        cmd->cmd_handle = scene->indirect_draw_handle;
+        cmd->cmd_handle = scene->shadow_indirect_draw_handle;
         cmd->offset = 0;
     }
 
@@ -243,6 +271,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         engine->driver, scene->scene_ubo, sizeof(rpe_scene_ubo_t), 0, &scene_ubo);
 
     vkapi_driver_clear_gpu_buffer(driver, cmds, scene->draw_count_handle);
+    vkapi_driver_clear_gpu_buffer(driver, cmds, scene->shadow_draw_count_handle);
     vkapi_driver_clear_gpu_buffer(driver, cmds, scene->total_draw_handle);
 
     // Update the renderable extents buffer on the GPU and dispatch the culling compute shader.

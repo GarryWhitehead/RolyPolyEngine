@@ -34,6 +34,8 @@
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
 
+#include <string.h>
+
 render_graph_t* rg_init(arena_t* arena)
 {
     render_graph_t* rg = ARENA_MAKE_STRUCT(arena, render_graph_t, ARENA_ZERO_MEMORY);

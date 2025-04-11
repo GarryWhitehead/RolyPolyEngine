@@ -32,14 +32,16 @@
 #include "render_graph/graphviz.h"
 #endif
 #include "render_queue.h"
+#include "rpe/settings.h"
 #include "scene.h"
 #include "shadow_pass.h"
-#include "rpe/settings.h"
 
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
 #include <vulkan-api/sampler_cache.h>
+
+#include <string.h>
 
 rpe_render_target_t rpe_render_target_init()
 {
@@ -136,8 +138,7 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
         vkapi_attach_info_t depth = {.level = 0, .layer = 0, .handle = i->depth_handle};
         math_vec4f col = {0.0f, 0.0f, 0.0f, 1.0f};
         vkapi_attach_info_t stencil = {.level = 0, .layer = 0, .handle = UINT32_MAX};
-        i->rt_handles[idx] =
-            vkapi_driver_create_rt(engine->driver, 0, col, colour, depth, stencil);
+        i->rt_handles[idx] = vkapi_driver_create_rt(engine->driver, 0, col, colour, depth, stencil);
     }
     return i;
 }
@@ -160,7 +161,10 @@ void rpe_renderer_end_frame(rpe_renderer_t* r)
 }
 
 void setup_single_render(
-    rpe_engine_t* engine, vkapi_render_pass_data_t* data, rpe_render_target_t* rt, uint32_t multi_view_count)
+    rpe_engine_t* engine,
+    vkapi_render_pass_data_t* data,
+    rpe_render_target_t* rt,
+    uint32_t multi_view_count)
 {
     create_backend_rt(rt, engine, multi_view_count);
 
@@ -192,7 +196,8 @@ void setup_single_render(
         sizeof(enum StoreClearFlags) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
 }
 
-void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count)
+void rpe_renderer_begin_renderpass(
+    rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count)
 {
     assert(rdr);
     vkapi_driver_t* driver = rdr->engine->driver;
@@ -212,7 +217,10 @@ void rpe_render_end_renderpass(rpe_renderer_t* rdr)
 }
 
 void rpe_renderer_render_single_quad(
-    rpe_renderer_t* rdr, rpe_render_target_t* rt, shader_prog_bundle_t* bundle, uint32_t multi_view_count)
+    rpe_renderer_t* rdr,
+    rpe_render_target_t* rt,
+    shader_prog_bundle_t* bundle,
+    uint32_t multi_view_count)
 {
     assert(rdr);
     assert(rt);
@@ -320,7 +328,8 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
     // TODO: move to post-processing when added.
     if (settings.shadow.enable_debug_cascade)
     {
-        input_handle = rpe_cascade_shadow_debug_render(engine->shadow_manager, rdr->rg, desc.width, desc.height);
+        input_handle = rpe_cascade_shadow_debug_render(
+            engine->shadow_manager, rdr->rg, desc.width, desc.height);
     }
 
     rg_move_resource(rdr->rg, input_handle, bb_handle);

@@ -58,7 +58,7 @@
 #endif
 
 #ifdef __GNUC__
-#define RPE_PACKED(DECL) DECL __attribute__((__packed__))
+#define RPE_PACKED(DECL) DECL __attribute__((packed))
 #endif
 #ifdef _MSC_VER
 #define RPE_PACKED(DECL) __pragma(pack(push, 1)) DECL __pragma(pack(pop))

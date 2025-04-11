@@ -41,6 +41,7 @@ typedef struct Camera rpe_camera_t;
 #define RPE_LIGHTING_SAMPLER_END_OF_BUFFER_SIGNAL 0xFF
 
 #define RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING 0
+#define RPE_LIGHT_MANAGER_SHADOW_CASCADE_SSBO_BINDING 0
 
 typedef struct LightInstance
 {
@@ -86,6 +87,7 @@ typedef struct LightManager
     {
         bool has_ibl;
         uint32_t light_count;
+        uint32_t csm_split_count;
 
     } light_consts;
 
@@ -125,5 +127,7 @@ rpe_light_manager_get_light_instance(rpe_light_manager_t* lm, rpe_object_t obj);
 void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_camera_t* camera);
 
 rpe_light_instance_t* rpe_light_manager_get_dir_light_params(rpe_light_manager_t* lm);
+
+void rpe_light_manager_set_shadow_ssbo(rpe_light_manager_t* lm, buffer_handle_t cascade_ubo);
 
 #endif

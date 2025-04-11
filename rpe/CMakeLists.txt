@@ -146,6 +146,7 @@ if (BUILD_TESTS)
         test/test_visibility.c
         test/test_compute.c
         test/vk_setup.h
+        test/test_engine.c
     )
 
     add_executable(RpeTest ${test_srcs})

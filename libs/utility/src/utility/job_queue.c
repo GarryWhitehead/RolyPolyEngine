@@ -162,9 +162,9 @@ void _push(job_queue_t* jq, thread_info_t* info, job_t* job)
 {
     assert(job);
 
-    size_t job_idx = (job - (job_t*)jq->job_cache.data) + 1;
+    int job_idx = (int)(job - (job_t*)jq->job_cache.data) + 1;
     assert(job_idx >= 0);
-    work_stealing_queue_push(&info->work_queue, (int)job_idx);
+    work_stealing_queue_push(&info->work_queue, job_idx);
 
     atomic_int old_job_count =
         atomic_fetch_add_explicit(&jq->active_job_count, 1, memory_order_relaxed);
@@ -324,7 +324,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads)
     jq->thread_map = HASH_SET_CREATE(uint32_t, thread_info_t*, arena);
     jq->arena = arena;
 
-    // static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
+    static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
 
     if (!num_threads)
     {

@@ -110,11 +110,7 @@ int main(int argc, char** argv)
 
     rpe_settings_t settings = {
         .gbuffer_dims = 2048,
-        .draw_shadows = false,
-        .shadow.cascade_dims = 1024,
-        .shadow.split_lambda = 0.9f,
-        .shadow.cascade_count = 4,
-        .shadow.enable_debug_cascade = false};
+        .draw_shadows = false};
 
     rpe_app_t app;
     int error = rpe_app_init("GLTF Viewer", win_width, win_height, &app, &settings);

@@ -28,18 +28,20 @@
 #include "rpe/object.h"
 #include "scene.h"
 #include "transform_manager.h"
+#include "rpe/transform_manager.h"
 #include "vertex_buffer.h"
 
 #include <stdlib.h>
 #include <utility/hash.h>
 #include <utility/sort.h>
+#include <string.h>
 
 
 rpe_renderable_t rpe_renderable_init()
 {
     rpe_renderable_t rend = {0};
     rend.sort_key = UINT32_MAX;
-    rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    //rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     rend.box = rpe_aabox_init();
     return rend;
 }
@@ -100,6 +102,28 @@ void rpe_rend_manager_add(
     // First, add the object which will give us a free slot.
     uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, rend_obj);
     ADD_OBJECT_TO_MANAGER(&m->renderables, idx, renderable);
+}
+
+void rpe_rend_manager_copy(
+    rpe_rend_manager_t* rm,
+    rpe_transform_manager_t* tm,
+    rpe_object_t src_obj,
+    rpe_object_t dst_obj,
+    rpe_object_t* transform_obj)
+{
+    assert(rm);
+    assert(src_obj.id != UINT32_MAX);
+    assert(dst_obj.id != UINT32_MAX);
+    uint64_t src_idx = rpe_comp_manager_get_obj_idx(rm->comp_manager, src_obj);
+    rpe_renderable_t rend = DYN_ARRAY_GET(rpe_renderable_t, &rm->renderables, src_idx);
+
+    // Override initial transform if specified.
+    if (transform_obj)
+    {
+        rend.transform_obj = *transform_obj;
+    }
+    uint64_t idx = rpe_comp_manager_add_obj(rm->comp_manager, dst_obj);
+    ADD_OBJECT_TO_MANAGER(&rm->renderables, idx, &rend);
 }
 
 rpe_mesh_t* rpe_rend_manager_create_mesh(
@@ -312,4 +336,13 @@ bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj)
 {
     assert(m);
     return rpe_comp_manager_has_obj(m->comp_manager, *obj);
+}
+
+rpe_object_t rpe_rend_manager_get_transform(rpe_rend_manager_t* rm, rpe_object_t rend_obj)
+{
+    assert(rm);
+    assert(rend_obj.id != UINT32_MAX);
+    uint64_t src_idx = rpe_comp_manager_get_obj_idx(rm->comp_manager, rend_obj);
+    rpe_renderable_t rend = DYN_ARRAY_GET(rpe_renderable_t, &rm->renderables, src_idx);
+    return rend.transform_obj;
 }

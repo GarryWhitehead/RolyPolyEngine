@@ -132,28 +132,6 @@ void main()
 
     // albedo
     vec4 baseColour = vec4(1.0);
-
-    // TODO: Remove this and set the colour to white by default.
-     if (HAS_COLOUR_ATTR)
-    {   
-        baseColour = inColour;
-    }
-    outColour = baseColour;
-    
-	if (HAS_ALPHA_MASK)
-    {
-	  // TODO: If has alpha mask value, only "OPAQUE" and "MASK" are dealt with. Need to do something when "BLEND"?
-      // alphaMsak == 1.0 == "MASK"; alphaMask == 0.0 == "OPAQUE"
-      // We don't have to do anything for "OPAQUE".
-      if (iData.alphaMask == 1.0)
-      { 
-        float cutoff = HAS_APLHA_MASK_CUTOFF ? iData.alphaMaskCutOff : 0.5;
-        if (baseColour.a < cutoff)
-        {
-            discard;
-        }
-      }
-    }
     
     // default values for output attachments
     float roughness = 1.0;
@@ -234,10 +212,39 @@ void main()
                 diffuse.a);
              break;
         }
+
+        default:
+        {
+            // TODO: Remove this and set the colour to white by default.
+            if (HAS_COLOUR_ATTR)
+            {   
+                baseColour = inColour;
+            }
+            else if (HAS_BASECOLOUR_SAMPLER && HAS_UV)
+            {
+                vec2 uv = iData.colourUv == 0 ? inUv0 : inUv1;
+                baseColour = texture(textures[nonuniformEXT(iData.colour)], uv);
+            }
+        }
+    }
+
+    if (HAS_ALPHA_MASK)
+    {
+	    // TODO: Support blending - alphaMask == 1.0??
+        if (iData.alphaMask == 2.0)
+        { 
+            float cutoff = HAS_APLHA_MASK_CUTOFF ? iData.alphaMaskCutOff : 0.5;
+            // Spec: Any alpha value below cutoff value is completely transparent, whereas above is completely opaque.
+            if (baseColour.a < cutoff)
+            {
+                discard;
+            }
+        }
     }
 
     // =========== fragment outputs ====================
 
+    outColour = baseColour;
     outPbr = vec2(metallic, roughness);
 
     // occlusion

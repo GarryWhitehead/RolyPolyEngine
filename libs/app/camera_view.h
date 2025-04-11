@@ -42,6 +42,8 @@ typedef struct CameraView
     math_mat4f view;
     math_vec3f eye;
     math_vec3f rotation;
+    math_vec3f right_vec;
+    math_vec3f front_vec;
 
     hash_set_t key_events;
 

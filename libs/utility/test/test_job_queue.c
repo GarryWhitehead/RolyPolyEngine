@@ -29,7 +29,7 @@ TEST(JobQueueGroup, JobQueue_GeneralTests)
     TEST_ASSERT(ARENA_SUCCESS == res);
 
     int thread_count = 2;
-    job_queue_t* jq = job_queue_init(&arena, thread_count, 1);
+    job_queue_t* jq = job_queue_init(&arena, thread_count);
     job_queue_adopt_thread(jq);
 
     int arr[] = {2, 6, 10};

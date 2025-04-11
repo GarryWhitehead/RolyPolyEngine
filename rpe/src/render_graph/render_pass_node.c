@@ -31,6 +31,8 @@
 
 #include <utility/maths.h>
 
+#include <string.h>
+
 rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena)
 {
     rg_pass_info_t i;

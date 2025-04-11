@@ -97,9 +97,9 @@ typedef struct JobQueue
     /// A map of thread ids and their index in the thread state buffer.
     hash_set_t thread_map;
     /// A mutex used for accessing the thread map.
-    RPE_ALIGNAS(32) mutex_t thread_map_mutex;
+    mutex_t thread_map_mutex;
     /// A mutex used for the wait condition.
-    RPE_ALIGNAS(32) mutex_t wait_mutex;
+    mutex_t wait_mutex;
     /// The arena used for allocations for this job queue.
     arena_t* arena;
 } job_queue_t;

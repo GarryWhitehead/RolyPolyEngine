@@ -167,8 +167,10 @@ void vkapi_context_shutdown(vkapi_context_t* context, VkSurfaceKHR surface)
 
 bool vkapi_find_ext_props(const char* name, const VkExtensionProperties* props, uint32_t count)
 {
+    assert(name);
     for (uint32_t i = 0; i < count; ++i)
     {
+        assert(props[i].extensionName);
         if (strcmp(props[i].extensionName, name) == 0)
         {
             return true;

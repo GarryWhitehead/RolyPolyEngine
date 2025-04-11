@@ -726,7 +726,7 @@ void shader_reflect_spirv(shader_t* shader, uint32_t* spirv, uint32_t word_count
         shader->resource_binding.spec_consts[i].size = size_from_base_type(base_type);
         shader->resource_binding.spec_const_count = count;
     }
-    // Sort the specialisztion constants based on their ids so the offsets can be calculated
+    // Sort the specialization constants based on their ids so the offsets can be calculated
     // correctly.
     qsort(
         shader->resource_binding.spec_consts,

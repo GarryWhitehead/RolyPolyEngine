@@ -10,6 +10,7 @@
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
 
+#include <string.h>
 
 TEST_GROUP(RenderGraphGroup);
 
@@ -99,6 +100,7 @@ void setup1(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local_da
         .height = 100,
         .mip_levels = 1,
         .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .layers = 1,
         .depth = 1};
     rg_texture_resource_t* r = rg_tex_resource_init(
         "InputTex", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, desc, rg_get_arena(rg));
@@ -138,6 +140,7 @@ void setup_basic(render_graph_t* rg, rg_pass_node_t* node, void* data, void* loc
         .height = 100,
         .mip_levels = 1,
         .format = VK_FORMAT_B8G8R8A8_UNORM,
+        .layers = 1,
         .depth = 1};
     rg_texture_resource_t* r = rg_tex_resource_init(
         "DepthImage", VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, t_desc, rg_get_arena(rg));
@@ -188,11 +191,11 @@ struct DataGBuffer
     rg_handle_t rt;
 };
 
-void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local_data)
+void setup_gbuffer_test(render_graph_t* rg, rg_pass_node_t* node, void* data, void* local_data)
 {
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     TEST_ASSERT_TRUE(d);
-    rg_texture_desc_t t_desc = {.width = 100, .height = 100, .mip_levels = 1, .depth = 1};
+    rg_texture_desc_t t_desc = {.width = 100, .height = 100, .mip_levels = 1, .layers = 1, .depth = 1};
 
     t_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
     d->colour = rg_add_resource(
@@ -266,7 +269,7 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data, void* l
     rg_backboard_add(bb, "gbufferDepth", d->depth);
 }
 
-void execute_gbuffer(
+void execute_gbuffer_test(
     vkapi_driver_t* driver, rpe_engine_t* engine, rg_render_graph_resource_t* res, void* data)
 {
     TEST_ASSERT_TRUE(data);
@@ -297,7 +300,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer)
     render_graph_t* rg = rg_init(arena);
     rpe_engine_t* eng = NULL;
     rg_pass_t* p =
-        rg_add_pass(rg, "Pass1", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer), NULL);
+        rg_add_pass(rg, "Pass1", setup_gbuffer_test, execute_gbuffer_test, sizeof(struct DataGBuffer), NULL);
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));
@@ -348,7 +351,7 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer_PresentPass)
 
     render_graph_t* rg = rg_init(arena);
     rg_pass_t* p = rg_add_pass(
-        rg, "Pass1", setup_gbuffer, execute_gbuffer_present, sizeof(struct DataGBuffer), NULL);
+        rg, "Pass1", setup_gbuffer_test, execute_gbuffer_present, sizeof(struct DataGBuffer), NULL);
     TEST_ASSERT_TRUE(p);
 
     struct DataGBuffer* d = (struct DataGBuffer*)p->data;

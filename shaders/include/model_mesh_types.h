@@ -5,7 +5,7 @@
 
 void defaultMesh(vec4 pos)
 {
-    outPos = pos.xyz /pos.w;
+    outPos = pos.xyz / pos.w;
     gl_Position = camera_ubo.mvp * vec4(outPos, 1.0);
 }
 

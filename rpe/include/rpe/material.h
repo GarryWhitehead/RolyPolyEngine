@@ -96,6 +96,7 @@ void rpe_material_set_topology(rpe_material_t* m, enum PrimitiveTopology topo);
 void rpe_material_set_type(rpe_material_t* m, enum MaterialType type);
 
 void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer);
+void rpe_material_set_shadow_caster_state(rpe_material_t* m, bool state);
 
 void rpe_material_set_base_colour_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_diffuse_factor(rpe_material_t* m, math_vec4f* f);

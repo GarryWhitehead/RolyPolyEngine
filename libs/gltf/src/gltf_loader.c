@@ -30,12 +30,14 @@
 #include <rpe/object.h>
 #include <rpe/object_manager.h>
 #include <rpe/renderable_manager.h>
+#include <rpe/scene.h>
 #include <rpe/transform_manager.h>
 #include <utility/arena.h>
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 #include <jsmn.h>
+#include <string.h>
 
 struct ExtensionInstance
 {
@@ -310,6 +312,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
         // Only one material per mesh is allowed which is the case 99% of the
         // time cache the cgltf pointer and use to ensure this is the case.
         rpe_material_t* mesh_mat = create_material_instance(primitive->material, asset);
+        DYN_ARRAY_APPEND(&asset->materials, &mesh_mat);
 
         // Get the number of vertices to process.
         assert(primitive->attributes[0].data);
@@ -453,6 +456,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
             indices_base,
             indices_count,
             indices_type);
+        DYN_ARRAY_APPEND(&asset->meshes, &new_mesh);
 
         rpe_renderable_t* renderable =
             rpe_engine_create_renderable(asset->engine, mesh_mat, new_mesh);
@@ -517,10 +521,10 @@ math_mat4f gltf_node_prepare_translation(cgltf_node* node)
         }
         if (node->has_rotation)
         {
-            rot.x = node->rotation[1];
-            rot.y = node->rotation[2];
-            rot.z = node->rotation[3];
-            rot.w = node->rotation[0];
+            rot.x = node->rotation[0];
+            rot.y = node->rotation[1];
+            rot.z = node->rotation[2];
+            rot.w = node->rotation[3];
         }
         if (node->has_scale)
         {
@@ -529,9 +533,12 @@ math_mat4f gltf_node_prepare_translation(cgltf_node* node)
             scale.z = node->scale[2];
         }
 
-        out = math_quatf_to_mat4f(rot);
-        math_mat4f_translate(translation, &out);
-        math_mat4f_scale(scale, &out);
+        math_mat4f T = math_mat4f_identity();
+        math_mat4f S = math_mat4f_identity();
+        math_mat4f R = math_quatf_to_mat4f(rot);
+        math_mat4f_translate(translation, &T);
+        math_mat4f_scale(scale, &S);
+        out = math_mat4f_mul(T, math_mat4f_mul(R, S));
     }
     return out;
 }
@@ -580,8 +587,8 @@ bool gltf_node_create_node_hierachy(cgltf_node* node, gltf_asset_t* asset, rpe_e
 
     rpe_object_t obj = rpe_obj_manager_create_obj(rpe_engine_get_obj_manager(engine));
     rpe_object_t* obj_p = DYN_ARRAY_APPEND(&asset->objects, &obj);
-    math_mat4f local_transform = math_mat4f_identity();
-    rpe_transform_manager_add_node(tm, &local_transform, NULL, &obj);
+    math_mat4f t = math_mat4f_identity();
+    rpe_transform_manager_add_node(tm, &t, NULL, &obj);
 
     if (!gltf_node_create_node_hierachy_recursive(node, engine, asset, obj_p))
     {
@@ -672,6 +679,8 @@ gltf_asset_t* create_asset(rpe_engine_t* engine, cgltf_data* model_data, const c
     MAKE_DYN_ARRAY(rpe_object_t, &new_asset->arena, 30, &new_asset->objects);
     MAKE_DYN_ARRAY(asset_texture_t, &new_asset->arena, 30, &new_asset->textures);
     MAKE_DYN_ARRAY(cgltf_node, &new_asset->arena, 30, &new_asset->nodes);
+    MAKE_DYN_ARRAY(rpe_material_t*, &new_asset->arena, 30, &new_asset->materials);
+    MAKE_DYN_ARRAY(rpe_mesh_t*, &new_asset->arena, 30, &new_asset->meshes);
     new_asset->gltf_path = string_init(path, &new_asset->arena);
 
     return new_asset;
@@ -718,4 +727,42 @@ gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine
     }
 
     return asset;
+}
+
+void gltf_model_create_instances(
+    gltf_asset_t* assets,
+    rpe_rend_manager_t* rm,
+    rpe_transform_manager_t* tm,
+    rpe_obj_manager_t* om,
+    rpe_scene_t* scene,
+    uint32_t count,
+    math_vec3f* translations)
+{
+    arena_dyn_array_t objects;
+    MAKE_DYN_ARRAY(rpe_object_t, &assets->arena, 50, &objects);
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        for (size_t j = 0; j < assets->objects.size; ++j)
+        {
+            rpe_object_t model_obj = rpe_obj_manager_create_obj(om);
+
+            rpe_object_t src_obj = DYN_ARRAY_GET(rpe_object_t, &assets->objects, j);
+            if (rpe_rend_manager_has_obj(rm, &src_obj))
+            {
+                rpe_object_t rend_trans_obj = rpe_rend_manager_get_transform(rm, src_obj);
+                rpe_object_t* parent_trans_obj =
+                    rpe_transform_manager_get_parent(tm, rend_trans_obj);
+                assert(parent_trans_obj);
+
+                rpe_object_t model_trans_obj =
+                    rpe_transform_manager_copy(tm, om, parent_trans_obj, &objects);
+                rpe_transform_manager_set_translation(tm, model_trans_obj, translations[i]);
+
+                rpe_rend_manager_copy(rm, tm, src_obj, model_obj, rpe_transform_manager_get_child(tm, model_trans_obj));
+                // Add object to the scene.
+                rpe_scene_add_object(scene, model_obj);
+            }
+        }
+    }
 }

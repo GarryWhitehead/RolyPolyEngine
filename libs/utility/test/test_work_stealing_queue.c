@@ -17,27 +17,27 @@ TEST(WorkStealingQueueGroup, WorkStealingQueue_GeneralTests)
     TEST_ASSERT(ARENA_SUCCESS == res);
 
     int work_size = 1024;
-    work_stealing_queue_t queue = work_stealing_queue_init(&arena, work_size, sizeof(int));
+    work_stealing_queue_t queue = work_stealing_queue_init(&arena, work_size);
 
     // push/pop
     for (int i = 0; i < work_size; ++i)
     {
-        work_stealing_queue_push(&queue, &i);
+        work_stealing_queue_push(&queue, i);
     }
     for (int i = 0; i < work_size; ++i)
     {
-        res = *(int*)work_stealing_queue_pop(&queue);
+        res = work_stealing_queue_pop(&queue);
         TEST_ASSERT_EQUAL_INT((work_size - 1) - i, res);
     }
 
     // push/steal
     for (int i = 0; i < work_size; ++i)
     {
-        work_stealing_queue_push(&queue, &i);
+        work_stealing_queue_push(&queue, i);
     }
     for (int i = 0; i < work_size; ++i)
     {
-        res = *(int*)work_stealing_queue_steal(&queue);
+        res = work_stealing_queue_steal(&queue);
         TEST_ASSERT_EQUAL_INT(i, res);
     }
 }

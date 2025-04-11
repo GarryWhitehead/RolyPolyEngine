@@ -55,8 +55,8 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     err = arena_new(RPE_ENGINE_FRAME_ARENA_SIZE, &instance->frame_arena);
     assert(err == ARENA_SUCCESS);
 
-    MAKE_DYN_ARRAY(vkapi_swapchain_t, &instance->perm_arena, 10, &instance->swapchains);
-    MAKE_DYN_ARRAY(rpe_renderer_t*, &instance->perm_arena, 10, &instance->renderers);
+    MAKE_DYN_ARRAY(vkapi_swapchain_t, &instance->perm_arena, 5, &instance->swapchains);
+    MAKE_DYN_ARRAY(rpe_renderer_t*, &instance->perm_arena, 5, &instance->renderers);
     MAKE_DYN_ARRAY(rpe_renderable_t, &instance->perm_arena, 100, &instance->renderables);
     MAKE_DYN_ARRAY(rpe_scene_t*, &instance->perm_arena, 10, &instance->scenes);
     MAKE_DYN_ARRAY(rpe_camera_t*, &instance->perm_arena, 10, &instance->cameras);
@@ -89,7 +89,7 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     instance->transform_manager = rpe_transform_manager_init(instance, &instance->perm_arena);
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
     instance->light_manager = rpe_light_manager_init(instance, &instance->perm_arena);
-    instance->shadow_manager = rpe_shadow_manager_init(instance, settings->shadow, &instance->perm_arena);
+    instance->shadow_manager = rpe_shadow_manager_init(instance, &settings->shadow, &instance->perm_arena);
     instance->vbuffer = rpe_vertex_buffer_init(driver, &instance->perm_arena);
 
     // Create dummy textures - only needed for bound samplers to prevent validation warnings.
@@ -122,6 +122,19 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
         VKAPI_TEXTURE_2D,
         VK_IMAGE_USAGE_SAMPLED_BIT,
         &sampler);
+
+    vkapi_driver_transition_image(
+        driver,
+        instance->tex_dummy_cubemap,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        1);
+    vkapi_driver_transition_image(
+        driver,
+        instance->tex_dummy,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        1);
 
     // Start the job queue.
     instance->job_queue = job_queue_init(&instance->perm_arena, 10);

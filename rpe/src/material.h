@@ -111,6 +111,7 @@ typedef struct Material
     } material_key;
 
     bool double_sided;
+    bool shadow_caster;
     uint8_t view_layer;
 
     // ============== vulkan backend stuff =======================

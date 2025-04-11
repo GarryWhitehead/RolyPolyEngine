@@ -9,6 +9,8 @@
 #include <unity_fixture.h>
 #include <utility/maths.h>
 
+#include <string.h>
+
 TEST_GROUP(VisibilityGroup);
 
 TEST_SETUP(VisibilityGroup) {}
