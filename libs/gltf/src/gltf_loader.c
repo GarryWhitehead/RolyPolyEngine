@@ -664,6 +664,7 @@ bool create_model_instance(gltf_asset_t* asset)
 gltf_asset_t* create_asset(rpe_engine_t* engine, cgltf_data* model_data, const char* path)
 {
     gltf_asset_t* new_asset = malloc(sizeof(gltf_asset_t));
+    assert(new_asset);
     memset(new_asset, 0, sizeof(gltf_asset_t));
 
     new_asset->engine = engine;
@@ -690,7 +691,7 @@ gltf_asset_t*
 gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path)
 {
     // No additional options required.
-    cgltf_options options = {};
+    cgltf_options options = {0};
 
     cgltf_data* gltf_root;
     cgltf_result res = cgltf_parse(&options, gltf_data, data_size, &gltf_root);

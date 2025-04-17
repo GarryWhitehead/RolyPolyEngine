@@ -54,6 +54,7 @@ class VkSceneEditor3dPackage(ConanFile):
         self.requires("jsmn/1.1.0")
         self.requires("log.c/cci.20200620")
         self.requires("ktx/4.0.0")
+        self.requires("parg/1.0.3")
 
         if self.options.build_tests:
             self.requires("unity/2.6.0")

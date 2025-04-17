@@ -53,8 +53,6 @@ typedef struct ShadowMap
 typedef struct ShadowManager
 {
     float cascade_offsets[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
-    /// Projection matrices for each cascade partition (near -> near + offset)
-    math_mat4f cascade_proj[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
 
     rpe_shadow_map shadow_map;
 

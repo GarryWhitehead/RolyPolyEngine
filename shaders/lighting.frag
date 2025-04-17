@@ -53,15 +53,15 @@ layout (binding = 0, set = 2) buffer CascadeSSbo
 uint getCascadeIndex(vec3 position)
 {
     uint idx = 0;
+    vec3 viewPos = (camera_ubo.view * vec4(position, 1.0)).xyz;
 	for (uint i = 0; i < SHADOW_CASCADE_COUNT - 1; ++i)
     {
-		vec3 viewPos = (camera_ubo.view * vec4(position, 1.0)).xyz;
-        if (position.z < cascades[i].splitDepth)
+        if (viewPos.z < cascades[i].splitDepth)
         {	
-			idx++;
+			idx = i + 1;
 		}
 	}
-    return idx + 1;
+    return idx;
 }
 
 void main()
@@ -163,7 +163,7 @@ void main()
     // Apply shadow mapping.
     uint cascadeIdx = getCascadeIndex(inPos);
     vec4 shadowCoord = biasMat * cascades[cascadeIdx].vp * vec4(inPos, 1.0);
-    float shadow = filterPCF(shadowCoord / shadowCoord.z, cascadeIdx, shadowMap);
+    float shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIdx, shadowMap);
     colour *= shadow;
 
     // Apply tonemapping (ACES only)

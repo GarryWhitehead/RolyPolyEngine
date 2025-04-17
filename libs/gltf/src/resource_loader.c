@@ -152,7 +152,7 @@ sampler_params_t gltf_resource_loader_create_sampler(gltf_asset_t* asset, cgltf_
 
 bool decode_image(gltf_resource_loader_t* rl, gltf_asset_t* asset, struct DecodeEntry* entry, struct Job* parent)
 {
-    bool res;
+    bool res = false;
     if (strcmp("image/png", entry->mime_type.data) == 0 ||
         strcmp("image/jpeg", entry->mime_type.data) == 0 ||
         strcmp("image/jpg", entry->mime_type.data) == 0)
@@ -255,7 +255,7 @@ gltf_image_handle_t get_texture(
         void* bvd = texture->image->buffer_view->data ? texture->image->buffer_view->data
                                                       : texture->image->buffer_view->buffer->data;
         assert(bvd);
-        uint8_t* source_ptr = texture->image->buffer_view->offset + bvd;
+        uint8_t* source_ptr = texture->image->buffer_view->offset + (uint8_t*)bvd;
 
         out_handle = gltf_material_cache_push_pending(&rl->texture_cache, texture);
         rpe_mapped_texture_t* t = &gltf_material_cache_get(&rl->texture_cache, out_handle)->texture;

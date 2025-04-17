@@ -223,7 +223,7 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     for (size_t i = 0; i < lm->lights.size; ++i)
     {
         struct LightInstance* light = DYN_ARRAY_GET_PTR(struct LightInstance, &lm->lights, i);
-        math_mat4f projection = math_mat4f_projection(light->fov, 1.0f, camera->n, camera->z);
+        math_mat4f projection = math_mat4f_perspective(light->fov, 1.0f, camera->n, camera->z);
         light->mvp =
             math_mat4f_mul(projection, math_mat4f_lookat(light->target, light->position, up));
     }

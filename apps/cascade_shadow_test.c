@@ -22,7 +22,7 @@
 
 #include <app/app.h>
 #include <app/ibl_helper.h>
-#include <getopt.h>
+#include <parg.h>
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
@@ -38,7 +38,7 @@
 #include <string.h>
 #include <utility/filesystem.h>
 
-#define MODEL_TREE_COUNT 5
+#define MODEL_TREE_COUNT 15
 
 /**
  * A app for testing the casccade shadows method. Draws a basic landscape scene using models
@@ -67,16 +67,19 @@ int main(int argc, char** argv)
 {
     const uint32_t win_width = 1920;
     const uint32_t win_height = 1080;
+    const char* gltf_asset_path = NULL;
+       
+    struct parg_state ps;
+    parg_init(&ps);
 
-    struct option options[] = {{"help", no_argument, NULL, 'h'}, {0, 0, NULL, 0}};
-
-    int opt_index = 0;
     int opt;
-
-    while ((opt = getopt_long(argc, argv, "h", options, &opt_index)) != -1)
+    while ((opt = parg_getopt(&ps, argc, argv, "h")) != -1)
     {
         switch (opt)
         {
+            case 1:
+                gltf_asset_path = ps.optarg;
+                break;
             case 'h':
                 print_usage();
                 exit(0);
@@ -85,7 +88,6 @@ int main(int argc, char** argv)
         }
     }
 
-    const char* gltf_asset_path = argv[optind];
     if (!gltf_asset_path)
     {
         log_error("No Git gltf asset directory specified.");
@@ -96,10 +98,10 @@ int main(int argc, char** argv)
     rpe_settings_t settings = {
         .gbuffer_dims = 2048,
         .draw_shadows = true,
-        .shadow.cascade_dims = 1024,
+        .shadow.cascade_dims = 2048,
         .shadow.split_lambda = 0.9f,
-        .shadow.cascade_count = 4,
-        .shadow.enable_debug_cascade = true};
+        .shadow.cascade_count = 3,
+        .shadow.enable_debug_cascade = false};
 
     rpe_app_t app;
     int error = rpe_app_init("Cascade Shadow Demo", win_width, win_height, &app, &settings);
@@ -138,6 +140,16 @@ int main(int argc, char** argv)
         {-1.25f, 0.0f, -0.2f},
         {1.25f, 0.0f, 0.1f},
         {-1.25f, 0.0f, -1.25f},
+        {2.0f, 0.0f, -2.5f},
+        {0.5f, 0.0f, -2.8f},
+        {2.5f, 0.0f, -3.0f},
+        {-4.0f, 0.0f, -3.0f},
+        {-1.25f, 0.0f, -5.0f},
+        {2.0f, 0.0f, 2.5f},
+        {0.5f, 0.0f, 2.8f},
+        {2.5f, 0.0f, 3.0f},
+        {-4.0f, 0.0f, 3.0f},
+        {-1.25f, 0.0f, 5.0f},
     };
 
     char full_path[4096] = {0};
@@ -146,7 +158,7 @@ int main(int argc, char** argv)
         strcpy(full_path, gltf_asset_path);
         strcat(full_path, model_filenames[i]);
 
-        FILE* fp = fopen(full_path, "r");
+        FILE* fp = fopen(full_path, "rb");
         if (!fp)
         {
             log_error("Unable to open gltf model at path: %s", full_path);
@@ -154,7 +166,8 @@ int main(int argc, char** argv)
         }
         size_t file_sz = fs_get_file_size(fp);
         uint8_t* buffer = malloc(file_sz);
-        fread(buffer, sizeof(uint8_t), file_sz, fp);
+        size_t rd = fread(buffer, sizeof(uint8_t), file_sz, fp);
+        assert(rd == file_sz);
 
         model_assets[i] = gltf_model_parse_data(buffer, file_sz, app.engine, full_path);
         if (!model_assets[i])

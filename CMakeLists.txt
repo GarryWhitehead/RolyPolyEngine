@@ -54,6 +54,7 @@ find_package(stb REQUIRED)
 find_package(log.c REQUIRED)
 find_package(Ktx REQUIRED)
 find_package(volk REQUIRED)
+find_package(parg REQUIRED)
 
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)

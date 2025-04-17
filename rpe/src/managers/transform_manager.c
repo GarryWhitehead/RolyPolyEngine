@@ -174,6 +174,7 @@ void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_object_t
         node->world_transform = node->local_transform;
     }
     update_world_children(m, node->first_child);
+    m->is_dirty = true;
 }
 
 void copy_child_nodes(
@@ -236,7 +237,8 @@ rpe_object_t rpe_transform_manager_copy(
 
     copy_child_nodes(
         tm, om, parent_node->first_child, new_parent_obj_ptr, new_parent_node_ptr, objects);
-
+       
+    tm->is_dirty = true;
     return new_parent_obj;
 }
 

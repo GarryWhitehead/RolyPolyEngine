@@ -79,6 +79,7 @@ void main()
 
     outUv0 = inUv0;
     outUv1 = inUv1;
+    outPos = inPos;
     outColour = inColour;
     outModelDrawIdx = inModelDrawIdx;
     outCameraPos = camera_ubo.position.xyz;

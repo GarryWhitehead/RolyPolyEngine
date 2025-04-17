@@ -65,7 +65,7 @@ void rpe_camera_set_proj_matrix(
 
     cam->aspect = (float)width / (float)height;
     cam->projection = type == RPE_PROJECTION_TYPE_PERSPECTIVE
-        ? math_mat4f_projection(fovy, cam->aspect, n, f)
+        ? math_mat4f_perspective(fovy, cam->aspect, n, f)
         : math_mat4f_ortho(0.0f, (float)width, 0.0f, (float)height, n, f);
 
     cam->fov = fovy;

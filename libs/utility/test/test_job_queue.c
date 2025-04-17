@@ -2,6 +2,7 @@
 #include "unity_fixture.h"
 #include "utility/arena.h"
 #include "utility/job_queue.h"
+#include <stdatomic.h>
 
 TEST_GROUP(JobQueueGroup);
 
@@ -59,7 +60,7 @@ TEST(JobQueueGroup, JobQueue_GeneralTests)
 }
 
 atomic_int counter;
-void thread_func2(void*) { counter++; }
+void thread_func2(void* f) { counter++; }
 
 TEST(JobQueueGroup, JobQueue_JobWithChildrenTests)
 {

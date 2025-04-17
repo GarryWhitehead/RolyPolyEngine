@@ -27,7 +27,7 @@
 #include <vulkan-api/resource_cache.h>
 #include <cgltf.h>
 
-#define RPE_GLTF_IMAGE_CACHE_MAX_IMAGE_COUNT 500
+#define RPE_GLTF_IMAGE_CACHE_MAX_IMAGE_COUNT 200
 
 typedef struct GltfImageHandle
 {

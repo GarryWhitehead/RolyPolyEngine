@@ -29,15 +29,15 @@
 #if defined _WIN32 || defined __CYGWIN__
 #ifdef BUILDING_DLL
 #ifdef __GNUC__
-#define YAVE_PUBLIC __attribute__((dllexport))
+#define RPE_PUBLIC __attribute__((dllexport))
 #else
-#define YAVE_PUBLIC __declspec(dllexport) // Note: actually gcc seems to also supports this syntax.
+#define RPE_PUBLIC __declspec(dllexport) // Note: actually gcc seems to also supports this syntax.
 #endif
 #else
 #ifdef __GNUC__
-#define YAVE_PUBLIC __attribute__((dllimport))
+#define RPE_PUBLIC __attribute__((dllimport))
 #else
-#define YAVE_PUBLIC __declspec(dllimport) // Note: actually gcc seems to also supports this syntax.
+#define RPE_PUBLIC __declspec(dllimport) // Note: actually gcc seems to also supports this syntax.
 #endif
 #endif
 #else
@@ -54,7 +54,7 @@
 #ifdef __GNUC__
 #define RPE_FORCE_INLINE __attribute__((always_inline)) inline
 #else
-#define YAVE_FORCE_INLINE inline
+#define RPE_FORCE_INLINE inline
 #endif
 
 #ifdef __GNUC__

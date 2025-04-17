@@ -182,25 +182,25 @@ rpe_mesh_t* rpe_rend_manager_create_mesh(
         }
         if (tangent_data)
         {
-            memcpy(v->tangent.data, tangent_ptr, 4 * sizeof(float));
+            memcpy(v->tangent, tangent_ptr, 4 * sizeof(float));
             tangent_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_TANGENT;
         }
         if (col_data)
         {
-            memcpy(v->colour.data, colour_ptr, 4 * sizeof(float));
+            memcpy(v->colour, colour_ptr, 4 * sizeof(float));
             colour_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_COLOUR;
         }
         if (bone_weight_data)
         {
-            memcpy(v->bone_weight.data, weight_ptr, 4 * sizeof(float));
+            memcpy(v->bone_weight, weight_ptr, 4 * sizeof(float));
             weight_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_BONE_WEIGHT;
         }
         if (bone_id_data)
         {
-            memcpy(v->bone_id.data, id_ptr, 4 * sizeof(float));
+            memcpy(v->bone_id, id_ptr, 4 * sizeof(float));
             id_ptr += 4;
             mesh_flags |= RPE_MESH_ATTRIBUTE_BONE_ID;
         }

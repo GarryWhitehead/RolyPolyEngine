@@ -336,14 +336,15 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
     rg_add_present_pass(rdr->rg, bb_handle);
     rg_compile(rdr->rg);
 
-#ifndef NDEBUG
-    string_t graphviz_str =
-        rg_dep_graph_export_graph_viz(rg_get_dep_graph(rdr->rg), &engine->scratch_arena);
-    FILE* fp = fopen("/home/kudan/Documents/render_graph.svg", "w");
-    fwrite(graphviz_str.data, 1, graphviz_str.len, fp);
-    fclose(fp);
-    arena_reset(&engine->scratch_arena);
-#endif
+//#ifndef NDEBUG
+ //   string_t graphviz_str =
+ //       rg_dep_graph_export_graph_viz(rg_get_dep_graph(rdr->rg), &engine->scratch_arena);
+ //   FILE* fp = fopen("/home/kudan/Documents/render_graph.svg", "wb");
+ //   assert(fp);
+ //   fwrite(graphviz_str.data, sizeof(uint8_t), graphviz_str.len, fp);
+ //   fclose(fp);
+ //   arena_reset(&engine->scratch_arena);
+//#endif
 
     rg_execute(rdr->rg, rdr->engine->driver, engine);
 }

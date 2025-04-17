@@ -36,7 +36,7 @@ rpe_camera_view_t rpe_camera_view_init(rpe_engine_t* engine)
     cam_view.view = math_mat4f_identity();
     cam_view.eye.x = -0.12f;
     cam_view.eye.y = 1.14f;
-    cam_view.eye.z = -2.25f;
+    cam_view.eye.z = -1.0f;
     return cam_view;
 }
 

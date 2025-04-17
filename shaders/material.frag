@@ -244,6 +244,7 @@ void main()
 
     // =========== fragment outputs ====================
 
+    outPos = vec4(inPos, 1.0);
     outColour = baseColour;
     outPbr = vec2(metallic, roughness);
 

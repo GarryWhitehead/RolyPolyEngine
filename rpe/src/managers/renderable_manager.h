@@ -54,11 +54,12 @@ RPE_PACKED(typedef struct Vertex
     math_vec3f normal;
     math_vec2f uv0;
     math_vec2f uv1;
-    math_vec4f tangent;
-    math_vec4f colour;
-    math_vec4f bone_weight;
-    math_vec4f bone_id;
-}) rpe_vertex_t;
+    float tangent[4];
+    float colour[4];
+    float bone_weight[4];
+    float bone_id[4];
+} rpe_vertex_t);
+static_assert(sizeof(struct Vertex) == 104, "Vertex struct must have no padding.");
 
 typedef struct Mesh
 {
@@ -71,13 +72,9 @@ typedef struct Mesh
 
 typedef struct Renderable
 {
-    //VkPrimitiveTopology topology;
-    //VkBool32 prim_restart;
     rpe_mesh_t* mesh_data;
     rpe_material_t* material;
-    //uint64_t material_flags;
     rpe_object_t transform_obj;
-
     // The extents of this primitive.
     rpe_aabox_t box;
     uint64_t sort_key;

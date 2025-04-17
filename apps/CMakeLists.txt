@@ -42,7 +42,7 @@ create_app(APP_NAME gltf_viewer FILES gltf_viewer.c)
 create_app(APP_NAME cascade_shadow_test FILES cascade_shadow_test.c)
 
 target_link_libraries(hello_triangles PUBLIC UtilityLib)
-target_link_libraries(gltf_viewer PUBLIC UtilityLib GltfParser Threads::Threads)
-target_link_libraries(cascade_shadow_test PUBLIC UtilityLib GltfParser)
+target_link_libraries(gltf_viewer PUBLIC UtilityLib GltfParser Threads::Threads parg::parg)
+target_link_libraries(cascade_shadow_test PUBLIC UtilityLib GltfParser parg::parg)
 
 
