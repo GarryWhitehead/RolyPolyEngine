@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -34,6 +34,7 @@
 
 // Forward declarations.
 typedef struct Application rpe_app_t;
+typedef struct NkInstance nk_instance_t;
 
 enum
 {
@@ -58,7 +59,8 @@ typedef struct AppWindow
     const GLFWvidmode* glfw_vmode;
     /// A Vulkan window surface obtained from GLFW. Will be NULL of running in headless mode.
     VkSurfaceKHR vk_surface;
-
+    bool show_ui;
+    nk_instance_t* nk;
     rpe_camera_view_t cam_view;
     rpe_camera_t* camera;
 } app_window_t;
@@ -73,7 +75,7 @@ typedef struct AppWindow
  @returns a error code determining how successful the initialisation was.
  */
 int app_window_init(
-    rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win, rpe_settings_t* settings);
+    rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win, rpe_settings_t* settings, bool show_ui);
 
 /**
  Shutdown the resources for this window instance.

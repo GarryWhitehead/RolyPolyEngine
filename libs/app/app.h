@@ -24,12 +24,17 @@
 #define __APP_APP_H__
 
 #include "window.h"
+#include "nk_helper.h"
 
 #include <rpe/engine.h>
 #include <rpe/scene.h>
 
-typedef void (*PreRenderFunc)(void);
-typedef void (*PostRenderFunc)(void);
+#define RPE_APP_ARENA_SIZE 1 << 30
+
+typedef struct Engine rpe_engine_t;
+
+typedef void (*PreRenderFunc)(rpe_engine_t*, void*);
+typedef void (*PostRenderFunc)(rpe_engine_t*, void*);
 
 typedef struct Application
 {
@@ -37,9 +42,10 @@ typedef struct Application
     rpe_engine_t* engine;
     rpe_scene_t* scene;
     vkapi_driver_t* driver;
+    arena_t arena;
 
     bool should_close;
-
+    
     double prev_time;
 
     // camera paramters
@@ -61,7 +67,7 @@ typedef struct Application
  @returns an error code.
  */
 int rpe_app_init(
-    const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app, rpe_settings_t* settings);
+    const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app, rpe_settings_t* settings, bool show_ui);
 
 /**
  Destroy all resource associated with this app - this will terminate all Vulkan and RPE resources.
@@ -78,6 +84,9 @@ void rpe_app_run(
     rpe_app_t* app,
     rpe_renderer_t* renderer,
     PreRenderFunc pre_render_func,
-    PostRenderFunc post_render_func);
+    void* pre_data,
+    PostRenderFunc post_render_func,
+    void* post_data,
+    UiCallback ui_callback);
 
 #endif

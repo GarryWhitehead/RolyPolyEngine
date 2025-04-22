@@ -25,6 +25,8 @@
 
 #include "material_cache.h"
 
-void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine);
+typedef struct Arena arena_t;
+
+void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine, arena_t* arena);
 
 #endif

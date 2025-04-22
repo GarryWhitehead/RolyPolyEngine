@@ -37,7 +37,8 @@ typedef struct Engine rpe_engine_t;
 enum MaterialType
 {
     RPE_MATERIAL_DEFAULT,
-    RPE_MATERIAL_SKYBOX
+    RPE_MATERIAL_SKYBOX,
+    RPE_MATERIAL_UI
 };
 
 enum MaterialImageType
@@ -73,15 +74,16 @@ typedef struct MappedTexture
 struct MaterialBlendFactor
 {
     bool state;
-    enum BlendFactor src_color;
-    enum BlendFactor dstColor;
+    enum BlendFactor src_colour;
+    enum BlendFactor dst_colour;
     enum BlendOp colour;
-    enum BlendFactor srcAlpha;
-    enum BlendFactor dstAlpha;
+    enum BlendFactor src_alpha;
+    enum BlendFactor dst_alpha;
     enum BlendOp alpha;
 };
 
 void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFactor factors);
+void rpe_material_set_blend_factor_preset(rpe_material_t* m, enum BlendFactorPresets preset);
 
 void rpe_material_set_pipeline(rpe_material_t* m, enum MaterialPipeline pipeline);
 
@@ -100,7 +102,6 @@ void rpe_material_set_shadow_caster_state(rpe_material_t* m, bool state);
 
 void rpe_material_set_base_colour_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_diffuse_factor(rpe_material_t* m, math_vec4f* f);
-void rpe_material_set_bas_colour_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_emissive_factor(rpe_material_t* m, math_vec4f* f);
 void rpe_material_set_roughness_factor(rpe_material_t* m, float f);
 void rpe_material_set_specular_factor(rpe_material_t* m, math_vec4f* f);

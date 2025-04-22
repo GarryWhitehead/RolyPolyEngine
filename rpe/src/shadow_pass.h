@@ -31,6 +31,7 @@
 typedef struct ShaderProgramBundle shader_prog_bundle_t;
 typedef struct ShadowManager rpe_shadow_manager_t;
 typedef struct RenderGraph render_graph_t;
+typedef struct Scene rpe_scene_t;
 
 /** Cascade shadow pass data **/
 
@@ -41,6 +42,7 @@ struct ShadowLocalData
     uint32_t cascade_count;
     VkFormat depth_format;
     shader_prog_bundle_t* prog_bundle;
+    rpe_scene_t* scene;
 };
 
 struct ShadowPassData
@@ -49,11 +51,13 @@ struct ShadowPassData
     rg_handle_t depth;
     // Passed from setup local data.
     shader_prog_bundle_t* prog_bundle;
+    rpe_scene_t* scene;
 };
 
 rg_handle_t rpe_shadow_pass_render(
     rpe_shadow_manager_t* sm,
     render_graph_t* rg,
+    rpe_scene_t* scene,
     uint32_t dimensions,
     VkFormat depth_format);
 
@@ -64,6 +68,7 @@ struct CascadeDebugLocalData
     uint32_t width;
     uint32_t height;
     shader_prog_bundle_t* prog_bundle;
+    rpe_scene_t* scene;
 };
 
 struct CascadeDebugPassData
@@ -76,11 +81,12 @@ struct CascadeDebugPassData
     rg_handle_t light_colour;
     // Passed from setup local data.
     shader_prog_bundle_t* prog_bundle;
+    rpe_scene_t* scene;
 };
 
 rg_handle_t rpe_cascade_shadow_debug_render(
     rpe_shadow_manager_t* sm,
-    render_graph_t* rg,
+    render_graph_t* rg, 
     uint32_t width,
     uint32_t height);
 

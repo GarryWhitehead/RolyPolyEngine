@@ -229,7 +229,7 @@ void rpe_renderer_render_single_quad(
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
-    vkapi_driver_draw_quad(driver, bundle);
+    vkapi_driver_draw_quad(driver, bundle, NULL, NULL);
     vkapi_driver_end_rpass(cmds->instance);
 }
 
@@ -250,7 +250,7 @@ void rpe_renderer_render_single_indexed(
 
     vkapi_driver_bind_vertex_buffer(driver, vertex_buffer, 0);
     vkapi_driver_bind_index_buffer(driver, index_buffer);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle, true);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle, NULL, NULL, true);
 
     if (pb_entries)
     {
@@ -265,7 +265,7 @@ void rpe_renderer_render_single_indexed(
     vkapi_driver_end_rpass(cmds->instance);
 }
 
-void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap)
+void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap)
 {
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
@@ -274,7 +274,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
     rg_clear(rdr->rg);
 
     // Update the renderable objects and lights.
-    rpe_scene_update(scene, rdr->engine);
+    rpe_scene_update(scene, engine);
 
     vkapi_swapchain_t* sc = rdr->engine->curr_swapchain;
 
@@ -289,10 +289,10 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
 
     // Store/clear flags for final colour attachment.
     desc.store_clear_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
-    desc.load_clear_flags[0] = !clearSwap ? RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR
+    desc.load_clear_flags[0] = !clear_swap ? RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR
                                           : RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_LOAD;
     desc.final_layouts[0] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    desc.init_layouts[0] = !clearSwap ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    desc.init_layouts[0] = !clear_swap ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     desc.final_layouts[VKAPI_RENDER_TARGET_DEPTH_INDEX - 1] =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     desc.load_clear_flags[VKAPI_RENDER_TARGET_DEPTH_INDEX - 1] =
@@ -313,17 +313,17 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
     // Fill the gbuffers - this can't be the final render target unless gbuffers are disabled
     // due to the gBuffers requiring resolving down to a single render target in the lighting
     // pass.
-    rpe_colour_pass_render(rdr->rg, settings.gbuffer_dims, depth_format);
+    rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
 
     // Render the shadow maps - cascade and point/spot maps.
     if (settings.draw_shadows)
     {
         rpe_shadow_pass_render(
-            engine->shadow_manager, rdr->rg, settings.shadow.cascade_dims, depth_format);
+            engine->shadow_manager, rdr->rg, scene, settings.shadow.cascade_dims, depth_format);
     }
 
     input_handle = rpe_light_pass_render(
-        engine->light_manager, rdr->rg, desc.width, desc.height, depth_format);
+        engine->light_manager, rdr->rg, scene, desc.width, desc.height, depth_format);
 
     // TODO: move to post-processing when added.
     if (settings.shadow.enable_debug_cascade)

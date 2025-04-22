@@ -153,39 +153,6 @@ void shader_bundle_set_depth_clamp_state(shader_prog_bundle_t* bundle, bool stat
     bundle->raster_state.depth_clamp_enable = state;
 }
 
-void shader_bundle_set_scissor(
-    shader_prog_bundle_t* bundle,
-    uint32_t width,
-    uint32_t height,
-    uint32_t x_offset,
-    uint32_t y_offset)
-{
-    assert(bundle);
-    VkRect2D rect = {
-        .offset = {.x = (int32_t)x_offset, .y = (int32_t)y_offset},
-        .extent = {.width = width, .height = height}};
-    bundle->scissor = rect;
-}
-
-void shader_bundle_set_viewport(
-    shader_prog_bundle_t* bundle, uint32_t width, uint32_t height, float minDepth, float maxDepth)
-{
-    assert(bundle);
-    assert(width > 0);
-    assert(height > 0);
-
-    // Negative viewport to mimic openGL co-ords.
-    VkViewport vp = {
-        .width = (float)width,
-        .height = -(float)height,
-        .x = 0,
-        .y = (float)height,
-        .minDepth = minDepth,
-        .maxDepth = maxDepth,
-    };
-    bundle->viewport = vp;
-}
-
 void shader_bundle_create_push_block(
     shader_prog_bundle_t* bundle, size_t size, enum ShaderStage stage)
 {

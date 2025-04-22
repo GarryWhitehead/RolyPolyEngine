@@ -75,8 +75,8 @@ rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, a
 
     shader_bundle_set_depth_read_write_state(
         sm->csm_bundle, true, true, RPE_COMPARE_OP_LESS_OR_EQUAL);
-    //shader_bundle_set_depth_clamp_state(sm->csm_bundle, true);
-    shader_bundle_set_cull_mode(sm->csm_bundle, RPE_CULL_MODE_NONE);
+    shader_bundle_set_depth_clamp_state(sm->csm_bundle, true);
+    shader_bundle_set_cull_mode(sm->csm_bundle, RPE_CULL_MODE_FRONT);
 
     // Using the same layout as the material shaders though not all elements required for shadow.
     shader_bundle_add_vertex_input_binding(
@@ -245,7 +245,7 @@ void rpe_shadow_manager_update(
 
         // Create a consistent projection size by creating a circle around the frustum and
         // projecting over that - this reduces shimmering.
-        float radius = math_vec3f_norm(math_vec3f_sub(corners[0], corners[6])) * 0.5f;
+        float radius = math_vec3f_distance(corners[0], corners[6]) * 0.5f;
         float texels_per_unit = (float)m->settings.cascade_dims / radius;
 
         math_mat4f scalar_mat = math_mat4f_identity();
@@ -259,7 +259,7 @@ void rpe_shadow_manager_update(
 
         // Create the look-at matrix from the perspective of the light and scale it.
         math_vec3f up = {0.0f, 1.0f, 0.0f};
-        /* math_vec3f zero = {0.0f, 0.0f, 0.0f};
+        math_vec3f zero = {0.0f, 0.0f, 0.0f};
         math_mat4f light_lookat = math_mat4f_lookat(light_dir, zero, up);
         light_lookat = math_mat4f_mul(scalar_mat, light_lookat);
         math_mat4f inv_lookat = math_mat4f_inverse(light_lookat);
@@ -275,15 +275,15 @@ void rpe_shadow_manager_update(
 
         center.x = t_center.x / t_center.w;
         center.y = t_center.y / t_center.w;
-        center.z = t_center.z / t_center.w;*/
+        center.z = t_center.z / t_center.w;
 
-        math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, -radius));
+        math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, radius));
 
         // View matrix looking at the texel-corrected frustum center from the directional light
         // source.
         math_mat4f light_view = math_mat4f_lookat(center, eye, up);
         math_mat4f light_ortho =
-            math_mat4f_ortho(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
+            math_mat4f_ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
        
         m->shadow_map.cascades[i].vp = math_mat4f_mul(light_ortho, light_view);
         m->shadow_map.cascades[i].split_depth = (camera->n + m->cascade_offsets[i] * clip_range) * -1.0f;

@@ -130,11 +130,6 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena);
 
 void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum ShaderStage stage);
 
-void rpe_material_set_scissor(
-    rpe_material_t* m, uint32_t width, uint32_t height, uint32_t xOffset, uint32_t yOffset);
-void rpe_material_set_viewport(
-    rpe_material_t* m, uint32_t width, uint32_t height, float minDepth, float maxDepth);
-
 void rpe_material_update_vertex_constants(rpe_material_t* mat, rpe_mesh_t* mesh);
 
 uint32_t rpe_material_max_mipmaps(uint32_t width, uint32_t height);

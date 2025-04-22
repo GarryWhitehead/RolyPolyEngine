@@ -274,6 +274,21 @@ bool rpe_engine_destroy_renderer(rpe_engine_t* engine, rpe_renderer_t* renderer)
     return false;
 }
 
+bool rpe_engine_destroy_renderable(rpe_engine_t* engine, rpe_renderable_t* renderable)
+{
+    for (size_t i = 0; i < engine->renderables.size; ++i)
+    {
+        rpe_renderable_t* ptr = DYN_ARRAY_GET(rpe_renderable_t*, &engine->renderables, i);
+        if (ptr == renderable)
+        {
+            DYN_ARRAY_REMOVE(&engine->renderables, i);
+            // TODO: add some way of returning allocated scene ptr back to arena space.
+            return true;
+        }
+    }
+    return false;
+}
+
 /** Public functions **/
 
 void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)

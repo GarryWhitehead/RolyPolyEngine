@@ -64,6 +64,24 @@ void rpe_renderable_set_min_max_dimensions(rpe_renderable_t* r, math_vec3f min, 
     rpe_renderable_set_box(r, &box);
 }
 
+void rpe_renderable_set_scissor(rpe_renderable_t* r, int32_t x, int32_t y, uint32_t w, uint32_t h)
+{
+    r->scissor.x = x;
+    r->scissor.y = y;
+    r->scissor.width = w;
+    r->scissor.height = h;
+}
+
+void rpe_renderable_set_viewport(rpe_renderable_t* r, int32_t x, int32_t y, uint32_t w, uint32_t h, float min_depth, float max_depth)
+{
+    r->viewport.rect.x = x;
+    r->viewport.rect.y = y;
+    r->viewport.rect.width = w;
+    r->viewport.rect.height = h;
+    r->viewport.min_depth = min_depth;
+    r->viewport.max_depth = max_depth;
+}
+
 rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)
 {
     assert(engine);
@@ -78,7 +96,7 @@ rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)
     return m;
 }
 
-void rpe_rend_manager_add(
+void* rpe_rend_manager_add(
     rpe_rend_manager_t* m,
     rpe_renderable_t* renderable,
     rpe_object_t rend_obj,
@@ -88,7 +106,6 @@ void rpe_rend_manager_add(
     assert(transform_obj.id != UINT32_MAX);
     assert(rend_obj.id != UINT32_MAX);
 
-    m->is_dirty = true;
     uint32_t material_key =
         murmur2_hash(&renderable->material->material_key, sizeof(struct MaterialKey), 0);
     struct SortKey key = {
@@ -128,6 +145,32 @@ void rpe_rend_manager_copy(
 
 rpe_mesh_t* rpe_rend_manager_create_mesh(
     rpe_rend_manager_t* m,
+    rpe_vertex_t* vertex_data,
+    uint32_t vertex_size,
+    void* indices,
+    uint32_t indices_size,
+    enum IndicesType indices_type,
+    enum MeshAttributeFlags mesh_flags)
+{
+    rpe_mesh_t mesh;
+    mesh.vertex_offset = rpe_vertex_buffer_copy_vert_data(m->engine->vbuffer, vertex_size, vertex_data);
+    if (indices_type == RPE_RENDERABLE_INDICES_U32)
+    {
+        mesh.index_offset = rpe_vertex_buffer_copy_index_data_u32(
+            m->engine->vbuffer, indices_size, (int32_t*)indices);
+    }
+    else
+    {
+        mesh.index_offset = rpe_vertex_buffer_copy_index_data_u16(
+            m->engine->vbuffer, indices_size, (int16_t*)indices);
+    }
+    mesh.index_count = indices_size;
+    mesh.mesh_flags = mesh_flags;
+    return DYN_ARRAY_APPEND(&m->meshes, &mesh);
+}
+
+rpe_mesh_t* rpe_rend_manager_create_mesh_interleaved(
+    rpe_rend_manager_t* m,
     float* pos_data,
     float* uv0_data,
     float* uv1_data,
@@ -159,24 +202,24 @@ rpe_mesh_t* rpe_rend_manager_create_mesh(
     for (uint32_t i = 0; i < vertex_size; ++i)
     {
         rpe_vertex_t* v = &tmp[i];
-        memcpy(v->position.data, pos_ptr, 3 * sizeof(float));
+        memcpy(v->position, pos_ptr, 3 * sizeof(float));
         pos_ptr += 3;
 
         if (uv0_data)
         {
-            memcpy(v->uv0.data, uv0_ptr, 2 * sizeof(float));
+            memcpy(v->uv0, uv0_ptr, 2 * sizeof(float));
             uv0_ptr += 2;
             mesh_flags |= RPE_MESH_ATTRIBUTE_UV0;
         }
         if (uv1_data)
         {
-            memcpy(v->uv1.data, uv1_ptr, 2 * sizeof(float));
+            memcpy(v->uv1, uv1_ptr, 2 * sizeof(float));
             uv1_ptr += 2;
             mesh_flags |= RPE_MESH_ATTRIBUTE_UV1;
         }
         if (normal_data)
         {
-            memcpy(v->normal.data, normal_ptr, 3 * sizeof(float));
+            memcpy(v->normal, normal_ptr, 3 * sizeof(float));
             normal_ptr += 3;
             mesh_flags |= RPE_MESH_ATTRIBUTE_NORMAL;
         }
@@ -206,22 +249,10 @@ rpe_mesh_t* rpe_rend_manager_create_mesh(
         }
     }
 
-    rpe_mesh_t mesh;
-    mesh.vertex_offset = rpe_vertex_buffer_copy_vert_data(m->engine->vbuffer, vertex_size, tmp);
-    if (indices_type == RPE_RENDERABLE_INDICES_U32)
-    {
-        mesh.index_offset = rpe_vertex_buffer_copy_index_data_u32(
-            m->engine->vbuffer, indices_size, (int32_t*)indices);
-    }
-    else
-    {
-        mesh.index_offset = rpe_vertex_buffer_copy_index_data_u16(
-            m->engine->vbuffer, indices_size, (int16_t*)indices);
-    }
-    mesh.index_count = indices_size;
-    mesh.mesh_flags = mesh_flags;
+    rpe_mesh_t* mesh = rpe_rend_manager_create_mesh(
+        m, tmp, vertex_size, indices, indices_size, indices_type, mesh_flags);
     arena_reset(&m->engine->scratch_arena);
-    return DYN_ARRAY_APPEND(&m->meshes, &mesh);
+    return mesh;
 }
 
 rpe_mesh_t* rpe_rend_manager_create_static_mesh(
@@ -235,7 +266,7 @@ rpe_mesh_t* rpe_rend_manager_create_static_mesh(
     uint32_t indices_size,
     enum IndicesType indices_type)
 {
-    return rpe_rend_manager_create_mesh(
+    return rpe_rend_manager_create_mesh_interleaved(
         m,
         pos_data,
         uv0_data,
@@ -249,6 +280,15 @@ rpe_mesh_t* rpe_rend_manager_create_static_mesh(
         indices,
         indices_size,
         indices_type);
+}
+
+rpe_mesh_t* rpe_rend_manager_offset_indices(
+    rpe_rend_manager_t* m, rpe_mesh_t* mesh, uint32_t index_offset, uint32_t index_count)
+{
+    rpe_mesh_t new_mesh = *mesh;
+    new_mesh.index_offset = mesh->index_offset + index_offset;
+    new_mesh.index_count = index_count;
+    return DYN_ARRAY_APPEND(&m->meshes, &new_mesh);
 }
 
 rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m)
@@ -290,16 +330,17 @@ int sort_renderables(void* rend_manager, const void* a, const void* b)
     return 0;
 }
 
-arena_dyn_array_t*
+arena_dyn_array_t
 rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* object_arr)
 {
     assert(m);
-    if (!object_arr->size || !m->is_dirty)
-    {
-        return &m->batched_renderables;
-    }
 
     dyn_array_clear(&m->batched_renderables);
+    if (!object_arr->size)
+    {
+        return m->batched_renderables;
+    }
+
     QSORT_RS(object_arr->data, object_arr->size, sizeof(rpe_object_t), sort_renderables, (void*)m);
 
     rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, object_arr, 0);
@@ -328,8 +369,7 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
         prev = rend;
     }
 
-    m->is_dirty = false;
-    return &m->batched_renderables;
+    return m->batched_renderables;
 }
 
 bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj)

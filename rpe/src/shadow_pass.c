@@ -70,6 +70,7 @@ void setup_shadow_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, voi
     rg_node_declare_side_effect((rg_node_t*)node);
 
     d->prog_bundle = local_d->prog_bundle;
+    d->scene = local_d->scene;
 }
 
 void execute_shadow_pass(
@@ -89,15 +90,19 @@ void execute_shadow_pass(
     vkapi_driver_bind_vertex_buffer(driver, engine->curr_scene->shadow_model_draw_data_handle, 1);
     vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
 
-    rpe_scene_t* scene = engine->curr_scene;
-    assert(scene && "No scene has been registered with the engine");
+    rpe_scene_t* scene = d->scene;
+    assert(scene);
     rpe_render_queue_submit_one(scene->render_queue, driver, RPE_RENDER_QUEUE_DEPTH);
 
     vkapi_driver_end_rpass(cmd_buffer->instance);
 }
 
 rg_handle_t rpe_shadow_pass_render(
-    rpe_shadow_manager_t* sm, render_graph_t* rg, uint32_t dimensions, VkFormat depth_format)
+    rpe_shadow_manager_t* sm,
+    render_graph_t* rg,
+    rpe_scene_t* scene,
+    uint32_t dimensions,
+    VkFormat depth_format)
 {
     assert(sm);
     assert(rg);
@@ -107,7 +112,8 @@ rg_handle_t rpe_shadow_pass_render(
         .width = dimensions,
         .height = dimensions,
         .depth_format = depth_format,
-        .cascade_count = sm->settings.cascade_count};
+        .cascade_count = sm->settings.cascade_count,
+        .scene = scene};
     rg_pass_t* p = rg_add_pass(
         rg,
         "ShadowPass",
@@ -169,7 +175,7 @@ void execute_cascade_debug_pass(
         d->prog_bundle, driver, rg_res_get_tex_handle(res, d->light_colour), 1);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
-    vkapi_driver_bind_gfx_pipeline(driver, d->prog_bundle, false);
+    vkapi_driver_bind_gfx_pipeline(driver, d->prog_bundle, NULL, NULL, false);
     vkapi_driver_set_push_constant(
         driver,
         d->prog_bundle,

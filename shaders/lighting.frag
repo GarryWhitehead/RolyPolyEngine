@@ -169,6 +169,5 @@ void main()
     // Apply tonemapping (ACES only)
     colour = toneMap(colour);
 
-    // TODO: The final colour needs to take into consideration the base colour alpha channel.
     outFrag = vec4(colour, 1.0);
 }

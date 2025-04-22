@@ -35,9 +35,10 @@ typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
 typedef struct ObjectManager rpe_obj_manager_t;
 typedef struct Scene rpe_scene_t;
+typedef struct Arena arena_t;
 
 gltf_asset_t*
-gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path);
+gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path, arena_t* arena);
 
 // Create a specified number of model instances - the model data must have been parsed, and the
 // assets' data struct populated before calling this function.
@@ -48,6 +49,7 @@ void gltf_model_create_instances(
     rpe_obj_manager_t* om,
     rpe_scene_t* scene,
     uint32_t count,
-    math_vec3f* translations);
+    math_vec3f* translations,
+    arena_t* arena);
 
 #endif

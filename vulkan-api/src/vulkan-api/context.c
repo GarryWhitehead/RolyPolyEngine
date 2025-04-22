@@ -557,6 +557,10 @@ int vkapi_context_prepare_device(
     {
         req_features2.features.multiDrawIndirect = VK_TRUE;
     }
+    if (dev_features.depthClamp)
+    {
+        req_features2.features.depthClamp = VK_TRUE;
+    }
 
     const char* req_extensions[10];
     uint32_t ext_count = 0;

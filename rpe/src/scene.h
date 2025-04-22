@@ -66,6 +66,8 @@ typedef struct Scene
 {
     rpe_render_queue_t* render_queue;
     arena_dyn_array_t objects;
+    arena_dyn_array_t batched_draw_cache;
+    bool is_dirty;
 
     // Used on the fragment shader - data from each material instance.
     struct DrawData* draw_data;

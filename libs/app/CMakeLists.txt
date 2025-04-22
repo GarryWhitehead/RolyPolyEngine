@@ -19,6 +19,7 @@ target_link_libraries(
     stb::stb
     KTX::ktx
     log.c::log.c
+    nuklear::nuklear
     ${glfw3_LIBRARIES}
 )
 
@@ -47,6 +48,8 @@ target_sources(
     camera_view.h
     ibl_helper.c
     ibl_helper.h
+    nk_helper.c
+    nk_helper.h
 )
 
 # add common compiler flags

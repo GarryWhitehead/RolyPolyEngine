@@ -24,89 +24,89 @@
 #include "convert_to_vk.h"
 
 
-/*vk::BlendFactor blendFactorToVk(backend::BlendFactor factor)
+VkBlendFactor blend_factor_to_vk(enum BlendFactor factor)
 {
-    vk::BlendFactor output;
+    VkBlendFactor output;
     switch (factor)
     {
-        case backend::BlendFactor::Zero:
-            output = vk::BlendFactor::eZero;
+        case RPE_BLEND_FACTOR_ZERO:
+            output = VK_BLEND_FACTOR_ZERO;
             break;
-        case backend::BlendFactor::One:
-            output = vk::BlendFactor::eOne;
+        case RPE_BLEND_FACTOR_ONE:
+            output = VK_BLEND_FACTOR_ONE;
             break;
-        case backend::BlendFactor::SrcColour:
-            output = vk::BlendFactor::eSrcColor;
+        case RPE_BLEND_FACTOR_SRC_COL:
+            output = VK_BLEND_FACTOR_SRC_COLOR;
             break;
-        case backend::BlendFactor::OneMinusSrcColour:
-            output = vk::BlendFactor::eOneMinusSrcColor;
+        case RPE_BLEND_FACTOR_ONE_MINUS_SRC_COL:
+            output = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
             break;
-        case backend::BlendFactor::DstColour:
-            output = vk::BlendFactor::eDstColor;
+        case RPE_BLEND_FACTOR_DST_COL:
+            output = VK_BLEND_FACTOR_DST_COLOR;
             break;
-        case backend::BlendFactor::OneMinusDstColour:
-            output = vk::BlendFactor::eOneMinusDstColor;
+        case RPE_BLEND_FACTOR_ONE_MINUS_DST_COL:
+            output = VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
             break;
-        case backend::BlendFactor::SrcAlpha:
-            output = vk::BlendFactor::eSrcAlpha;
+        case RPE_BLEND_FACTOR_SRC_ALPHA:
+            output = VK_BLEND_FACTOR_SRC_ALPHA;
             break;
-        case backend::BlendFactor::OneMinusSrcAlpha:
-            output = vk::BlendFactor::eOneMinusSrcAlpha;
+        case RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA:
+            output = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
             break;
-        case backend::BlendFactor::DstAlpha:
-            output = vk::BlendFactor::eDstAlpha;
+        case RPE_BLEND_FACTOR_DST_ALPHA:
+            output = VK_BLEND_FACTOR_DST_ALPHA;
             break;
-        case backend::BlendFactor::OneMinusDstAlpha:
-            output = vk::BlendFactor::eOneMinusDstAlpha;
+        case RPE_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:
+            output = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
             break;
-        case backend::BlendFactor::ConstantColour:
-            output = vk::BlendFactor::eConstantColor;
+        case RPE_BLEND_FACTOR_CONST_COL:
+            output = VK_BLEND_FACTOR_CONSTANT_COLOR;
             break;
-        case backend::BlendFactor::OneMinusConstantColour:
-            output = vk::BlendFactor::eOneMinusConstantColor;
+        case RPE_BLEND_FACTOR_ONE_MINUS_CONST_COL:
+            output = VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
             break;
-        case backend::BlendFactor::ConstantAlpha:
-            output = vk::BlendFactor::eConstantAlpha;
+        case RPE_BLEND_FACTOR_CONST_ALPHA:
+            output = VK_BLEND_FACTOR_CONSTANT_ALPHA;
             break;
-        case backend::BlendFactor::OneMinusConstantAlpha:
-            output = vk::BlendFactor::eOneMinusConstantAlpha;
+        case RPE_BLEND_FACTOR_ONE_MINUS_CONST_ALPHA:
+            output = VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
             break;
-        case backend::BlendFactor::SrcAlphaSaturate:
-            output = vk::BlendFactor::eSrcAlphaSaturate;
+        case RPE_BLEND_FACTOR_SRC_ALPHA_SATURATE:
+            output = VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
             break;
         default:
-            SPDLOG_WARN("Unrecognised blend factor when converting to Vk.");
+            log_warn("Unrecognised blend factor when converting to Vk.");
             break;
     }
     return output;
 }
 
-vk::BlendOp blendOpToVk(backend::BlendOp op)
+VkBlendOp blend_op_to_vk(enum BlendOp op)
 {
-    vk::BlendOp output;
+    VkBlendOp output;
     switch (op)
     {
-        case backend::BlendOp::Subtract:
-            output = vk::BlendOp::eSubtract;
+        case RPE_BLEND_OP_SUB:
+            output = VK_BLEND_OP_SUBTRACT;
             break;
-        case backend::BlendOp::ReverseSubtract:
-            output = vk::BlendOp::eReverseSubtract;
+        case RPE_BLEND_OP_REV_SUB:
+            output = VK_BLEND_OP_REVERSE_SUBTRACT;
             break;
-        case backend::BlendOp::Add:
-            output = vk::BlendOp::eAdd;
+        case RPE_BLEND_OP_ADD:
+            output = VK_BLEND_OP_ADD;
             break;
-        case backend::BlendOp::Min:
-            output = vk::BlendOp::eMin;
+        case RPE_BLEND_OP_MIN:
+            output = VK_BLEND_OP_MIN;
             break;
-        case backend::BlendOp::Max:
-            output = vk::BlendOp::eMax;
+        case RPE_BLEND_OP_MAX:
+            output = VK_BLEND_OP_MAX;
             break;
         default:
-            SPDLOG_WARN("Unrecognised blend op when converting to Vk.");
+            log_warn("Unrecognised blend op when converting to Vk.");
             break;
     }
     return output;
-}*/
+}
 
 VkSamplerAddressMode sampler_addr_mode_to_vk(enum SamplerAddressMode mode)
 {

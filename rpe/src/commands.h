@@ -24,6 +24,7 @@
 #define __RPE_COMMANDS_H__
 
 #include "render_queue.h"
+#include "managers/renderable_manager.h"
 
 #include <backend/enums.h>
 #include <stddef.h>
@@ -99,6 +100,8 @@ struct CondRenderCommand
 struct PipelineBindCommand
 {
     shader_prog_bundle_t* bundle;
+    rpe_rect_2d_t scissor;
+    rpe_viewport_t viewport;
 };
 
 rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena);

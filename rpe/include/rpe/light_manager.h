@@ -68,4 +68,6 @@ typedef struct LightCreateInfo
 void rpe_light_manager_create_light(
     rpe_light_manager_t* lm, rpe_light_create_info_t* ci, rpe_object_t obj, enum LightType type);
 
+void rpe_light_manager_set_position(rpe_light_manager_t* lm, rpe_object_t obj, math_vec3f* pos);
+
 #endif

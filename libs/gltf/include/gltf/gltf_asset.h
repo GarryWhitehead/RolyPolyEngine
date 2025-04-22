@@ -34,8 +34,6 @@ typedef struct Engine rpe_engine_t;
 typedef struct Material rpe_material_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 
-#define GLTF_ASSET_ARENA_SIZE 1 << 30
-
 typedef void (*image_free_func)(void*);
 
 typedef struct AssetTextureParams
@@ -61,7 +59,6 @@ typedef struct GltfAsset
     arena_dyn_array_t nodes;
     rpe_aabox_t aabbox;
     string_t gltf_path;
-    arena_t arena;
 } gltf_asset_t;
 
 #endif

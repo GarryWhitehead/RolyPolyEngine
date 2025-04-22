@@ -3,16 +3,13 @@
 
 #include "common.h"
 
-void defaultMaterial()
-{
-    outPos = vec4(inPos, 1.0);
-}
+void defaultMaterial() { outPos = vec4(inPos, 1.0); }
 
 void skyboxMaterial(DrawData drawData)
 {
     // Skybox index stored in the base colour.
     vec3 worldUv = inPos.xyz;
-    worldUv.y *= -1.0; 
+    worldUv.y *= -1.0;
     vec4 skyColour = texture(cubeMaps[nonuniformEXT(drawData.colour)], worldUv);
     outColour = skyColour;
 
@@ -21,19 +18,23 @@ void skyboxMaterial(DrawData drawData)
     outEmissive.a = 0.0;
 }
 
+void uiMaterial() { outPos = vec4(inPos.xy, 0.0, 1.0); }
+
 void modelFragment(DrawData drawData)
 {
     switch (MATERIAL_TYPE)
     {
-        case MATERIAL_TYPE_DEFAULT:
-        {
+        case MATERIAL_TYPE_DEFAULT: {
             defaultMaterial();
             break;
         }
-        case MATERIAL_TYPE_SKYBOX:
-        {
+        case MATERIAL_TYPE_SKYBOX: {
             skyboxMaterial(drawData);
-            break;   
+            break;
+        }
+        case MATERIAL_TYPE_UI: {
+            uiMaterial();
+            break;
         }
     }
 }

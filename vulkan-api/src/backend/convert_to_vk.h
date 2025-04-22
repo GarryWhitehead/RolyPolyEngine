@@ -46,4 +46,8 @@ VkPolygonMode polygon_mode_to_vk(enum PolygonMode mode);
 
 VkPrimitiveTopology primitive_topology_to_vk(enum PrimitiveTopology topo);
 
+VkBlendFactor blend_factor_to_vk(enum BlendFactor factor);
+
+VkBlendOp blend_op_to_vk(enum BlendOp op);
+
 #endif

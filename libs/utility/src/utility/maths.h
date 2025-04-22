@@ -422,6 +422,21 @@ static inline float math_vec3f_norm(math_vec3f a) { return sqrtf(math_vec3f_len(
 
 static inline float math_vec4f_norm(math_vec4f a) { return sqrtf(math_vec4f_len(a)); }
 
+static inline float math_vec2f_distance(math_vec2f a, math_vec2f b)
+{
+    return math_vec2f_norm(math_vec2f_sub(a, b));
+}
+
+static inline float math_vec3f_distance(math_vec3f a, math_vec3f b)
+{
+    return math_vec3f_norm(math_vec3f_sub(a, b));
+}
+
+static inline float math_vec4f_distance(math_vec4f a, math_vec4f b)
+{
+    return math_vec4f_norm(math_vec4f_sub(a, b));
+}
+
 /** Normalise vector **/
 static inline math_vec2f math_vec2f_normalise(math_vec2f a)
 {

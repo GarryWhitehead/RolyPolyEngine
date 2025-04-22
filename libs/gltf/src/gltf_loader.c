@@ -295,7 +295,7 @@ rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asse
     return new_mat;
 }
 
-bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* transform_obj)
+bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* transform_obj, arena_t* arena)
 {
     assert(mesh);
 
@@ -423,7 +423,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
         // If the model doesn't contain indices, generate sequential index values.
         if (!primitive->indices || primitive->indices->count == 0)
         {
-            uint32_t* indices = ARENA_MAKE_ZERO_ARRAY(&asset->arena, uint32_t, vert_count);
+            uint32_t* indices = ARENA_MAKE_ZERO_ARRAY(arena, uint32_t, vert_count);
             for (size_t i = 0; i < vert_count; ++i)
             {
                 indices[i] = (uint32_t)i;
@@ -442,7 +442,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
             indices_count = primitive->indices->count;
         }
 
-        rpe_mesh_t* new_mesh = rpe_rend_manager_create_mesh(
+        rpe_mesh_t* new_mesh = rpe_rend_manager_create_mesh_interleaved(
             asset->rend_manager,
             (float*)pos_base,
             (float*)uv_base[0],
@@ -547,7 +547,8 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
     cgltf_node* node,
     rpe_engine_t* engine,
     gltf_asset_t* asset,
-    rpe_object_t* parent_obj)
+    rpe_object_t* parent_obj,
+    arena_t* arena)
 {
     assert(node);
     assert(engine);
@@ -562,7 +563,7 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
 
     if (node->mesh)
     {
-        if (!create_mesh_instance(node->mesh, asset, obj_p))
+        if (!create_mesh_instance(node->mesh, asset, obj_p, arena))
         {
             return false;
         }
@@ -572,7 +573,7 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
     for (cgltf_size child_idx = 0; child_idx < node->children_count; ++child_idx)
     {
         if (!gltf_node_create_node_hierachy_recursive(
-                node->children[child_idx], engine, asset, obj_p))
+                node->children[child_idx], engine, asset, obj_p, arena))
         {
             return false;
         }
@@ -581,7 +582,7 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
     return true;
 }
 
-bool gltf_node_create_node_hierachy(cgltf_node* node, gltf_asset_t* asset, rpe_engine_t* engine)
+bool gltf_node_create_node_hierachy(cgltf_node* node, gltf_asset_t* asset, rpe_engine_t* engine, arena_t* arena)
 {
     rpe_transform_manager_t* tm = rpe_engine_get_transform_manager(engine);
 
@@ -590,7 +591,7 @@ bool gltf_node_create_node_hierachy(cgltf_node* node, gltf_asset_t* asset, rpe_e
     math_mat4f t = math_mat4f_identity();
     rpe_transform_manager_add_node(tm, &t, NULL, &obj);
 
-    if (!gltf_node_create_node_hierachy_recursive(node, engine, asset, obj_p))
+    if (!gltf_node_create_node_hierachy_recursive(node, engine, asset, obj_p, arena))
     {
         return false;
     }
@@ -628,7 +629,7 @@ void linearise_nodes(cgltf_data* data, gltf_asset_t* asset)
     }
 }
 
-bool create_model_instance(gltf_asset_t* asset)
+bool create_model_instance(gltf_asset_t* asset, arena_t* arena)
 {
     assert(asset);
     cgltf_data* model_data = asset->model_data;
@@ -651,7 +652,7 @@ bool create_model_instance(gltf_asset_t* asset)
         cgltf_scene* scene = &asset->model_data->scenes[scene_idx];
         for (cgltf_size node_idx = 0; node_idx < scene->nodes_count; ++node_idx)
         {
-            if (!gltf_node_create_node_hierachy(scene->nodes[node_idx], asset, asset->engine))
+            if (!gltf_node_create_node_hierachy(scene->nodes[node_idx], asset, asset->engine, arena))
             {
                 return false;
             }
@@ -661,7 +662,7 @@ bool create_model_instance(gltf_asset_t* asset)
     return true;
 }
 
-gltf_asset_t* create_asset(rpe_engine_t* engine, cgltf_data* model_data, const char* path)
+gltf_asset_t* create_asset(rpe_engine_t* engine, cgltf_data* model_data, const char* path, arena_t* arena)
 {
     gltf_asset_t* new_asset = malloc(sizeof(gltf_asset_t));
     assert(new_asset);
@@ -671,24 +672,18 @@ gltf_asset_t* create_asset(rpe_engine_t* engine, cgltf_data* model_data, const c
     new_asset->model_data = model_data;
     new_asset->rend_manager = rpe_engine_get_rend_manager(engine);
 
-    // Create a small arena for this gltf model.
-    int err = arena_new(GLTF_ASSET_ARENA_SIZE, &new_asset->arena);
-    if (err != ARENA_SUCCESS)
-    {
-        return NULL;
-    }
-    MAKE_DYN_ARRAY(rpe_object_t, &new_asset->arena, 30, &new_asset->objects);
-    MAKE_DYN_ARRAY(asset_texture_t, &new_asset->arena, 30, &new_asset->textures);
-    MAKE_DYN_ARRAY(cgltf_node, &new_asset->arena, 30, &new_asset->nodes);
-    MAKE_DYN_ARRAY(rpe_material_t*, &new_asset->arena, 30, &new_asset->materials);
-    MAKE_DYN_ARRAY(rpe_mesh_t*, &new_asset->arena, 30, &new_asset->meshes);
-    new_asset->gltf_path = string_init(path, &new_asset->arena);
+    MAKE_DYN_ARRAY(rpe_object_t, arena, 30, &new_asset->objects);
+    MAKE_DYN_ARRAY(asset_texture_t, arena, 30, &new_asset->textures);
+    MAKE_DYN_ARRAY(cgltf_node, arena, 30, &new_asset->nodes);
+    MAKE_DYN_ARRAY(rpe_material_t*, arena, 30, &new_asset->materials);
+    MAKE_DYN_ARRAY(rpe_mesh_t*, arena, 30, &new_asset->meshes);
+    new_asset->gltf_path = string_init(path, arena);
 
     return new_asset;
 }
 
 gltf_asset_t*
-gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path)
+gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path, arena_t* arena)
 {
     // No additional options required.
     cgltf_options options = {0};
@@ -716,13 +711,13 @@ gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine
 
     // Create the GLTF asset which contains all the parsed information which can be used by the
     // client.
-    gltf_asset_t* asset = create_asset(engine, gltf_root, path);
+    gltf_asset_t* asset = create_asset(engine, gltf_root, path, arena);
     if (!asset)
     {
         return NULL;
     }
 
-    if (!create_model_instance(asset))
+    if (!create_model_instance(asset, arena))
     {
         return NULL;
     }
@@ -737,10 +732,11 @@ void gltf_model_create_instances(
     rpe_obj_manager_t* om,
     rpe_scene_t* scene,
     uint32_t count,
-    math_vec3f* translations)
+    math_vec3f* translations,
+    arena_t* arena)
 {
     arena_dyn_array_t objects;
-    MAKE_DYN_ARRAY(rpe_object_t, &assets->arena, 50, &objects);
+    MAKE_DYN_ARRAY(rpe_object_t, arena, 50, &objects);
 
     for (uint32_t i = 0; i < count; ++i)
     {

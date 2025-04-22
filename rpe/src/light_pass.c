@@ -93,6 +93,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     d->rt = rg_rpass_node_create_rt((rg_render_pass_node_t*)node, rg, "LightingPass", desc);
 
     d->prog_bundle = local_d->prog_bundle;
+    d->scene = local_d->scene;
 }
 
 void execute_light_pass(
@@ -138,7 +139,9 @@ void execute_light_pass(
         RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP);
 
     // Bind the IBL env maps (dummy textures if not used to keep the validation layers happy).
-    ibl_t* ibl = engine->curr_scene->curr_ibl;
+    rpe_scene_t* scene = d->scene;
+    assert(scene);
+    ibl_t* ibl = scene->curr_ibl;
     texture_handle_t brdf_handle = ibl ? ibl->tex_brdf_lut : engine->tex_dummy;
     texture_handle_t irr_handle = ibl ? ibl->tex_irradiance_map : engine->tex_dummy_cubemap;
     texture_handle_t spec_handle = ibl ? ibl->tex_specular_map : engine->tex_dummy_cubemap;
@@ -151,13 +154,14 @@ void execute_light_pass(
         d->prog_bundle, driver, spec_handle, RPE_LIGHT_PASS_SAMPLER_SPECULAR_ENVMAP_BINDING);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
-    vkapi_driver_draw_quad(driver, d->prog_bundle);
+    vkapi_driver_draw_quad(driver, d->prog_bundle, NULL, NULL);
     vkapi_driver_end_rpass(cmd_buffer->instance);
 }
 
 rg_handle_t rpe_light_pass_render(
     rpe_light_manager_t* lm,
-    render_graph_t* rg,
+    render_graph_t* rg, 
+    rpe_scene_t* scene,
     uint32_t width,
     uint32_t height,
     VkFormat depth_format)
@@ -169,7 +173,8 @@ rg_handle_t rpe_light_pass_render(
         .prog_bundle = lm->program_bundle,
         .width = width,
         .height = height,
-        .depth_format = depth_format};
+        .depth_format = depth_format,
+        .scene = scene};
     rg_pass_t* p = rg_add_pass(
         rg,
         "LightingPass",

@@ -22,6 +22,7 @@
 
 #include <app/app.h>
 #include <app/ibl_helper.h>
+#include <app/nk_helper.h>
 #include <parg.h>
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
@@ -63,17 +64,80 @@ void add_model_obj_to_scene(rpe_app_t* app, gltf_asset_t* asset, rpe_rend_manage
     }
 }
 
+struct LightData
+{
+    float timer_speed;
+    float timer;
+    rpe_object_t dir_obj;
+};
+
+void light_update(rpe_engine_t* engine, void* data) 
+{ 
+    struct LightData* light_data = (struct LightData*)data;
+    light_data->timer += light_data->timer_speed;
+    if (light_data->timer > 1.0f)
+    {
+        light_data->timer = -1.0f;
+    }
+
+    float angle = math_to_radians(light_data->timer * 360.0f);
+    float radius = 20.0f;
+    math_vec3f pos = { cosf(angle), -radius, sinf(angle) * radius };
+    rpe_light_manager_set_position(rpe_engine_get_light_manager(engine), light_data->dir_obj, &pos);
+}
+
+void ui_callback(rpe_engine_t* engine, app_window_t* win)
+{
+    nk_instance_t* nk = win->nk;
+    struct nk_context* ctx = &nk->ctx;
+
+    int cascade_levels;
+    float lambda;
+    bool show_shadows;
+
+    if (nk_begin(
+            ctx,
+            "Shadow Cascade Test",
+            nk_rect(50, 50, 230, 250),
+            NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
+                NK_WINDOW_TITLE))
+    {
+        nk_layout_row_dynamic(ctx, 30, 2);
+        nk_checkbox_label(ctx, "Show shadows", &show_shadows);
+        
+        // Cascade levels.
+        nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
+        {
+            nk_layout_row_push(ctx, 50);
+            nk_label(ctx, "Cascade levels:", NK_TEXT_LEFT);
+            nk_layout_row_push(ctx, 110);
+            nk_slider_int(ctx, 0, &cascade_levels, 1, 8);
+        }
+
+        // Lambda
+        nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
+        {
+            nk_layout_row_push(ctx, 50);
+            nk_label(ctx, "Split lambda:", NK_TEXT_LEFT);
+            nk_layout_row_push(ctx, 110);
+            nk_slider_float(ctx, 0, &lambda, 0.1f, 1.0f);
+        }
+    }
+    nk_end(ctx);
+}
+
 int main(int argc, char** argv)
 {
     const uint32_t win_width = 1920;
     const uint32_t win_height = 1080;
     const char* gltf_asset_path = NULL;
-       
+    bool show_ui = true;
+    
     struct parg_state ps;
     parg_init(&ps);
 
     int opt;
-    while ((opt = parg_getopt(&ps, argc, argv, "h")) != -1)
+    while ((opt = parg_getopt(&ps, argc, argv, "hd")) != -1)
     {
         switch (opt)
         {
@@ -83,6 +147,9 @@ int main(int argc, char** argv)
             case 'h':
                 print_usage();
                 exit(0);
+            case 'd':
+                show_ui = false;
+                break;
             default:
                 break;
         }
@@ -104,7 +171,7 @@ int main(int argc, char** argv)
         .shadow.enable_debug_cascade = false};
 
     rpe_app_t app;
-    int error = rpe_app_init("Cascade Shadow Demo", win_width, win_height, &app, &settings);
+    int error = rpe_app_init("Cascade Shadow Demo", win_width, win_height, &app, &settings, show_ui);
     if (error != APP_SUCCESS)
     {
         exit(1);
@@ -123,13 +190,6 @@ int main(int argc, char** argv)
     rpe_light_manager_t* lm = rpe_engine_get_light_manager(app.engine);
     rpe_transform_manager_t* tm = rpe_engine_get_transform_manager(app.engine);
     rpe_renderer_t* renderer = rpe_engine_create_renderer(app.engine);
-
-    // Add a directional light for shadows.
-    rpe_object_t dir_obj = rpe_obj_manager_create_obj(om);
-    float angle = math_to_radians(0.2f * 360.0f);
-    float radius = 20.0f;
-    rpe_light_create_info_t ci = {.position = cosf(angle), -radius, sinf(angle) * radius};
-    rpe_light_manager_create_light(lm, &ci, dir_obj, RPE_LIGHTING_TYPE_DIRECTIONAL);
 
     const char* model_filenames[2] = {"/models/terrain_gridlines.gltf", "/models/oaktree.gltf"};
     gltf_asset_t* model_assets[2];
@@ -169,13 +229,13 @@ int main(int argc, char** argv)
         size_t rd = fread(buffer, sizeof(uint8_t), file_sz, fp);
         assert(rd == file_sz);
 
-        model_assets[i] = gltf_model_parse_data(buffer, file_sz, app.engine, full_path);
+        model_assets[i] = gltf_model_parse_data(buffer, file_sz, app.engine, full_path, &app.arena);
         if (!model_assets[i])
         {
             exit(1);
         }
 
-        gltf_resource_loader_load_textures(model_assets[i], app.engine);
+        gltf_resource_loader_load_textures(model_assets[i], app.engine, &app.arena);
         free(buffer);
     }
 
@@ -188,9 +248,16 @@ int main(int argc, char** argv)
 
     // Add trees to the scene.
     gltf_model_create_instances(
-        model_assets[1], rm, tm, om, app.scene, MODEL_TREE_COUNT, tree_positions);
+        model_assets[1], rm, tm, om, app.scene, MODEL_TREE_COUNT, tree_positions, &app.arena);
 
-    rpe_app_run(&app, renderer, NULL, NULL);
+    struct LightData data = {.timer = 0.2f, .timer_speed = 0.001f};
+    
+    // Add a directional light for shadows - just creating the object here, will be updated when running the app.
+    data.dir_obj = rpe_obj_manager_create_obj(om);
+    rpe_light_create_info_t ci = {0};
+    rpe_light_manager_create_light(lm, &ci, data.dir_obj, RPE_LIGHTING_TYPE_DIRECTIONAL);
+
+    rpe_app_run(&app, renderer, light_update, &data, NULL, NULL, ui_callback);
 
     rpe_app_shutdown(&app);
 

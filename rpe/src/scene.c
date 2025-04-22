@@ -146,7 +146,13 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     rpe_frustum_projection(&frustum, &vp);
 
     rpe_transform_manager_update_ssbo(tm);
-    arena_dyn_array_t* batched_draws = rpe_rend_manager_batch_renderables(rm, &scene->objects);
+
+    if (scene->is_dirty)
+    {
+        scene->batched_draw_cache = rpe_rend_manager_batch_renderables(rm, &scene->objects);
+        scene->is_dirty = false;
+    }
+
     rpe_scene_upload_extents(scene, engine, rm, tm);
 
     arena_dyn_array_t indirect_draws;
@@ -167,6 +173,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
 
     // Update renderable objects.
+    arena_dyn_array_t* batched_draws = &scene->batched_draw_cache;
+
     for (size_t i = 0; i < batched_draws->size; ++i)
     {
         rpe_batch_renderable_t* batch = DYN_ARRAY_GET_PTR(rpe_batch_renderable_t, batched_draws, i);
@@ -360,6 +368,22 @@ void rpe_scene_add_object(rpe_scene_t* scene, rpe_object_t obj)
 {
     assert(scene);
     DYN_ARRAY_APPEND(&scene->objects, &obj);
+    scene->is_dirty = true;
+}
+
+bool rpe_scene_remove_object(rpe_scene_t* scene, rpe_object_t obj)
+{
+    assert(scene);
+    for (size_t i = 0; i < scene->objects.size; ++i)
+    {
+        rpe_object_t* other = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, i);
+        if (obj.id == other->id)
+        {
+            DYN_ARRAY_REMOVE(&scene->objects, i);
+            return true;
+        }
+    }
+    return false;
 }
 
 void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb)

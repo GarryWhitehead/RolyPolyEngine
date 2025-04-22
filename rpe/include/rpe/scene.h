@@ -36,6 +36,8 @@ void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl);
 
 void rpe_scene_add_object(rpe_scene_t* scene, rpe_object_t obj);
 
+bool rpe_scene_remove_object(rpe_scene_t* scene, rpe_object_t obj);
+
 void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb);
 
 #endif

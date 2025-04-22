@@ -109,6 +109,8 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data, void* l
     rg_backboard_add(bb, "emissive", d->emissive);
     rg_backboard_add(bb, "pbr", d->pbr);
     rg_backboard_add(bb, "gbufferDepth", d->depth);
+
+    d->scene = local_d->scene;
 }
 
 void execute_gbuffer(
@@ -140,8 +142,8 @@ void execute_gbuffer(
     vkapi_driver_bind_vertex_buffer(driver, engine->curr_scene->model_draw_data_handle, 1);
     vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
 
-    rpe_scene_t* scene = engine->curr_scene;
-    assert(scene && "No scene has been registered with the engine");
+    rpe_scene_t* scene = d->scene;
+    assert(scene);
     rpe_render_queue_submit_one(scene->render_queue, driver, RPE_RENDER_QUEUE_GBUFFER);
 
     vkapi_driver_end_rpass(cmd_buffer->instance);
@@ -159,10 +161,10 @@ void execute_gbuffer(
 }
 
 rg_handle_t
-rpe_colour_pass_render(render_graph_t* rg, uint32_t dimensions, VkFormat depth_format)
+rpe_colour_pass_render(render_graph_t* rg, rpe_scene_t* scene, uint32_t dimensions, VkFormat depth_format)
 {
     struct GBufferLocalData local_d = {
-        .width = dimensions, .height = dimensions, .depth_format = depth_format};
+        .width = dimensions, .height = dimensions, .depth_format = depth_format, .scene = scene};
 
     rg_pass_t* p = rg_add_pass(
         rg, "ColourPass", setup_gbuffer, execute_gbuffer, sizeof(struct DataGBuffer), &local_d);

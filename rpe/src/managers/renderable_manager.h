@@ -34,32 +34,17 @@ typedef struct Engine rpe_engine_t;
 typedef struct ComponentManager rpe_comp_manager_t;
 typedef struct Object rpe_object_t;
 
-enum MeshAttributeFlags
+typedef struct Rect2D
 {
-    RPE_MESH_ATTRIBUTE_POSITION = 1 << 0,
-    RPE_MESH_ATTRIBUTE_UV0 = 1 << 1,
-    RPE_MESH_ATTRIBUTE_UV1 = 1 << 2,
-    RPE_MESH_ATTRIBUTE_NORMAL = 1 << 3,
-    RPE_MESH_ATTRIBUTE_TANGENT = 1 << 4,
-    RPE_MESH_ATTRIBUTE_COLOUR = 1 << 5,
-    RPE_MESH_ATTRIBUTE_BONE_WEIGHT = 1 << 6,
-    RPE_MESH_ATTRIBUTE_BONE_ID = 1 << 7
-};
+    int32_t x, y;
+    uint32_t width, height;
+} rpe_rect_2d_t;
 
-// Note: On linux (not sure about windows) we get an extra 8bytes of packing, so disable otherwise
-// messes up attribute strides on the shader.
-RPE_PACKED(typedef struct Vertex
+typedef struct ViewPort
 {
-    math_vec3f position;
-    math_vec3f normal;
-    math_vec2f uv0;
-    math_vec2f uv1;
-    float tangent[4];
-    float colour[4];
-    float bone_weight[4];
-    float bone_id[4];
-} rpe_vertex_t);
-static_assert(sizeof(struct Vertex) == 104, "Vertex struct must have no padding.");
+    rpe_rect_2d_t rect;
+    float min_depth, max_depth;
+} rpe_viewport_t;
 
 typedef struct Mesh
 {
@@ -78,6 +63,8 @@ typedef struct Renderable
     // The extents of this primitive.
     rpe_aabox_t box;
     uint64_t sort_key;
+    rpe_rect_2d_t scissor;
+    rpe_viewport_t viewport;
 } rpe_renderable_t;
 
 typedef struct BatchedDraw
@@ -109,7 +96,6 @@ typedef struct RenderableManager
 
     rpe_comp_manager_t* comp_manager;
 
-    bool is_dirty;
 } rpe_rend_manager_t;
 
 rpe_renderable_t rpe_renderable_init();
@@ -118,7 +104,7 @@ rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena);
 
 rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t* obj);
 
-arena_dyn_array_t*
+arena_dyn_array_t
 rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* object_arr);
 
 #endif

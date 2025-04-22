@@ -470,7 +470,7 @@ void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_h
 }
 
 void vkapi_driver_bind_gfx_pipeline(
-    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind)
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkViewport* viewport, VkRect2D* scissor, bool force_rebind)
 {
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
@@ -566,15 +566,13 @@ void vkapi_driver_bind_gfx_pipeline(
         driver->pline_cache, bundle->vert_attrs, bundle->vert_bind_desc);
     vkapi_pline_cache_bind_spec_constants(driver->pline_cache, bundle);
 
-    // if the width and height are zero then ignore setting the scissors and/or
-    // viewport and go with the extents set upon initiation of the renderpass
-    if (bundle->scissor.extent.width > 0)
+    if (scissor)
     {
-        vkCmdSetScissor(cmds->instance, 0, 1, &bundle->scissor);
+        vkCmdSetScissor(cmds->instance, 0, 1, scissor);
     }
-    if (bundle->viewport.width > 0)
+    if (viewport)
     {
-        vkCmdSetViewport(cmds->instance, 0, 1, &bundle->viewport);
+        vkCmdSetViewport(cmds->instance, 0, 1, viewport);
     }
 
     vkapi_pline_cache_bind_gfx_pl_layout(driver->pline_cache, pl_layout->instance);
@@ -739,10 +737,10 @@ void vkapi_driver_dispatch_compute(
     RENDERDOC_END_CAPTURE(NULL, NULL)
 }
 
-void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
+void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkViewport* viewport, VkRect2D* scissor)
 {
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle, false);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle, viewport, scissor, false);
     vkCmdDraw(cmd_buffer->instance, 3, 1, 0, 0);
 }
 

@@ -64,6 +64,7 @@ void rpe_engine_set_current_swapchain(rpe_engine_t* engine, swapchain_handle_t* 
 bool rpe_engine_destroy_scene(rpe_engine_t* engine, rpe_scene_t* scene);
 bool rpe_engine_destroy_camera(rpe_engine_t* engine, rpe_camera_t* camera);
 bool rpe_engine_destroy_renderer(rpe_engine_t* engine, rpe_renderer_t* renderer);
+bool rpe_engine_destroy_renderable(rpe_engine_t* engine, rpe_renderable_t* renderable);
 
 rpe_rend_manager_t* rpe_engine_get_rend_manager(rpe_engine_t* engine);
 rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* engine);

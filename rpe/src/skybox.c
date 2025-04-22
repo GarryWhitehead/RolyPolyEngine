@@ -64,7 +64,7 @@ rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena)
     };
     // clang-format on
 
-    skybox->cube_mesh = rpe_rend_manager_create_mesh(
+    skybox->cube_mesh = rpe_rend_manager_create_mesh_interleaved(
         engine->rend_manager,
         (float*)cube_vertices,
         NULL,

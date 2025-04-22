@@ -185,8 +185,21 @@ void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum Sha
 void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFactor factors)
 {
     assert(m);
-    m->program_bundle->blend_state.colour = factors.colour;
-    m->material_key.blend_state = factors;
+    m->material_key.blend_state.alpha = blend_op_to_vk(factors.alpha);
+    m->material_key.blend_state.colour = blend_op_to_vk(factors.colour);
+    m->material_key.blend_state.dst_alpha = blend_factor_to_vk(factors.dst_alpha);
+    m->material_key.blend_state.dst_colour = blend_factor_to_vk(factors.dst_colour);
+    m->material_key.blend_state.src_alpha = blend_factor_to_vk(factors.src_alpha);
+    m->material_key.blend_state.src_colour = blend_factor_to_vk(factors.src_colour);
+    m->material_key.blend_state.state = factors.state;
+
+    m->program_bundle->blend_state.colour = m->material_key.blend_state.colour;
+    m->program_bundle->blend_state.alpha = m->material_key.blend_state.alpha;
+    m->program_bundle->blend_state.dst_alpha = m->material_key.blend_state.dst_alpha;
+    m->program_bundle->blend_state.dst_colour = m->material_key.blend_state.dst_colour;
+    m->program_bundle->blend_state.src_alpha = m->material_key.blend_state.src_alpha;
+    m->program_bundle->blend_state.src_colour = m->material_key.blend_state.src_colour;
+    m->program_bundle->blend_state.blend_enable = m->material_key.blend_state.state;
 }
 
 void rpe_material_set_double_sided_state(rpe_material_t* m, bool state)
@@ -243,20 +256,6 @@ void rpe_material_set_cull_mode(rpe_material_t* m, enum CullMode mode)
     assert(m);
     m->program_bundle->raster_state.cull_mode = cull_mode_to_vk(mode);
     m->material_key.cull_mode = mode;
-}
-
-void rpe_material_set_scissor(
-    rpe_material_t* m, uint32_t width, uint32_t height, uint32_t xOffset, uint32_t yOffset)
-{
-    assert(m);
-    shader_bundle_set_scissor(m->program_bundle, width, height, xOffset, yOffset);
-}
-
-void rpe_material_set_viewport(
-    rpe_material_t* m, uint32_t width, uint32_t height, float minDepth, float maxDepth)
-{
-    assert(m);
-    shader_bundle_set_viewport(m->program_bundle, width, height, minDepth, maxDepth);
 }
 
 void rpe_material_set_shadow_caster_state(rpe_material_t* m, bool state)
@@ -328,6 +327,27 @@ void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co)
     assert(m);
     m->material_draw_data.alpha_mask_cut_off = co;
     m->material_consts.has_alpha_mask_cutoff = true;
+}
+
+void rpe_material_set_blend_factor_preset(rpe_material_t* m, enum BlendFactorPresets preset)
+{
+    struct MaterialBlendFactor params = {0};
+
+    if (preset == RPE_BLEND_FACTOR_PRESET_TRANSLUCENT)
+    {
+        params.src_colour = RPE_BLEND_FACTOR_SRC_ALPHA;
+        params.dst_colour = RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        params.colour = RPE_BLEND_OP_ADD;
+        params.src_alpha = RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        params.dst_alpha = RPE_BLEND_FACTOR_ZERO;
+        params.alpha = RPE_BLEND_OP_ADD;
+        params.state = VK_TRUE;
+        rpe_material_set_blend_factors(m, params);
+    }
+    else
+    {
+        log_warn("Unrecognised blend factor preset. Skipped.");
+    }
 }
 
 void rpe_material_set_type(rpe_material_t* m, enum MaterialType type)

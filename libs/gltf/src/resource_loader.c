@@ -175,7 +175,8 @@ gltf_image_handle_t get_texture(
     gltf_resource_loader_t* rl,
     cgltf_texture_view* view,
     gltf_asset_t* asset,
-    image_free_func* free_func)
+    image_free_func* free_func,
+    arena_t* arena)
 {
     cgltf_texture* texture = view->texture;
 
@@ -186,11 +187,11 @@ gltf_image_handle_t get_texture(
     }
 
     string_t mime_type = texture->image->mime_type
-        ? string_init(texture->image->mime_type, &asset->arena)
-        : string_init("", &asset->arena);
+        ? string_init(texture->image->mime_type, arena)
+        : string_init("", arena);
     size_t uri_data_bytes_count;
     uint8_t* uri_data_bytes = texture->image->uri
-        ? parse_data_uri(texture->image->uri, &mime_type, &uri_data_bytes_count, &asset->arena)
+        ? parse_data_uri(texture->image->uri, &mime_type, &uri_data_bytes_count, arena)
         : NULL;
 
     if (uri_data_bytes)
@@ -211,8 +212,8 @@ gltf_image_handle_t get_texture(
     else if (texture->image->uri)
     {
         // Not cached, so try and load from disk.
-        string_t path = fs_remove_filename(&asset->gltf_path, &asset->arena);
-        string_t full_path = string_append3(&path, "/", texture->image->uri, &asset->arena);
+        string_t path = fs_remove_filename(&asset->gltf_path, arena);
+        string_t full_path = string_append3(&path, "/", texture->image->uri, arena);
         FILE* fp = fopen(full_path.data, "r");
         if (!fp)
         {
@@ -220,7 +221,7 @@ gltf_image_handle_t get_texture(
             return out_handle;
         }
         size_t sz = fs_get_file_size(fp);
-        void* image_data = ARENA_MAKE_ZERO_ARRAY(&asset->arena, uint8_t, sz);
+        void* image_data = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, sz);
         size_t sz_read = fread(image_data, sizeof(uint8_t), sz, fp);
         if (sz_read != sz)
         {
@@ -233,10 +234,10 @@ gltf_image_handle_t get_texture(
         {
             string_t suffix;
             string_t filename = {.data = texture->image->uri, strlen(texture->image->uri)};
-            bool r = fs_get_extension(&filename, &suffix, &asset->arena);
+            bool r = fs_get_extension(&filename, &suffix, arena);
             assert(r);
-            string_t parent = string_init("image/", &asset->arena);
-            mime_type = string_append(&parent, suffix.data, &asset->arena);
+            string_t parent = string_init("image/", arena);
+            mime_type = string_append(&parent, suffix.data, arena);
         }
 
         out_handle = gltf_material_cache_push_pending(&rl->texture_cache, texture);
@@ -276,16 +277,16 @@ gltf_image_handle_t get_texture(
     return out_handle;
 }
 
-void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine)
+void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine, arena_t* arena)
 {
-    gltf_resource_loader_t rl = gltf_resource_loader_init(engine, asset->model_data, &asset->arena);
+    gltf_resource_loader_t rl = gltf_resource_loader_init(engine, asset->model_data, arena);
 
     // Generate the required image decoding work for materials.
     for (size_t i = 0; i < asset->textures.size; ++i)
     {
         struct AssetTextureParams* params =
             DYN_ARRAY_GET_PTR(struct AssetTextureParams, &asset->textures, i);
-        params->mat_texture = get_texture(&rl, params->gltf_tex, asset, &params->free_func);
+        params->mat_texture = get_texture(&rl, params->gltf_tex, asset, &params->free_func, arena);
     }
 
     // Decode the images.

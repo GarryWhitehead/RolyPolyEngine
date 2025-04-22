@@ -73,7 +73,26 @@ void rpe_cmd_dispatch_cond_render(vkapi_driver_t* driver, void* data)
 void rpe_cmd_dispatch_pline_bind(vkapi_driver_t* driver, void* data)
 {
     struct PipelineBindCommand* cmd = (struct PipelineBindCommand*)data;
-    vkapi_driver_bind_gfx_pipeline(driver, cmd->bundle, false);
+
+    VkViewport vp = {
+        .width = (float)cmd->viewport.rect.width,
+        .height = -(float)cmd->viewport.rect.height,
+        .x = 0,
+        .y = (float)cmd->viewport.rect.height,
+        .minDepth = cmd->viewport.min_depth,
+        .maxDepth = cmd->viewport.max_depth,
+    };
+
+    VkRect2D scissor = {
+        .extent.width = cmd->scissor.width,
+        .extent.height = cmd->scissor.height,
+        .offset.x = cmd->scissor.x,
+        .offset.y = cmd->scissor.y};
+    
+    VkViewport* vp_ptr = (cmd->viewport.rect.width > 0) ? &vp : NULL;
+    VkRect2D* sc_ptr = (cmd->scissor.width > 0) ? &scissor : NULL;
+
+    vkapi_driver_bind_gfx_pipeline(driver, cmd->bundle, vp_ptr, sc_ptr, false);
 }
 
 rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena)

@@ -30,6 +30,7 @@
 // Forward declarations.
 typedef struct RenderGraph render_graph_t;
 typedef struct RenderGraphPass rg_pass_t;
+typedef struct Scene rpe_scene_t;
 
 struct DataGBuffer
 {
@@ -40,6 +41,7 @@ struct DataGBuffer
     rg_handle_t depth;
     rg_handle_t colour;
     rg_handle_t rt;
+    rpe_scene_t* scene;
 };
 
 struct GBufferLocalData
@@ -47,9 +49,10 @@ struct GBufferLocalData
     uint32_t width;
     uint32_t height;
     VkFormat depth_format;
+    rpe_scene_t* scene;
 };
 
 rg_handle_t
-rpe_colour_pass_render(render_graph_t* rg, uint32_t dimensions, VkFormat depth_format);
+rpe_colour_pass_render(render_graph_t* rg, rpe_scene_t* scene, uint32_t dimensions, VkFormat depth_format);
 
 #endif
