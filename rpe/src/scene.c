@@ -124,7 +124,7 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     return i;
 }
 
-bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
+bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine, bool disable_shadows)
 {
     assert(scene);
     assert(scene->curr_camera);
@@ -190,7 +190,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
                 draw.indirect_cmd.indexCount = rend->mesh_data->index_count;
                 draw.indirect_cmd.vertexOffset = (int32_t)rend->mesh_data->vertex_offset;
                 draw.object_id = rpe_comp_manager_get_obj_idx(
-                    engine->transform_manager->comp_manager, rend->transform_obj);
+                    tm->comp_manager, rend->transform_obj);
                 draw.batch_id = i;
                 draw.shadow_caster = rend->material->shadow_caster;
                 DYN_ARRAY_APPEND(&indirect_draws, &draw);
@@ -213,15 +213,44 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
             struct PipelineBindCommand* pl_cmd = pkt0->cmds;
             pl_cmd->bundle = batch->material->program_bundle;
 
+            rpe_cmd_packet_t* nxt_pkt = pkt0;
+            if (batch->scissor.width > 0)
+            {
+                rpe_cmd_packet_t* pkt1 = rpe_command_bucket_append_command(
+                    scene->render_queue->gbuffer_bucket,
+                    nxt_pkt,
+                    0,
+                    sizeof(struct ScissorCommand),
+                    &engine->frame_arena,
+                    rpe_cmd_dispatch_scissor_cmd);
+                struct ScissorCommand* sc_cmd = pkt1->cmds;
+                sc_cmd->scissor = batch->scissor;
+                nxt_pkt = pkt1;
+            }
+
+            if (batch->viewport.rect.width > 0)
+            {
+                rpe_cmd_packet_t* pkt2 = rpe_command_bucket_append_command(
+                    scene->render_queue->gbuffer_bucket,
+                    nxt_pkt,
+                    0,
+                    sizeof(struct ViewportCommand),
+                    &engine->frame_arena,
+                    rpe_cmd_dispatch_viewport_cmd);
+                struct ViewportCommand* vp_cmd = pkt2->cmds;
+                vp_cmd->vp = batch->viewport;
+                nxt_pkt = pkt2;
+            }
+
             // 2. The actual indirect draw (indexed) command.
-            rpe_cmd_packet_t* pkt1 = rpe_command_bucket_append_command(
+            rpe_cmd_packet_t* pkt3 = rpe_command_bucket_append_command(
                 scene->render_queue->gbuffer_bucket,
-                pkt0,
+                nxt_pkt,
                 0,
                 sizeof(struct DrawIndirectIndexCommand),
                 &engine->frame_arena,
                 rpe_cmd_dispatch_draw_indirect_indexed);
-            struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
+            struct DrawIndirectIndexCommand* cmd = pkt3->cmds;
             cmd->stride = sizeof(struct IndirectDraw);
             cmd->count_handle = scene->draw_count_handle;
             cmd->draw_count_offset = 0; // < offset for each batch??
@@ -233,7 +262,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     rpe_shadow_manager_t* sm = engine->shadow_manager;
 
     // ==================== Depth pass =========================
-    if (settings.draw_shadows)
+    if (!disable_shadows && settings.draw_shadows)
     {
         // All visible shadow casters drawn with one draw call using the data generated via
         // the compute-shader (no batching required as the pipeline remains the same for all calls).

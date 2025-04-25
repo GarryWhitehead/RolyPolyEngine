@@ -48,7 +48,12 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     rg_handle_t normal = rg_backboard_get(bb, "normal");
     rg_handle_t emissive = rg_backboard_get(bb, "emissive");
     rg_handle_t pbr = rg_backboard_get(bb, "pbr");
-    rg_handle_t cascade_shadow_map = rg_backboard_get(bb, "CascadeShadowDepth");
+
+    rg_handle_t cascade_shadow_map;
+    if (local_d->draw_shadows)
+    {
+        cascade_shadow_map = rg_backboard_get(bb, "CascadeShadowDepth");
+    }
 
     rg_texture_desc_t t_desc = {
         .width = local_d->width,
@@ -80,7 +85,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     d->normal = rg_add_read(rg, normal, node, VK_IMAGE_USAGE_SAMPLED_BIT);
     d->emissive = rg_add_read(rg, emissive, node, VK_IMAGE_USAGE_SAMPLED_BIT);
     d->pbr = rg_add_read(rg, pbr, node, VK_IMAGE_USAGE_SAMPLED_BIT);
-    d->cascade_shadow_map = rg_add_read(rg, cascade_shadow_map, node, VK_IMAGE_USAGE_SAMPLED_BIT);
+    d->cascade_shadow_map.id = local_d->draw_shadows ? rg_add_read(rg, cascade_shadow_map, node, VK_IMAGE_USAGE_SAMPLED_BIT).id : UINT32_MAX;
 
     rg_backboard_add(bb, "light", d->light);
     rg_backboard_add(bb, "lightDepth", d->depth);
@@ -132,11 +137,14 @@ void execute_light_pass(
         RPE_LIGHT_PASS_SAMPLER_EMISSIVE_BINDING);
 
     // Shadow maps.
-    shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        driver,
-        rg_res_get_tex_handle(res, d->cascade_shadow_map),
-        RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP);
+    if (d->cascade_shadow_map.id != UINT32_MAX)
+    {
+        shader_bundle_add_image_sampler(
+            d->prog_bundle,
+            driver,
+            rg_res_get_tex_handle(res, d->cascade_shadow_map),
+            RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP);
+    }
 
     // Bind the IBL env maps (dummy textures if not used to keep the validation layers happy).
     rpe_scene_t* scene = d->scene;
@@ -154,7 +162,7 @@ void execute_light_pass(
         d->prog_bundle, driver, spec_handle, RPE_LIGHT_PASS_SAMPLER_SPECULAR_ENVMAP_BINDING);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
-    vkapi_driver_draw_quad(driver, d->prog_bundle, NULL, NULL);
+    vkapi_driver_draw_quad(driver, d->prog_bundle);
     vkapi_driver_end_rpass(cmd_buffer->instance);
 }
 
@@ -164,17 +172,22 @@ rg_handle_t rpe_light_pass_render(
     rpe_scene_t* scene,
     uint32_t width,
     uint32_t height,
-    VkFormat depth_format)
+    VkFormat depth_format,
+    bool draw_shadows)
 {
     assert(lm);
     assert(rg);
+
+    // Seems like a good time to set the shadow specialised constant.
+    lm->light_consts.draw_shadows = draw_shadows;
 
     struct LightLocalData local_d = {
         .prog_bundle = lm->program_bundle,
         .width = width,
         .height = height,
         .depth_format = depth_format,
-        .scene = scene};
+        .scene = scene,
+        .draw_shadows = draw_shadows};
     rg_pass_t* p = rg_add_pass(
         rg,
         "LightingPass",

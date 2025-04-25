@@ -74,13 +74,13 @@ typedef struct NkInstance
 } nk_instance_t;
 
 nk_instance_t*
-nk_helper_init(const char* font_path, int font_size, rpe_engine_t* engine, arena_t* arena);
+nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, arena_t* arena);
 
 void nk_helper_destroy(nk_instance_t* nk);
 
 void nk_helper_new_frame(nk_instance_t* nk, app_window_t* win);
 
 void nk_helper_render(
-    nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, UiCallback ui_callback);
+    nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, UiCallback ui_callback, arena_t* arena);
 
 #endif

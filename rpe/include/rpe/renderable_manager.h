@@ -135,7 +135,7 @@ rpe_mesh_t* rpe_rend_manager_offset_indices(
 
 rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m);
 
-void* rpe_rend_manager_add(
+void rpe_rend_manager_add(
     rpe_rend_manager_t* m,
     rpe_renderable_t* renderable,
     rpe_object_t rend_obj,

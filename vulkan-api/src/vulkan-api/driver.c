@@ -426,8 +426,7 @@ void vkapi_driver_begin_rpass(
     bi.pClearValues = clear_values;
     vkCmdBeginRenderPass(cmds, &bi, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Use a custom defined viewing area - at the moment set to the framebuffer
-    // size
+    // Viewport and scissor can be overwritten later by the user.
     VkViewport viewport = {
         .x = 0.0f,
         .y = (float)fbo_key.height,
@@ -470,7 +469,7 @@ void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_h
 }
 
 void vkapi_driver_bind_gfx_pipeline(
-    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkViewport* viewport, VkRect2D* scissor, bool force_rebind)
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind)
 {
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
@@ -566,18 +565,21 @@ void vkapi_driver_bind_gfx_pipeline(
         driver->pline_cache, bundle->vert_attrs, bundle->vert_bind_desc);
     vkapi_pline_cache_bind_spec_constants(driver->pline_cache, bundle);
 
-    if (scissor)
-    {
-        vkCmdSetScissor(cmds->instance, 0, 1, scissor);
-    }
-    if (viewport)
-    {
-        vkCmdSetViewport(cmds->instance, 0, 1, viewport);
-    }
-
     vkapi_pline_cache_bind_gfx_pl_layout(driver->pline_cache, pl_layout->instance);
     vkapi_pline_cache_bind_graphics_pline(
         driver->pline_cache, cmds->instance, bundle->spec_const_params, force_rebind);
+}
+
+void vkapi_driver_set_scissor(vkapi_driver_t* driver, VkRect2D scissor)
+{
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkCmdSetScissor(cmd_buffer->instance, 0, 1, &scissor);
+}
+
+void vkapi_driver_set_viewport(vkapi_driver_t* driver, VkViewport vp)
+{
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkCmdSetViewport(cmd_buffer->instance, 0, 1, &vp);
 }
 
 void vkapi_driver_set_push_constant(
@@ -737,10 +739,10 @@ void vkapi_driver_dispatch_compute(
     RENDERDOC_END_CAPTURE(NULL, NULL)
 }
 
-void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkViewport* viewport, VkRect2D* scissor)
+void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
 {
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle, viewport, scissor, false);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle, false);
     vkCmdDraw(cmd_buffer->instance, 3, 1, 0, 0);
 }
 

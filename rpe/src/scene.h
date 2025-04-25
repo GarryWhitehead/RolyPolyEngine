@@ -106,12 +106,10 @@ typedef struct Scene
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena);
 
-bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine);
+bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine, bool disable_shadows);
 
 void rpe_scene_upload_extents(
     rpe_scene_t* scene, rpe_engine_t* engine, rpe_rend_manager_t* rm, rpe_transform_manager_t* tm);
-
-/** Public functions **/
 
 rpe_scene_t* rpe_scene_create(rpe_engine_t* engine);
 

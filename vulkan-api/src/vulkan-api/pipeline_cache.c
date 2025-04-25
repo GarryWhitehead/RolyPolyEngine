@@ -32,6 +32,8 @@
 #include <utility/arena.h>
 #include <utility/hash.h>
 
+#include <string.h>
+
 graphics_pl_key_t vkapi_graphics_pline_key_init()
 {
     graphics_pl_key_t k = {0};

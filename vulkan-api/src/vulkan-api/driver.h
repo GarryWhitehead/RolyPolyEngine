@@ -123,11 +123,7 @@ void vkapi_driver_bind_vertex_buffer(
 void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle);
 
 void vkapi_driver_bind_gfx_pipeline(
-    vkapi_driver_t* driver,
-    shader_prog_bundle_t* bundle,
-    VkViewport* viewport,
-    VkRect2D* scissor,
-    bool force_rebind);
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind);
 
 void vkapi_driver_map_gpu_buffer(
     vkapi_driver_t* driver, buffer_handle_t h, size_t size, size_t offset, void* data);
@@ -154,6 +150,9 @@ void vkapi_driver_map_gpu_vertex(
 void vkapi_driver_set_push_constant(
     vkapi_driver_t* driver, shader_prog_bundle_t* bundle, void* data, enum ShaderStage stage);
 
+void vkapi_driver_set_scissor(vkapi_driver_t* driver, VkRect2D scissor);
+void vkapi_driver_set_viewport(vkapi_driver_t* driver, VkViewport vp);
+
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset);
 
 void vkapi_driver_draw_indexed(
@@ -178,7 +177,7 @@ void vkapi_driver_dispatch_compute(
     uint32_t z_work_count);
 
 void vkapi_driver_draw_quad(
-    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkViewport* viewport, VkRect2D* scissor);
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
 
 void vkapi_driver_clear_gpu_buffer(
     vkapi_driver_t* driver, vkapi_cmdbuffer_t* cmd_buffer, buffer_handle_t handle);

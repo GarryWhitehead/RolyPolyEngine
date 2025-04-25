@@ -19,6 +19,7 @@ layout(set = 3, binding = 8) uniform sampler2DArray shadowMap;
 layout (constant_id = 0) const bool HAS_IBL = false;
 layout (constant_id = 1) const uint LIGHT_COUNT = 0;
 layout (constant_id = 2) const uint SHADOW_CASCADE_COUNT = 1;
+layout (constant_id = 3) const bool DRAW_SHADOWS = true;
 
 #define LIGHT_TYPE_POINT        0
 #define LIGHT_TYPE_SPOT         1   
@@ -161,10 +162,13 @@ void main()
     colour += emissive;
 
     // Apply shadow mapping.
-    uint cascadeIdx = getCascadeIndex(inPos);
-    vec4 shadowCoord = biasMat * cascades[cascadeIdx].vp * vec4(inPos, 1.0);
-    float shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIdx, shadowMap);
-    colour *= shadow;
+    if (DRAW_SHADOWS)
+    {
+        uint cascadeIdx = getCascadeIndex(inPos);
+        vec4 shadowCoord = biasMat * cascades[cascadeIdx].vp * vec4(inPos, 1.0);
+        float shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIdx, shadowMap);
+        colour *= shadow;
+    }
 
     // Apply tonemapping (ACES only)
     colour = toneMap(colour);

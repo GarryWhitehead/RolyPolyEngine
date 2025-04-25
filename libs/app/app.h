@@ -43,6 +43,7 @@ typedef struct Application
     rpe_scene_t* scene;
     vkapi_driver_t* driver;
     arena_t arena;
+    arena_t scratch_arena;
 
     bool should_close;
     

@@ -88,7 +88,7 @@ typedef struct LightManager
         bool has_ibl;
         uint32_t light_count;
         uint32_t csm_split_count;
-
+        bool draw_shadows;
     } light_consts;
 
     rpe_engine_t* engine;

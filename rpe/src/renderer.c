@@ -229,7 +229,7 @@ void rpe_renderer_render_single_quad(
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
-    vkapi_driver_draw_quad(driver, bundle, NULL, NULL);
+    vkapi_driver_draw_quad(driver, bundle);
     vkapi_driver_end_rpass(cmds->instance);
 }
 
@@ -250,7 +250,7 @@ void rpe_renderer_render_single_indexed(
 
     vkapi_driver_bind_vertex_buffer(driver, vertex_buffer, 0);
     vkapi_driver_bind_index_buffer(driver, index_buffer);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle, NULL, NULL, true);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle, true);
 
     if (pb_entries)
     {
@@ -265,19 +265,19 @@ void rpe_renderer_render_single_indexed(
     vkapi_driver_end_rpass(cmds->instance);
 }
 
-void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap)
+void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap, bool disable_shadows)
 {
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
     rpe_settings_t settings = engine->settings;
+    bool draw_shadows = !disable_shadows && settings.draw_shadows;
 
     rg_clear(rdr->rg);
 
     // Update the renderable objects and lights.
-    rpe_scene_update(scene, engine);
+    rpe_scene_update(scene, engine, disable_shadows);
 
     vkapi_swapchain_t* sc = rdr->engine->curr_swapchain;
-
     // Resource input which will be moved to the back-buffer RT.
     rg_handle_t input_handle;
 
@@ -316,17 +316,17 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
 
     // Render the shadow maps - cascade and point/spot maps.
-    if (settings.draw_shadows)
+    if (draw_shadows)
     {
         rpe_shadow_pass_render(
             engine->shadow_manager, rdr->rg, scene, settings.shadow.cascade_dims, depth_format);
     }
 
     input_handle = rpe_light_pass_render(
-        engine->light_manager, rdr->rg, scene, desc.width, desc.height, depth_format);
+        engine->light_manager, rdr->rg, scene, desc.width, desc.height, depth_format, draw_shadows);
 
     // TODO: move to post-processing when added.
-    if (settings.shadow.enable_debug_cascade)
+    if (draw_shadows && settings.shadow.enable_debug_cascade)
     {
         input_handle = rpe_cascade_shadow_debug_render(
             engine->shadow_manager, rdr->rg, desc.width, desc.height);

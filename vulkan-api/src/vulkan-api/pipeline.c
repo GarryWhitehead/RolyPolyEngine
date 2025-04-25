@@ -95,6 +95,7 @@ vkapi_graphics_pl_t vkapi_graph_pl_create(
     // ============ dynamic states ====================
     VkPipelineDynamicStateCreateInfo dcs = {0};
     dcs.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    // TODO: Make these user definable?
     VkDynamicState states[2] = {VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT};
     dcs.dynamicStateCount = 2;
     dcs.pDynamicStates = states;

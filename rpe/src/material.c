@@ -185,21 +185,21 @@ void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum Sha
 void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFactor factors)
 {
     assert(m);
-    m->material_key.blend_state.alpha = blend_op_to_vk(factors.alpha);
-    m->material_key.blend_state.colour = blend_op_to_vk(factors.colour);
-    m->material_key.blend_state.dst_alpha = blend_factor_to_vk(factors.dst_alpha);
-    m->material_key.blend_state.dst_colour = blend_factor_to_vk(factors.dst_colour);
-    m->material_key.blend_state.src_alpha = blend_factor_to_vk(factors.src_alpha);
-    m->material_key.blend_state.src_colour = blend_factor_to_vk(factors.src_colour);
+    m->material_key.blend_state.alpha = factors.alpha;
+    m->material_key.blend_state.colour = factors.colour;
+    m->material_key.blend_state.dst_alpha = factors.dst_alpha;
+    m->material_key.blend_state.dst_colour = factors.dst_colour;
+    m->material_key.blend_state.src_alpha = factors.src_alpha;
+    m->material_key.blend_state.src_colour = factors.src_colour;
     m->material_key.blend_state.state = factors.state;
 
-    m->program_bundle->blend_state.colour = m->material_key.blend_state.colour;
-    m->program_bundle->blend_state.alpha = m->material_key.blend_state.alpha;
-    m->program_bundle->blend_state.dst_alpha = m->material_key.blend_state.dst_alpha;
-    m->program_bundle->blend_state.dst_colour = m->material_key.blend_state.dst_colour;
-    m->program_bundle->blend_state.src_alpha = m->material_key.blend_state.src_alpha;
-    m->program_bundle->blend_state.src_colour = m->material_key.blend_state.src_colour;
-    m->program_bundle->blend_state.blend_enable = m->material_key.blend_state.state;
+    m->program_bundle->blend_state.colour = blend_op_to_vk(factors.colour);
+    m->program_bundle->blend_state.alpha =blend_op_to_vk(factors.alpha);
+    m->program_bundle->blend_state.dst_alpha = blend_factor_to_vk(factors.dst_alpha);
+    m->program_bundle->blend_state.dst_colour = blend_factor_to_vk(factors.dst_colour);
+    m->program_bundle->blend_state.src_alpha = blend_factor_to_vk(factors.src_alpha);
+    m->program_bundle->blend_state.src_colour = blend_factor_to_vk(factors.src_colour);
+    m->program_bundle->blend_state.blend_enable = factors.state;
 }
 
 void rpe_material_set_double_sided_state(rpe_material_t* m, bool state)
@@ -338,7 +338,7 @@ void rpe_material_set_blend_factor_preset(rpe_material_t* m, enum BlendFactorPre
         params.src_colour = RPE_BLEND_FACTOR_SRC_ALPHA;
         params.dst_colour = RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         params.colour = RPE_BLEND_OP_ADD;
-        params.src_alpha = RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        params.src_alpha = RPE_BLEND_FACTOR_SRC_ALPHA;
         params.dst_alpha = RPE_BLEND_FACTOR_ZERO;
         params.alpha = RPE_BLEND_OP_ADD;
         params.state = VK_TRUE;

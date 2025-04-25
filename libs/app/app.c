@@ -36,6 +36,7 @@ int rpe_app_init(const char* win_title, uint32_t win_width, uint32_t win_height,
 
     // Create a small arena for the application.
     int arena_err = arena_new(RPE_APP_ARENA_SIZE, &new_app->arena);
+    arena_err = arena_err == ARENA_SUCCESS ? arena_new(RPE_APP_ARENA_SIZE, &new_app->scratch_arena) : arena_err;
     if (arena_err != ARENA_SUCCESS)
     {
         return 1;
@@ -78,7 +79,7 @@ void rpe_app_run(
         if (app_win->show_ui)
         {
             nk_helper_new_frame(app_win->nk, app_win);
-            nk_helper_render(app_win->nk, app->engine, app_win, ui_callback);
+            nk_helper_render(app_win->nk, app->engine, app_win, ui_callback, &app->scratch_arena);
         }
 
         double now = glfwGetTime();
@@ -103,11 +104,10 @@ void rpe_app_run(
         }
 
         // begin the rendering for this frame - render the main scene
-        rpe_renderer_render(renderer, app->scene, false);
-
+        rpe_renderer_render(renderer, app->scene, false, true);
         if (app_win->show_ui)
         {
-            rpe_renderer_render(renderer, app_win->nk->scene, false);
+            rpe_renderer_render(renderer, app_win->nk->scene, false, false);
         }
 
         if (post_render_func)

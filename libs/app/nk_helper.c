@@ -21,17 +21,18 @@
  */
 
 #include "nk_helper.h"
+
 #include "window.h"
+
+#include <backend/enums.h>
 #include <rpe/engine.h>
-#include <rpe/scene.h>
-#include <rpe/renderable_manager.h>
-#include <rpe/transform_manager.h>
 #include <rpe/material.h>
 #include <rpe/object_manager.h>
-#include <utility/arena.h>
-#include <backend/enums.h>
-
+#include <rpe/renderable_manager.h>
+#include <rpe/scene.h>
+#include <rpe/transform_manager.h>
 #include <string.h>
+#include <utility/arena.h>
 
 #define NK_IMPLEMENTATION
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
@@ -40,8 +41,9 @@
 #define NK_INCLUDE_STANDARD_IO
 #include <nuklear.h>
 
-nk_instance_t* nk_helper_init(const char* font_path, int font_size, rpe_engine_t* engine, arena_t* arena)
-{ 
+nk_instance_t*
+nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, arena_t* arena)
+{
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
     rpe_obj_manager_t* om = rpe_engine_get_obj_manager(engine);
 
@@ -51,17 +53,27 @@ nk_instance_t* nk_helper_init(const char* font_path, int font_size, rpe_engine_t
     nk_font_atlas_begin(&nk->atlas);
 
     const struct nk_font_config config = nk_font_config(font_size);
-    nk->atlas.default_font =
-        nk_font_atlas_add_from_file(&nk->atlas, font_path, font_size, &config);
-    
+    nk->atlas.default_font = nk_font_atlas_add_from_file(&nk->atlas, font_path, font_size, &config);
+    if (!nk->atlas.default_font)
+    {
+        log_error("Error loading font from path: %s", font_path);
+        return NULL;
+    }
+
     int w, h;
     const void* image = nk_font_atlas_bake(&nk->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
     nk_init_default(&nk->ctx, &nk->atlas.default_font->handle);
-    nk_font_atlas_end(&nk->atlas, nk_handle_ptr(image), &nk->tex_null);
+    nk_font_atlas_end(&nk->atlas, nk_handle_ptr((void*)image), &nk->tex_null);
 
     // Upload the font to the device.
     rpe_mapped_texture_t tex = {
-        .width = w, .height = h, .image_data = image, .format = VK_FORMAT_R32G32B32A32_UINT, .array_count = 1, .mip_levels = 1, .image_data_size = w * h * 4};
+        .width = w,
+        .height = h,
+        .image_data = (void*)image,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .array_count = 1,
+        .mip_levels = 1,
+        .image_data_size = w * h * 4};
     sampler_params_t sampler = {
         .addr_u = RPE_SAMPLER_ADDR_MODE_REPEAT,
         .addr_v = RPE_SAMPLER_ADDR_MODE_REPEAT,
@@ -75,18 +87,21 @@ nk_instance_t* nk_helper_init(const char* font_path, int font_size, rpe_engine_t
     rpe_material_set_blend_factor_preset(nk->font_mat, RPE_BLEND_FACTOR_PRESET_TRANSLUCENT);
     rpe_material_set_type(nk->font_mat, RPE_MATERIAL_UI);
     rpe_material_set_shadow_caster_state(nk->font_mat, false);
+    rpe_material_set_front_face(nk->font_mat, RPE_FRONT_FACE_COUNTER_CLOCKWISE);
 
     nk_buffer_init_default(&nk->v_buffer);
     nk_buffer_init_default(&nk->i_buffer);
     nk_buffer_init_default(&nk->cmds);
 
     nk->scene = rpe_engine_create_scene(engine);
-    nk->camera = rpe_engine_create_camera(engine, 90.0f, 1.0f, 1.0f, 1.0f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
+    nk->camera = rpe_engine_create_camera(
+        engine, 90.0f, 1, 1, 1.0f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
     rpe_scene_set_current_camera(nk->scene, engine, nk->camera);
 
     rpe_model_transform_t mt = rpe_model_transform_init();
     nk->transform_obj = rpe_obj_manager_create_obj(om);
-    rpe_transform_manager_add_local_transform(rpe_engine_get_transform_manager(engine), &mt, &nk->transform_obj);
+    rpe_transform_manager_add_local_transform(
+        rpe_engine_get_transform_manager(engine), &mt, &nk->transform_obj);
 
     for (int i = 0; i < RPE_NK_HELPER_MAX_RENDERABLES; ++i)
     {
@@ -109,13 +124,13 @@ void nk_helper_new_frame(nk_instance_t* nk, app_window_t* app_win)
     double x, y;
     struct nk_context* ctx = &nk->ctx;
     struct GLFWwindow* win = app_win->glfw_window;
-   
+
     float delta_time_now = (float)glfwGetTime();
     nk->ctx.delta_time_seconds = delta_time_now - nk->delta_time_seconds_last;
     nk->delta_time_seconds_last = delta_time_now;
 
     int display_width, display_height;
-    glfwGetWindowSize(win, &app_win->width, &app_win->height);
+    glfwGetWindowSize(win, (int*)&app_win->width, (int*)&app_win->height);
     glfwGetFramebufferSize(win, &display_width, &display_height);
     nk->fb_scale.x = (float)display_width / (float)app_win->width;
     nk->fb_scale.y = (float)display_height / (float)app_win->height;
@@ -217,7 +232,8 @@ void nk_helper_new_frame(nk_instance_t* nk, app_window_t* app_win)
     nk->scroll = nk_vec2(0, 0);
 }
 
-void nk_helper_render(nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, UiCallback ui_callback)
+void nk_helper_render(
+    nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, UiCallback ui_callback, arena_t* arena)
 {
     assert(ui_callback);
     assert(nk);
@@ -238,13 +254,11 @@ void nk_helper_render(nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win
     ui_callback(engine, win);
 
     struct nk_convert_config config = {0};
-    struct nk_draw_vertex_layout_element vertex_layout[] = 
-    {
+    struct nk_draw_vertex_layout_element vertex_layout[] = {
         {NK_VERTEX_POSITION, NK_FORMAT_FLOAT, offsetof(rpe_vertex_t, position)},
         {NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, offsetof(rpe_vertex_t, uv0)},
-        {NK_VERTEX_COLOR, NK_FORMAT_R8G8B8A8, offsetof(rpe_vertex_t, colour)},
-        {NK_VERTEX_LAYOUT_END}
-    };
+        {NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, offsetof(rpe_vertex_t, colour)},
+        {NK_VERTEX_LAYOUT_END}};
 
     config.vertex_layout = vertex_layout;
     config.vertex_size = sizeof(rpe_vertex_t);
@@ -257,14 +271,21 @@ void nk_helper_render(nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win
     config.shape_AA = NK_ANTI_ALIASING_ON;
     config.line_AA = NK_ANTI_ALIASING_ON;
 
+    uint8_t* vertex_tmp = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, sizeof(rpe_vertex_t) * 1000);
+    uint8_t* index_tmp = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, sizeof(uint16_t) * 1000);
+
+    nk_buffer_init_fixed(&nk->v_buffer, vertex_tmp, sizeof(rpe_vertex_t) * 1000);
+    nk_buffer_init_fixed(&nk->i_buffer, index_tmp, sizeof(uint16_t) * 1000);
+
+    memset(nk->v_buffer.memory.ptr, 0, nk->v_buffer.allocated);
     nk_flags res = nk_convert(&nk->ctx, &nk->cmds, &nk->v_buffer, &nk->i_buffer, &config);
     assert(res == NK_CONVERT_SUCCESS);
-    
+
     rpe_mesh_t* mesh = rpe_rend_manager_create_mesh(
         rm,
-        (rpe_vertex_t*)nk->ctx.draw_list.vertices->memory.ptr,
+        (rpe_vertex_t*)vertex_tmp,
         nk->ctx.draw_list.vertex_count,
-        nk->ctx.draw_list.elements->memory.ptr,
+        index_tmp,
         nk->ctx.draw_list.element_count,
         RPE_RENDERABLE_INDICES_U16,
         RPE_MESH_ATTRIBUTE_UV0 | RPE_MESH_ATTRIBUTE_POSITION | RPE_MESH_ATTRIBUTE_COLOUR);
@@ -279,15 +300,15 @@ void nk_helper_render(nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win
         {
             continue;
         }
-        
+
         rpe_mesh_t* new_mesh =
             rpe_rend_manager_offset_indices(rm, mesh, index_offset, cmd->elem_count);
         nk->renderables[idx] = rpe_engine_create_renderable(engine, nk->font_mat, new_mesh);
 
         int32_t x = (int32_t)MAX(cmd->clip_rect.x, 0.0f) * nk->fb_scale.x;
         int32_t y = (int32_t)MAX(cmd->clip_rect.y, 0.0f) * nk->fb_scale.y;
-        uint32_t w = (uint32_t)cmd->clip_rect.w * nk->fb_scale.x;
-        uint32_t h = (uint32_t)cmd->clip_rect.h * nk->fb_scale.y;
+        uint32_t w = (uint32_t)(cmd->clip_rect.w - cmd->clip_rect.x) * nk->fb_scale.x;
+        uint32_t h = (uint32_t)(cmd->clip_rect.h - cmd->clip_rect.y) * nk->fb_scale.y;
         rpe_renderable_set_scissor(nk->renderables[idx], x, y, w, h);
 
         rpe_rend_manager_add(rm, nk->renderables[idx], nk->rend_objs[idx], nk->transform_obj);
@@ -298,4 +319,5 @@ void nk_helper_render(nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win
     }
 
     nk_clear(&nk->ctx);
+    arena_reset(arena);
 }

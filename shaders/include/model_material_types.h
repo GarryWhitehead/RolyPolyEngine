@@ -18,7 +18,11 @@ void skyboxMaterial(DrawData drawData)
     outEmissive.a = 0.0;
 }
 
-void uiMaterial() { outPos = vec4(inPos.xy, 0.0, 1.0); }
+void uiMaterial() 
+{ 
+    outPos = vec4(inPos.xy, 0.0, 1.0); 
+    outColour = inColour * texture(cubeMaps[nonuniformEXT(drawData.colour)], worldUv);
+}
 
 void modelFragment(DrawData drawData)
 {

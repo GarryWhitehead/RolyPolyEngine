@@ -65,6 +65,14 @@ typedef struct Renderable
     uint64_t sort_key;
     rpe_rect_2d_t scissor;
     rpe_viewport_t viewport;
+
+    // Used for the material key - batching is dependent on viewport/scissor changes.
+    struct RenderableKey
+    {
+        rpe_rect_2d_t scissor;
+        rpe_viewport_t viewport;
+    } key;
+
 } rpe_renderable_t;
 
 typedef struct BatchedDraw
@@ -72,6 +80,8 @@ typedef struct BatchedDraw
     rpe_material_t* material;
     uint32_t first_idx;
     uint32_t count;
+    rpe_rect_2d_t scissor;
+    rpe_viewport_t viewport;
 } rpe_batch_renderable_t;
 
 struct IndirectDraw
@@ -85,15 +95,10 @@ struct IndirectDraw
 typedef struct RenderableManager
 {
     rpe_engine_t* engine;
-
     arena_dyn_array_t batched_renderables;
-
-    // A renderable is a combination of mesh and material data.
     arena_dyn_array_t renderables;
-
     arena_dyn_array_t materials;
     arena_dyn_array_t meshes;
-
     rpe_comp_manager_t* comp_manager;
 
 } rpe_rend_manager_t;

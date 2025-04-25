@@ -25,7 +25,7 @@ void uiMesh(vec4 pos)
 {
     vec2 uiPos = pos.xy;
     gl_Position = camera_ubo.proj * vec4(uiPos, 0.0, 1.0);
-    outPos = inPos;
+    outPos = uiPos;
 }
 
 void modelVertex(vec4 pos)

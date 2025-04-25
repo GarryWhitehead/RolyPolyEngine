@@ -175,7 +175,7 @@ void execute_cascade_debug_pass(
         d->prog_bundle, driver, rg_res_get_tex_handle(res, d->light_colour), 1);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
-    vkapi_driver_bind_gfx_pipeline(driver, d->prog_bundle, NULL, NULL, false);
+    vkapi_driver_bind_gfx_pipeline(driver, d->prog_bundle, false);
     vkapi_driver_set_push_constant(
         driver,
         d->prog_bundle,

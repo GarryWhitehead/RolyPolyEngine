@@ -21,17 +21,25 @@
  */
 
 #include "window.h"
-#include "nk_helper.h"
+
 #include "app.h"
+#include "nk_helper.h"
+
 #include <rpe/engine.h>
 #include <rpe/settings.h>
+#include <string.h>
+#include <utility/arena.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
-#include <utility/arena.h>
-#include <string.h>
 
 int app_window_init(
-    rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win, rpe_settings_t* settings, bool show_ui)
+    rpe_app_t* app,
+    const char* title,
+    uint32_t width,
+    uint32_t height,
+    app_window_t* new_win,
+    rpe_settings_t* settings,
+    bool show_ui)
 {
     memset(new_win, 0, sizeof(app_window_t));
     new_win->show_ui = show_ui;
@@ -126,7 +134,11 @@ int app_window_init(
     if (new_win->show_ui)
     {
         const char* font_path = RPE_ASSETS_DIRECTORY "/RobotoMono-Regular.ttf";
-        new_win->nk = nk_helper_init(font_path, 12, app->engine, &app->arena);
+        new_win->nk = nk_helper_init(font_path, 12.0f, app->engine, &app->arena);
+        if (!new_win->nk)
+        {
+            return APP_ERROR_UI_FONT_NOT_FOUND;
+        }
     }
     return APP_SUCCESS;
 }
@@ -252,7 +264,7 @@ void app_window_mouse_button_response(GLFWwindow* window, int button, int action
             glfwGetCursorPos(window, &xpos, &ypos);
             rpe_camera_view_mouse_button_down(&input_sys->cam_view, xpos, ypos);
 
-             if (input_sys->show_ui)
+            if (input_sys->show_ui)
             {
                 nk_instance_t* nk = input_sys->nk;
                 double dt = glfwGetTime() - nk->last_button_click;

@@ -26,22 +26,22 @@
 #include "engine.h"
 #include "render_queue.h"
 #include "rpe/object.h"
+#include "rpe/transform_manager.h"
 #include "scene.h"
 #include "transform_manager.h"
-#include "rpe/transform_manager.h"
 #include "vertex_buffer.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <utility/hash.h>
 #include <utility/sort.h>
-#include <string.h>
 
 
 rpe_renderable_t rpe_renderable_init()
 {
     rpe_renderable_t rend = {0};
     rend.sort_key = UINT32_MAX;
-    //rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    // rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     rend.box = rpe_aabox_init();
     return rend;
 }
@@ -70,9 +70,17 @@ void rpe_renderable_set_scissor(rpe_renderable_t* r, int32_t x, int32_t y, uint3
     r->scissor.y = y;
     r->scissor.width = w;
     r->scissor.height = h;
+    r->key.scissor = r->scissor;
 }
 
-void rpe_renderable_set_viewport(rpe_renderable_t* r, int32_t x, int32_t y, uint32_t w, uint32_t h, float min_depth, float max_depth)
+void rpe_renderable_set_viewport(
+    rpe_renderable_t* r,
+    int32_t x,
+    int32_t y,
+    uint32_t w,
+    uint32_t h,
+    float min_depth,
+    float max_depth)
 {
     r->viewport.rect.x = x;
     r->viewport.rect.y = y;
@@ -80,6 +88,7 @@ void rpe_renderable_set_viewport(rpe_renderable_t* r, int32_t x, int32_t y, uint
     r->viewport.rect.height = h;
     r->viewport.min_depth = min_depth;
     r->viewport.max_depth = max_depth;
+    r->key.viewport = r->viewport;
 }
 
 rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)
@@ -96,7 +105,7 @@ rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)
     return m;
 }
 
-void* rpe_rend_manager_add(
+void rpe_rend_manager_add(
     rpe_rend_manager_t* m,
     rpe_renderable_t* renderable,
     rpe_object_t rend_obj,
@@ -108,8 +117,9 @@ void* rpe_rend_manager_add(
 
     uint32_t material_key =
         murmur2_hash(&renderable->material->material_key, sizeof(struct MaterialKey), 0);
+    uint32_t rend_key = murmur2_hash(&renderable->key, sizeof(struct RenderableKey), 0);
     struct SortKey key = {
-        .program_id = material_key,
+        .program_id = material_key + rend_key,
         .view_layer = renderable->material->view_layer,
         .screen_layer = 0,
         .depth = 0};
@@ -153,7 +163,8 @@ rpe_mesh_t* rpe_rend_manager_create_mesh(
     enum MeshAttributeFlags mesh_flags)
 {
     rpe_mesh_t mesh;
-    mesh.vertex_offset = rpe_vertex_buffer_copy_vert_data(m->engine->vbuffer, vertex_size, vertex_data);
+    mesh.vertex_offset =
+        rpe_vertex_buffer_copy_vert_data(m->engine->vbuffer, vertex_size, vertex_data);
     if (indices_type == RPE_RENDERABLE_INDICES_U32)
     {
         mesh.index_offset = rpe_vertex_buffer_copy_index_data_u32(
@@ -305,7 +316,7 @@ rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t*
     return DYN_ARRAY_GET_PTR(rpe_renderable_t, &m->renderables, idx);
 }
 
-#ifdef __linux__ 
+#ifdef __linux__
 int sort_renderables(const void* a, const void* b, void* rend_manager)
 #elif WIN32
 int sort_renderables(void* rend_manager, const void* a, const void* b)
@@ -345,7 +356,12 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
 
     rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, object_arr, 0);
     rpe_renderable_t* rend = rpe_rend_manager_get_mesh(m, obj);
-    rpe_batch_renderable_t batch = {.material = rend->material, .first_idx = 0, .count = 1};
+    rpe_batch_renderable_t batch = {
+        .material = rend->material,
+        .first_idx = 0,
+        .count = 1,
+        .scissor = rend->scissor,
+        .viewport = rend->viewport};
     rpe_batch_renderable_t* curr_batch = DYN_ARRAY_APPEND(&m->batched_renderables, &batch);
     rpe_renderable_t* prev = rend;
 
@@ -361,6 +377,11 @@ rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* obj
         else
         {
             batch.material = rend->material;
+            // As the sort key also includes the scissor and viewport which means changes in these
+            // params will result in a new batch, we just take the scissor and viewport from the
+            // first renderable.
+            batch.scissor = rend->scissor;
+            batch.viewport = rend->viewport;
             batch.first_idx = i;
             batch.count = 1;
             curr_batch = DYN_ARRAY_APPEND(&m->batched_renderables, &batch);

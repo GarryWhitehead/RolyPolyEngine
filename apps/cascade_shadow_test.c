@@ -23,10 +23,10 @@
 #include <app/app.h>
 #include <app/ibl_helper.h>
 #include <app/nk_helper.h>
-#include <parg.h>
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
+#include <parg.h>
 #include <rpe/ibl.h>
 #include <rpe/light_manager.h>
 #include <rpe/material.h>
@@ -71,8 +71,8 @@ struct LightData
     rpe_object_t dir_obj;
 };
 
-void light_update(rpe_engine_t* engine, void* data) 
-{ 
+void light_update(rpe_engine_t* engine, void* data)
+{
     struct LightData* light_data = (struct LightData*)data;
     light_data->timer += light_data->timer_speed;
     if (light_data->timer > 1.0f)
@@ -82,7 +82,7 @@ void light_update(rpe_engine_t* engine, void* data)
 
     float angle = math_to_radians(light_data->timer * 360.0f);
     float radius = 20.0f;
-    math_vec3f pos = { cosf(angle), -radius, sinf(angle) * radius };
+    math_vec3f pos = {cosf(angle), -radius, sinf(angle) * radius};
     rpe_light_manager_set_position(rpe_engine_get_light_manager(engine), light_data->dir_obj, &pos);
 }
 
@@ -104,8 +104,9 @@ void ui_callback(rpe_engine_t* engine, app_window_t* win)
     {
         nk_layout_row_dynamic(ctx, 30, 2);
         nk_checkbox_label(ctx, "Show shadows", &show_shadows);
-        
+
         // Cascade levels.
+        /*nk_layout_row_dynamic(ctx, 30, 2);
         nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
         {
             nk_layout_row_push(ctx, 50);
@@ -115,13 +116,14 @@ void ui_callback(rpe_engine_t* engine, app_window_t* win)
         }
 
         // Lambda
+        nk_layout_row_dynamic(ctx, 30, 2);
         nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
         {
             nk_layout_row_push(ctx, 50);
             nk_label(ctx, "Split lambda:", NK_TEXT_LEFT);
             nk_layout_row_push(ctx, 110);
             nk_slider_float(ctx, 0, &lambda, 0.1f, 1.0f);
-        }
+        }*/
     }
     nk_end(ctx);
 }
@@ -132,7 +134,7 @@ int main(int argc, char** argv)
     const uint32_t win_height = 1080;
     const char* gltf_asset_path = NULL;
     bool show_ui = true;
-    
+
     struct parg_state ps;
     parg_init(&ps);
 
@@ -171,7 +173,8 @@ int main(int argc, char** argv)
         .shadow.enable_debug_cascade = false};
 
     rpe_app_t app;
-    int error = rpe_app_init("Cascade Shadow Demo", win_width, win_height, &app, &settings, show_ui);
+    int error =
+        rpe_app_init("Cascade Shadow Demo", win_width, win_height, &app, &settings, show_ui);
     if (error != APP_SUCCESS)
     {
         exit(1);
@@ -251,8 +254,9 @@ int main(int argc, char** argv)
         model_assets[1], rm, tm, om, app.scene, MODEL_TREE_COUNT, tree_positions, &app.arena);
 
     struct LightData data = {.timer = 0.2f, .timer_speed = 0.001f};
-    
-    // Add a directional light for shadows - just creating the object here, will be updated when running the app.
+
+    // Add a directional light for shadows - just creating the object here, will be updated when
+    // running the app.
     data.dir_obj = rpe_obj_manager_create_obj(om);
     rpe_light_create_info_t ci = {0};
     rpe_light_manager_create_light(lm, &ci, data.dir_obj, RPE_LIGHTING_TYPE_DIRECTIONAL);
