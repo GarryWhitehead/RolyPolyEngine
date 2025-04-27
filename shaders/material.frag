@@ -37,6 +37,8 @@ layout (constant_id = 11) const bool HAS_NORMAL = false;
 layout (constant_id = 12) const bool HAS_TANGENT = false;
 layout (constant_id = 13) const bool HAS_COLOUR_ATTR = false;
 layout (constant_id = 14) const uint MATERIAL_TYPE = MATERIAL_TYPE_DEFAULT;
+layout (constant_id = 15) const bool HAS_LIGHTING = true;
+
 
 layout(set = 3, binding = 0) uniform sampler2D textures[];
 layout(set = 3, binding = 0) uniform samplerCube cubeMaps[];
@@ -95,6 +97,9 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 
 void main()
 {
+    vec4 normOut = vec4(0.0);
+    vec4 baseColour = vec4(1.0);
+
     vec3 V = normalize(inCameraPos - inPos);
     
     DrawData iData = drawData[inModelDrawIdx];
@@ -111,27 +116,24 @@ void main()
 	        vec3 T = normalize(inTangent.xyz);
 	        vec3 B = cross(N, T) * inTangent.w;
 	        mat3 TBN = mat3(T, B, N);
-            outNormal = vec4(normalize(TBN * norm), 0.0);
+            normOut = vec4(normalize(TBN * norm), 0.0);
         }
         else
         {
             norm.y *= -1.0;
-            outNormal = vec4(peturbNormal(uv, -V, norm), 0.0);
+            normOut = vec4(peturbNormal(uv, -V, norm), 0.0);
         }
          // Need to flip this along with the R vector y (maybe should be an option or something?)
-        outNormal.y *= -1.0;
+        normOut.y *= -1.0;
     }
     else if (HAS_NORMAL)
     {
-        outNormal = vec4(normalize(inNormal), 0.0);
+        normOut = vec4(normalize(inNormal), 0.0);
     }
     else
     {
-        outNormal = vec4(normalize(cross(dFdx(-V), dFdy(-V))), 0.0);
+        normOut = vec4(normalize(cross(dFdx(-V), dFdy(-V))), 0.0);
     }
-
-    // albedo
-    vec4 baseColour = vec4(1.0);
     
     // default values for output attachments
     float roughness = 1.0;
@@ -245,24 +247,29 @@ void main()
     // =========== fragment outputs ====================
 
     outColour = baseColour;
-    outPbr = vec2(metallic, roughness);
 
-    // occlusion
-    if (HAS_OCCLUSION_SAMPLER && HAS_UV)
+    if (HAS_LIGHTING)
     {
-        // Bake the occlusion value into the alpha channel of the colour - applied in the lighting stage.
-        vec2 uv = iData.occlusionUv == 0 ? inUv0 : inUv1;
-        outColour.a = texture(textures[nonuniformEXT(iData.occlusion)], uv).r;
-    }
+        outNormal = normOut;
+        outPbr = vec2(metallic, roughness);
 
-    // emmisive
-    vec3 emissive = iData.emissiveFactor.rgb;
-    if (HAS_EMISSIVE_SAMPLER && HAS_UV)
-    {
-        vec2 uv = iData.emissiveUv == 0 ? inUv0 : inUv1;
-        emissive *= texture(textures[nonuniformEXT(iData.emissive)], uv).rgb;
+        // occlusion
+        if (HAS_OCCLUSION_SAMPLER && HAS_UV)
+        {
+            // Bake the occlusion value into the alpha channel of the colour - applied in the lighting stage.
+            vec2 uv = iData.occlusionUv == 0 ? inUv0 : inUv1;
+            outColour.a = texture(textures[nonuniformEXT(iData.occlusion)], uv).r;
+        }
+
+        // emmisive
+        vec3 emissive = iData.emissiveFactor.rgb;
+        if (HAS_EMISSIVE_SAMPLER && HAS_UV)
+        {
+            vec2 uv = iData.emissiveUv == 0 ? inUv0 : inUv1;
+            emissive *= texture(textures[nonuniformEXT(iData.emissive)], uv).rgb;
+        }
+        outEmissive = vec4(emissive, 1.0);
     }
-    outEmissive = vec4(emissive, 1.0);
 
     modelFragment(iData);
 }

@@ -416,7 +416,7 @@ bool rpe_ibl_eqirect_to_cubemap(
         return false;
     }
 
-    shader_bundle_update_ubo_desc(bundle, 0, engine->camera_ubo);
+    shader_bundle_update_ubo_desc(bundle, 0, ibl->scene->camera_ubo);
     shader_bundle_update_ubo_desc(bundle, 1, ibl->faceview_ubo);
 
     shader_bundle_add_vertex_input_binding(
@@ -487,7 +487,7 @@ bool rpe_ibl_create_env_maps(ibl_t* ibl, rpe_engine_t* engine)
     shader_bundle_update_ubo_desc(ibl->brdf.bundle, 0, ibl->brdf_ubo);
 
     // Irradiance
-    shader_bundle_update_ubo_desc(ibl->irradiance_envmap.bundle, 0, engine->camera_ubo);
+    shader_bundle_update_ubo_desc(ibl->irradiance_envmap.bundle, 0, ibl->scene->camera_ubo);
     shader_bundle_update_ubo_desc(ibl->irradiance_envmap.bundle, 1, ibl->faceview_ubo);
 
     shader_bundle_add_vertex_input_binding(
@@ -504,7 +504,7 @@ bool rpe_ibl_create_env_maps(ibl_t* ibl, rpe_engine_t* engine)
         vkapi_res_cache_create_ubo(driver->res_cache, driver, sizeof(struct SpecularFragUBO));
     shader_bundle_create_push_block(
         ibl->specular.bundle, sizeof(float), RPE_BACKEND_SHADER_STAGE_FRAGMENT);
-    shader_bundle_update_ubo_desc(ibl->specular.bundle, 0, engine->camera_ubo);
+    shader_bundle_update_ubo_desc(ibl->specular.bundle, 0, ibl->scene->camera_ubo);
     shader_bundle_update_ubo_desc(ibl->specular.bundle, 1, ibl->faceview_ubo);
     shader_bundle_update_ubo_desc(ibl->specular.bundle, 2, ibl->specular_frag_ubo);
 
@@ -529,14 +529,17 @@ bool rpe_ibl_create_env_maps(ibl_t* ibl, rpe_engine_t* engine)
     return true;
 }
 
-ibl_t* rpe_ibl_init(rpe_engine_t* engine, struct PreFilterOptions options)
+ibl_t* rpe_ibl_init(rpe_engine_t* engine, rpe_scene_t* scene, struct PreFilterOptions options)
 {
+    assert(engine);
+    assert(scene);
     assert(options.brdf_sample_count > 0);
     assert(options.specular_level_count > 0);
     assert(options.specular_sample_count > 0);
 
     ibl_t* ibl = ARENA_MAKE_ZERO_STRUCT(&engine->perm_arena, ibl_t);
     ibl->tex_cube_map.id = UINT32_MAX;
+    ibl->scene = scene;
 
     vkapi_driver_t* driver = engine->driver;
 
@@ -544,7 +547,7 @@ ibl_t* rpe_ibl_init(rpe_engine_t* engine, struct PreFilterOptions options)
         engine, 90.0f, 1, 1, 0.1f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
     rpe_camera_ubo_t cam_ubo = rpe_camera_update_ubo(ibl->camera, NULL);
     vkapi_driver_map_gpu_buffer(
-        engine->driver, engine->camera_ubo, sizeof(rpe_camera_ubo_t), 0, &cam_ubo);
+        engine->driver, scene->camera_ubo, sizeof(rpe_camera_ubo_t), 0, &cam_ubo);
 
     ibl->renderer = rpe_engine_create_renderer(engine);
     ibl->options = options;

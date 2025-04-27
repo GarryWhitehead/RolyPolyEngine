@@ -39,22 +39,32 @@
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
 
 nk_instance_t*
-nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, arena_t* arena)
+nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, app_window_t* app_win, arena_t* arena)
 {
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
     rpe_obj_manager_t* om = rpe_engine_get_obj_manager(engine);
 
     nk_instance_t* nk = ARENA_MAKE_ZERO_STRUCT(arena, nk_instance_t);
+    nk_init_default(&nk->ctx, 0);
+    nk->scene = rpe_engine_create_scene(engine);
+
+    nk->camera = rpe_engine_create_camera(
+        engine, 90.0f, app_win->width, app_win->height, 0.0f, 1.0f, RPE_PROJECTION_TYPE_ORTHO);
+    rpe_scene_set_current_camera(nk->scene, engine, nk->camera);
+    rpe_scene_disable_shadows(nk->scene);
+    rpe_scene_skip_lighting_pass(nk->scene);
 
     nk_font_atlas_init_default(&nk->atlas);
     nk_font_atlas_begin(&nk->atlas);
 
     const struct nk_font_config config = nk_font_config(font_size);
-    nk->atlas.default_font = nk_font_atlas_add_from_file(&nk->atlas, font_path, font_size, &config);
-    if (!nk->atlas.default_font)
+    struct nk_font* font_atlas = nk_font_atlas_add_from_file(&nk->atlas, font_path, font_size, &config);
+    if (!font_atlas)
     {
         log_error("Error loading font from path: %s", font_path);
         return NULL;
@@ -62,8 +72,6 @@ nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, are
 
     int w, h;
     const void* image = nk_font_atlas_bake(&nk->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
-    nk_init_default(&nk->ctx, &nk->atlas.default_font->handle);
-    nk_font_atlas_end(&nk->atlas, nk_handle_ptr((void*)image), &nk->tex_null);
 
     // Upload the font to the device.
     rpe_mapped_texture_t tex = {
@@ -75,28 +83,27 @@ nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, are
         .mip_levels = 1,
         .image_data_size = w * h * 4};
     sampler_params_t sampler = {
-        .addr_u = RPE_SAMPLER_ADDR_MODE_REPEAT,
-        .addr_v = RPE_SAMPLER_ADDR_MODE_REPEAT,
+        .addr_u = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
+        .addr_v = RPE_SAMPLER_ADDR_MODE_CLAMP_TO_EDGE,
         .min = RPE_SAMPLER_FILTER_LINEAR,
         .mag = RPE_SAMPLER_FILTER_LINEAR};
-    rpe_material_map_texture(engine, &tex, &sampler, false);
+    texture_handle_t t = rpe_material_map_texture(engine, &tex, &sampler, false);
+
+    nk_font_atlas_end(&nk->atlas, nk_handle_ptr((void*)image), &nk->tex_null);
+    nk_style_set_font(&nk->ctx, &font_atlas->handle);
 
     // Create a material for the font and upload font bitmap to the device.
-    nk->font_mat = rpe_rend_manager_create_material(rm);
+    nk->font_mat = rpe_rend_manager_create_material(rm, nk->scene);
     rpe_material_set_view_layer(nk->font_mat, 0x5);
     rpe_material_set_blend_factor_preset(nk->font_mat, RPE_BLEND_FACTOR_PRESET_TRANSLUCENT);
     rpe_material_set_type(nk->font_mat, RPE_MATERIAL_UI);
     rpe_material_set_shadow_caster_state(nk->font_mat, false);
-    rpe_material_set_front_face(nk->font_mat, RPE_FRONT_FACE_COUNTER_CLOCKWISE);
+
+    rpe_material_set_device_texture(nk->font_mat, t, RPE_MATERIAL_IMAGE_TYPE_BASE_COLOR, 0);
 
     nk_buffer_init_default(&nk->v_buffer);
     nk_buffer_init_default(&nk->i_buffer);
     nk_buffer_init_default(&nk->cmds);
-
-    nk->scene = rpe_engine_create_scene(engine);
-    nk->camera = rpe_engine_create_camera(
-        engine, 90.0f, 1, 1, 1.0f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
-    rpe_scene_set_current_camera(nk->scene, engine, nk->camera);
 
     rpe_model_transform_t mt = rpe_model_transform_init();
     nk->transform_obj = rpe_obj_manager_create_obj(om);
@@ -277,10 +284,15 @@ void nk_helper_render(
     nk_buffer_init_fixed(&nk->v_buffer, vertex_tmp, sizeof(rpe_vertex_t) * 1000);
     nk_buffer_init_fixed(&nk->i_buffer, index_tmp, sizeof(uint16_t) * 1000);
 
-    memset(nk->v_buffer.memory.ptr, 0, nk->v_buffer.allocated);
     nk_flags res = nk_convert(&nk->ctx, &nk->cmds, &nk->v_buffer, &nk->i_buffer, &config);
     assert(res == NK_CONVERT_SUCCESS);
 
+    rpe_vertex_t* v = vertex_tmp;
+    for (int i = 0; i < nk->ctx.draw_list.vertex_count; ++i)
+    {
+        v->position[2] = 0.0f;
+        v++;
+    }
     rpe_mesh_t* mesh = rpe_rend_manager_create_mesh(
         rm,
         (rpe_vertex_t*)vertex_tmp,
@@ -307,8 +319,8 @@ void nk_helper_render(
 
         int32_t x = (int32_t)MAX(cmd->clip_rect.x, 0.0f) * nk->fb_scale.x;
         int32_t y = (int32_t)MAX(cmd->clip_rect.y, 0.0f) * nk->fb_scale.y;
-        uint32_t w = (uint32_t)(cmd->clip_rect.w - cmd->clip_rect.x) * nk->fb_scale.x;
-        uint32_t h = (uint32_t)(cmd->clip_rect.h - cmd->clip_rect.y) * nk->fb_scale.y;
+        uint32_t w = (uint32_t)cmd->clip_rect.w * nk->fb_scale.x;
+        uint32_t h = (uint32_t)cmd->clip_rect.h * nk->fb_scale.y;
         rpe_renderable_set_scissor(nk->renderables[idx], x, y, w, h);
 
         rpe_rend_manager_add(rm, nk->renderables[idx], nk->rend_objs[idx], nk->transform_obj);

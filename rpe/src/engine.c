@@ -82,9 +82,6 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
         return NULL;
     }
 
-    instance->camera_ubo =
-        vkapi_res_cache_create_ubo(driver->res_cache, driver, sizeof(rpe_camera_ubo_t));
-
     instance->obj_manager = rpe_obj_manager_init(&instance->perm_arena);
     instance->transform_manager = rpe_transform_manager_init(instance, &instance->perm_arena);
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
@@ -107,6 +104,19 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
         1,
         1,
         VKAPI_TEXTURE_2D_CUBE,
+        VK_IMAGE_USAGE_SAMPLED_BIT,
+        &sampler);
+    instance->tex_dummy_array = vkapi_res_cache_create_tex2d(
+        driver->res_cache,
+        driver->context,
+        driver->vma_allocator,
+        driver->sampler_cache,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        1,
+        1,
+        1,
+        4,
+        VKAPI_TEXTURE_2D_ARRAY,
         VK_IMAGE_USAGE_SAMPLED_BIT,
         &sampler);
     instance->tex_dummy = vkapi_res_cache_create_tex2d(
@@ -132,6 +142,12 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     vkapi_driver_transition_image(
         driver,
         instance->tex_dummy,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        1);
+    vkapi_driver_transition_image(
+        driver,
+        instance->tex_dummy_array,
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         1);
@@ -297,6 +313,12 @@ void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)
     engine->curr_scene = scene;
     // Update the shadow manager with the draw data buffer now.
     rpe_shadow_manager_update_draw_buffer(engine->shadow_manager, scene);
+}
+
+rpe_scene_t* rpe_engine_get_current_scene(rpe_engine_t* engine)
+{ 
+    assert(engine);
+    return engine->curr_scene;
 }
 
 void rpe_engine_set_current_swapchain(rpe_engine_t* engine, swapchain_handle_t* handle)

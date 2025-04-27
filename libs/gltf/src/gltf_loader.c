@@ -166,7 +166,10 @@ rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asse
     assert(asset);
 
     rpe_rend_manager_t* r_manager = rpe_engine_get_rend_manager(asset->engine);
-    rpe_material_t* new_mat = rpe_rend_manager_create_material(r_manager);
+    // TODO: Its annoying having a model tied (non-transparently) to a scene.
+    rpe_scene_t* scene = rpe_engine_get_current_scene(asset->engine);
+    assert(scene);
+    rpe_material_t* new_mat = rpe_rend_manager_create_material(r_manager, scene);
 
     // Two pipelines, either specular glossiness or metallic roughness,
     // according to the spec, metallic roughness should be preferred.

@@ -43,6 +43,8 @@ int app_window_init(
 {
     memset(new_win, 0, sizeof(app_window_t));
     new_win->show_ui = show_ui;
+    new_win->width = width;
+    new_win->height = height;
 
     if (!glfwInit())
     {
@@ -133,8 +135,8 @@ int app_window_init(
 
     if (new_win->show_ui)
     {
-        const char* font_path = RPE_ASSETS_DIRECTORY "/RobotoMono-Regular.ttf";
-        new_win->nk = nk_helper_init(font_path, 12.0f, app->engine, &app->arena);
+        const char* font_path = RPE_ASSETS_DIRECTORY "/Roboto-Regular.ttf";
+        new_win->nk = nk_helper_init(font_path, 14.0f, app->engine, new_win, &app->arena);
         if (!new_win->nk)
         {
             return APP_ERROR_UI_FONT_NOT_FOUND;

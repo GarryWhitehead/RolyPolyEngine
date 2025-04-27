@@ -265,17 +265,17 @@ void rpe_renderer_render_single_indexed(
     vkapi_driver_end_rpass(cmds->instance);
 }
 
-void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap, bool disable_shadows)
+void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap)
 {
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
     rpe_settings_t settings = engine->settings;
-    bool draw_shadows = !disable_shadows && settings.draw_shadows;
+    bool draw_shadows = scene->draw_shadows & settings.draw_shadows;
 
     rg_clear(rdr->rg);
 
     // Update the renderable objects and lights.
-    rpe_scene_update(scene, engine, disable_shadows);
+    rpe_scene_update(scene, engine);
 
     vkapi_swapchain_t* sc = rdr->engine->curr_swapchain;
     // Resource input which will be moved to the back-buffer RT.
@@ -289,10 +289,10 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
 
     // Store/clear flags for final colour attachment.
     desc.store_clear_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
-    desc.load_clear_flags[0] = !clear_swap ? RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR
+    desc.load_clear_flags[0] = clear_swap ? RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR
                                           : RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_LOAD;
     desc.final_layouts[0] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    desc.init_layouts[0] = !clear_swap ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    desc.init_layouts[0] = clear_swap ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     desc.final_layouts[VKAPI_RENDER_TARGET_DEPTH_INDEX - 1] =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     desc.load_clear_flags[VKAPI_RENDER_TARGET_DEPTH_INDEX - 1] =
@@ -310,10 +310,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
         rg_import_render_target(rdr->rg, "BackBuffer", desc, rdr->rt_handles[driver->image_index]);
     VkFormat depth_format = vkapi_driver_get_supported_depth_format(rdr->engine->driver);
 
-    // Fill the gbuffers - this can't be the final render target unless gbuffers are disabled
-    // due to the gBuffers requiring resolving down to a single render target in the lighting
-    // pass.
-    rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
+    input_handle = rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
 
     // Render the shadow maps - cascade and point/spot maps.
     if (draw_shadows)
@@ -322,8 +319,16 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
             engine->shadow_manager, rdr->rg, scene, settings.shadow.cascade_dims, depth_format);
     }
 
-    input_handle = rpe_light_pass_render(
-        engine->light_manager, rdr->rg, scene, desc.width, desc.height, depth_format, draw_shadows);
+    if (!scene->skip_lighting_pass)
+    {
+        input_handle = rpe_light_pass_render(
+            engine->light_manager,
+            rdr->rg,
+            scene,
+            desc.width,
+            desc.height,
+            depth_format);
+    }
 
     // TODO: move to post-processing when added.
     if (draw_shadows && settings.shadow.enable_debug_cascade)

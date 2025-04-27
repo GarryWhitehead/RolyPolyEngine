@@ -30,6 +30,8 @@
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
 
 #define RPE_NK_HELPER_MAX_RENDERABLES 10
@@ -73,8 +75,12 @@ typedef struct NkInstance
     rpe_material_t* font_mat;
 } nk_instance_t;
 
-nk_instance_t*
-nk_helper_init(const char* font_path, float font_size, rpe_engine_t* engine, arena_t* arena);
+nk_instance_t* nk_helper_init(
+    const char* font_path,
+    float font_size,
+    rpe_engine_t* engine,
+    app_window_t* app_win,
+    arena_t* arena);
 
 void nk_helper_destroy(nk_instance_t* nk);
 

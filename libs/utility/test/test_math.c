@@ -2,6 +2,8 @@
 #include "unity_fixture.h"
 #include "utility/maths.h"
 
+#include <string.h>
+
 TEST_GROUP(MathGroup);
 
 TEST_SETUP(MathGroup) {}

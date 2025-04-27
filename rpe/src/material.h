@@ -37,6 +37,7 @@
 // Forward declarations.
 typedef struct Engine rpe_engine_t;
 typedef struct Mesh rpe_mesh_t;
+typedef struct Scene rpe_scene_t;
 
 typedef struct MaterialHandle
 {
@@ -78,6 +79,7 @@ typedef struct Material
         int has_tangent;
         int has_colour_attr;
         int material_type;
+        int has_lighting;
     } material_consts;
 
     // A representation of the data buffer found in the shader.
@@ -126,7 +128,7 @@ typedef struct Material
     arena_dyn_array_t buffers;
 } rpe_material_t;
 
-rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena);
+rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* arena);
 
 void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum ShaderStage stage);
 

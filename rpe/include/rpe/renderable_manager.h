@@ -133,7 +133,7 @@ rpe_mesh_t* rpe_rend_manager_create_static_mesh(
 rpe_mesh_t* rpe_rend_manager_offset_indices(
     rpe_rend_manager_t* m, rpe_mesh_t* mesh, uint32_t index_offset, uint32_t index_count);
 
-rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m);
+rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m, rpe_scene_t* scene);
 
 void rpe_rend_manager_add(
     rpe_rend_manager_t* m,

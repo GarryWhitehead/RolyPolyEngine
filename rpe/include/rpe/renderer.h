@@ -57,6 +57,6 @@ void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt,
 
 void rpe_render_end_renderpass(rpe_renderer_t* rdr);
 
-void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap, bool disable_shadows);
+void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap);
 
 #endif

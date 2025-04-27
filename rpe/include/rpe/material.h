@@ -23,10 +23,10 @@
 #define __RPE_MATERIAL_H__
 
 #include <backend/enums.h>
-#include <vulkan-api/texture.h> // For TextureType enum - move to backend enums.h??
-#include <vulkan-api/resource_cache.h>
 #include <stdbool.h>
 #include <utility/maths.h>
+#include <vulkan-api/resource_cache.h>
+#include <vulkan-api/texture.h> // For TextureType enum - move to backend enums.h??
 
 typedef struct Material rpe_material_t;
 typedef struct Engine rpe_engine_t;
@@ -109,6 +109,15 @@ void rpe_material_set_metallic_factor(rpe_material_t* m, float f);
 void rpe_material_set_alpha_mask(rpe_material_t* m, float mask);
 void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co);
 
+/**
+ Maps the CPU mapped texture to the device. To associate a device texture with a material, @sa
+ rpe_material_set_device_texture must be called.
+ @param engine
+ @param tex
+ @param params
+ @param generate_mipmaps
+ @return
+ */
 texture_handle_t rpe_material_map_texture(
     rpe_engine_t* engine,
     rpe_mapped_texture_t* tex,

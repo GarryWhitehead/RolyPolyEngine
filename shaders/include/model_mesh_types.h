@@ -23,9 +23,8 @@ void skyboxMesh(vec4 pos)
 
 void uiMesh(vec4 pos)
 {
-    vec2 uiPos = pos.xy;
-    gl_Position = camera_ubo.proj * vec4(uiPos, 0.0, 1.0);
-    outPos = uiPos;
+    gl_Position = camera_ubo.proj * vec4(pos.xy, 0.0, 1.0);
+    outPos = vec3(pos.xy, 0.0);
 }
 
 void modelVertex(vec4 pos)

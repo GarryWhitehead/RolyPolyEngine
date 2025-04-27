@@ -112,6 +112,9 @@ void rpe_rend_manager_add(
     rpe_object_t transform_obj)
 {
     assert(m);
+    assert(renderable);
+    assert(renderable->material);
+    assert(renderable->mesh_data);
     assert(transform_obj.id != UINT32_MAX);
     assert(rend_obj.id != UINT32_MAX);
 
@@ -302,9 +305,12 @@ rpe_mesh_t* rpe_rend_manager_offset_indices(
     return DYN_ARRAY_APPEND(&m->meshes, &new_mesh);
 }
 
-rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m)
+rpe_material_t* rpe_rend_manager_create_material(rpe_rend_manager_t* m, rpe_scene_t* scene)
 {
-    rpe_material_t mat = rpe_material_init(m->engine, &m->engine->perm_arena);
+    assert(m);
+    assert(scene);
+    rpe_engine_t* engine = m->engine;
+    rpe_material_t mat = rpe_material_init(engine, scene, &engine->perm_arena);
     return DYN_ARRAY_APPEND(&m->materials, &mat);
 }
 

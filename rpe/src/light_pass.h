@@ -65,7 +65,6 @@ struct LightLocalData
     VkFormat depth_format;
     shader_prog_bundle_t* prog_bundle;
     rpe_scene_t* scene;
-    bool draw_shadows;
 };
 
 rg_handle_t rpe_light_pass_render(
@@ -74,7 +73,6 @@ rg_handle_t rpe_light_pass_render(
     rpe_scene_t* scene,
     uint32_t width,
     uint32_t height,
-    VkFormat depth_format,
-    bool draw_shadows);
+    VkFormat depth_format);
 
 #endif

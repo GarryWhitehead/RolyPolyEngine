@@ -838,6 +838,11 @@ void vkapi_driver_acquire_buffer_barrier(
         srcQueueIndex = driver->context->queue_info.graphics;
         dstQueueIndex = driver->context->queue_info.compute;
     }
+    else
+    {
+        log_warn("Unsupported barrier type. Memory buffer barrier won't be acquire.");
+        return;
+    }
 
     VkBufferMemoryBarrier barrier = {0};
     barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -896,6 +901,11 @@ void vkapi_driver_release_buffer_barrier(
         dstAccess = 0;
         srcQueueIndex = driver->context->queue_info.compute;
         dstQueueIndex = driver->context->queue_info.graphics;
+    }
+    else
+    {
+        log_warn("Unsupported barrier type. Memory buffer barrier won't be released.");
+        return;
     }
 
     VkBufferMemoryBarrier barrier = {0};

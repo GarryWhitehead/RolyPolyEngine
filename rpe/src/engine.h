@@ -83,13 +83,11 @@ typedef struct Engine
     arena_dyn_array_t cameras;
     arena_dyn_array_t skyboxes;
 
-    /// Current camera UBO - stored here as shared between shaders.
-    buffer_handle_t camera_ubo;
-
     // Material shader handles for each stage.
     shader_handle_t mat_shaders[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
 
     // Dummy texture handles
+    texture_handle_t tex_dummy_array;
     texture_handle_t tex_dummy_cubemap;
     texture_handle_t tex_dummy;
 

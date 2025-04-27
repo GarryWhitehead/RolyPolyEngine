@@ -72,5 +72,6 @@ rpe_transform_manager_t* rpe_engine_get_transform_manager(rpe_engine_t* engine);
 rpe_light_manager_t* rpe_engine_get_light_manager(rpe_engine_t* engine);
 
 job_queue_t* rpe_engine_get_job_queue(rpe_engine_t* engine);
+rpe_scene_t* rpe_engine_get_current_scene(rpe_engine_t* engine);
 
 #endif

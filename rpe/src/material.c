@@ -34,7 +34,7 @@
 #include <vulkan-api/sampler_cache.h>
 #include <vulkan-api/utility.h>
 
-rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
+rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* arena)
 {
     assert(e);
 
@@ -72,7 +72,7 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
         VK_VERTEX_INPUT_RATE_INSTANCE);
 
     shader_bundle_update_ubo_desc(
-        instance.program_bundle, RPE_SCENE_CAMERA_UBO_BINDING, e->camera_ubo);
+        instance.program_bundle, RPE_SCENE_CAMERA_UBO_BINDING, scene->camera_ubo);
     shader_bundle_update_ssbo_desc(
         instance.program_bundle,
         RPE_SCENE_SKIN_SSBO_BINDING,
@@ -86,7 +86,7 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
     shader_bundle_update_ssbo_desc(
         instance.program_bundle,
         RPE_SCENE_DRAW_DATA_SSBO_BINDING,
-        e->curr_scene->draw_data_handle,
+        scene->draw_data_handle,
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 
     return instance;
@@ -194,7 +194,7 @@ void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFacto
     m->material_key.blend_state.state = factors.state;
 
     m->program_bundle->blend_state.colour = blend_op_to_vk(factors.colour);
-    m->program_bundle->blend_state.alpha =blend_op_to_vk(factors.alpha);
+    m->program_bundle->blend_state.alpha = blend_op_to_vk(factors.alpha);
     m->program_bundle->blend_state.dst_alpha = blend_factor_to_vk(factors.dst_alpha);
     m->program_bundle->blend_state.dst_colour = blend_factor_to_vk(factors.dst_colour);
     m->program_bundle->blend_state.src_alpha = blend_factor_to_vk(factors.src_alpha);

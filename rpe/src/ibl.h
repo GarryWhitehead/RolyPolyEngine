@@ -80,6 +80,7 @@ typedef struct Ibl
 
     rpe_renderer_t* renderer;
     rpe_camera_t* camera;
+    rpe_scene_t* scene;
 
     struct PreFilterOptions options;
 } ibl_t;

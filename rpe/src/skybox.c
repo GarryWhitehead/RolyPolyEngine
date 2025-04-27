@@ -36,7 +36,7 @@ rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena)
 {
     rpe_skybox_t* skybox = ARENA_MAKE_ZERO_STRUCT(arena, rpe_skybox_t);
     skybox->obj = rpe_obj_manager_create_obj(engine->obj_manager);
-    skybox->material = rpe_material_init(engine, arena);
+    skybox->material = rpe_material_init(engine, engine->curr_scene, arena);
 
     rpe_material_set_cull_mode(&skybox->material, RPE_CULL_MODE_FRONT);
     rpe_material_set_view_layer(&skybox->material, 0x4);

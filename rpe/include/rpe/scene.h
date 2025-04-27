@@ -40,4 +40,17 @@ bool rpe_scene_remove_object(rpe_scene_t* scene, rpe_object_t obj);
 
 void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb);
 
+/**
+ Disables shadow drawing for this scene - overrides the option in the settings.
+ @param scene
+ */
+void rpe_scene_disable_shadows(rpe_scene_t* scene);
+
+/**
+ Disables the lighting pass for this scene. This will result in only the colour buffer from the
+ gbuffer pass being drawn to the framebuffer.
+ @param scene
+ */
+void rpe_scene_skip_lighting_pass(rpe_scene_t* scene);
+
 #endif

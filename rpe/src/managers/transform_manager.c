@@ -30,6 +30,9 @@
 rpe_model_transform_t rpe_model_transform_init()
 {
     rpe_model_transform_t i = {.scale.x = 1.0f, .scale.y = 1.0f, .scale.z = 1.0f};
+    i.rot.data[0][0] = 1.0f;
+    i.rot.data[1][1] = 1.0f;
+    i.rot.data[2][2] = 1.0f;
     return i;
 }
 

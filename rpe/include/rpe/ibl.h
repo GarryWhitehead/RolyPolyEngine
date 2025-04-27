@@ -28,6 +28,7 @@
 
 typedef struct Ibl ibl_t;
 typedef struct Engine rpe_engine_t;
+typedef struct Scene rpe_scene_t;
 
 struct PreFilterOptions
 {
@@ -36,7 +37,7 @@ struct PreFilterOptions
     int specular_level_count;
 };
 
-ibl_t* rpe_ibl_init(rpe_engine_t* engine, struct PreFilterOptions options);
+ibl_t* rpe_ibl_init(rpe_engine_t* engine, rpe_scene_t* scene, struct PreFilterOptions options);
 
 bool rpe_ibl_eqirect_to_cubemap(
     ibl_t* ibl, rpe_engine_t* engine, float* image_data, uint32_t width, uint32_t height);

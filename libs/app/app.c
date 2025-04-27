@@ -104,10 +104,10 @@ void rpe_app_run(
         }
 
         // begin the rendering for this frame - render the main scene
-        rpe_renderer_render(renderer, app->scene, false, true);
+        rpe_renderer_render(renderer, app->scene, true);
         if (app_win->show_ui)
         {
-            rpe_renderer_render(renderer, app_win->nk->scene, false, false);
+            rpe_renderer_render(renderer, app_win->nk->scene, false);
         }
 
         if (post_render_func)

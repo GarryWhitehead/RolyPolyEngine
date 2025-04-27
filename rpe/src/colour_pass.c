@@ -118,6 +118,8 @@ void execute_gbuffer(
 {
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     rg_resource_info_t info = rg_res_get_render_pass_info(res, d->rt);
+    rpe_scene_t* scene = d->scene;
+    assert(scene);
 
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_driver_get_gfx_cmds(driver);
     rpe_vertex_buffer_upload_to_gpu(engine->vbuffer, driver);
@@ -126,12 +128,12 @@ void execute_gbuffer(
     vkapi_driver_acquire_buffer_barrier(
         driver,
         cmd_buffer,
-        engine->curr_scene->indirect_draw_handle,
+        scene->indirect_draw_handle,
         VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
     vkapi_driver_acquire_buffer_barrier(
         driver,
         cmd_buffer,
-        engine->curr_scene->draw_count_handle,
+        scene->draw_count_handle,
         VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
@@ -139,11 +141,9 @@ void execute_gbuffer(
     // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset
     // into this buffer.
     vkapi_driver_bind_vertex_buffer(driver, engine->vbuffer->vertex_buffer, 0);
-    vkapi_driver_bind_vertex_buffer(driver, engine->curr_scene->model_draw_data_handle, 1);
+    vkapi_driver_bind_vertex_buffer(driver, scene->model_draw_data_handle, 1);
     vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
 
-    rpe_scene_t* scene = d->scene;
-    assert(scene);
     rpe_render_queue_submit_one(scene->render_queue, driver, RPE_RENDER_QUEUE_GBUFFER);
 
     vkapi_driver_end_rpass(cmd_buffer->instance);
@@ -151,12 +151,12 @@ void execute_gbuffer(
     vkapi_driver_release_buffer_barrier(
         driver,
         cmd_buffer,
-        engine->curr_scene->indirect_draw_handle,
+        scene->indirect_draw_handle,
         VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
     vkapi_driver_release_buffer_barrier(
         driver,
         cmd_buffer,
-        engine->curr_scene->draw_count_handle,
+        scene->draw_count_handle,
         VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
 }
 

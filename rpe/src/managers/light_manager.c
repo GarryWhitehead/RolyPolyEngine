@@ -78,10 +78,6 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
         &lm->light_consts,
         RPE_BACKEND_SHADER_STAGE_FRAGMENT);
 
-    // Binding for the camera UBO
-    shader_bundle_update_ubo_desc(
-        lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, engine->camera_ubo);
-
     lm->dir_light_obj.id = UINT32_MAX;
     lm->engine = engine;
     lm->comp_manager = rpe_comp_manager_init(arena);
@@ -214,6 +210,10 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
 
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
     lm->light_consts.csm_split_count = sm->settings.cascade_count;
+
+     // Binding for the camera UBO
+    shader_bundle_update_ubo_desc(
+        lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, scene->camera_ubo);
 
     // Set the scene UBO each update as the current scene may have changed (could instead just
     // update on a call to set_current_scene?)
