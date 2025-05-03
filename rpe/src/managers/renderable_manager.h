@@ -36,14 +36,17 @@ typedef struct Object rpe_object_t;
 
 typedef struct Rect2D
 {
-    int32_t x, y;
-    uint32_t width, height;
+    int32_t x;
+    int32_t y;
+    uint32_t width;
+    uint32_t height;
 } rpe_rect_2d_t;
 
 typedef struct ViewPort
 {
     rpe_rect_2d_t rect;
-    float min_depth, max_depth;
+    float min_depth;
+    float max_depth;
 } rpe_viewport_t;
 
 typedef struct Mesh
@@ -65,6 +68,7 @@ typedef struct Renderable
     uint64_t sort_key;
     rpe_rect_2d_t scissor;
     rpe_viewport_t viewport;
+    uint8_t view_layer;
 
     // Used for the material key - batching is dependent on viewport/scissor changes.
     struct RenderableKey
@@ -95,21 +99,21 @@ struct IndirectDraw
 typedef struct RenderableManager
 {
     rpe_engine_t* engine;
-    arena_dyn_array_t batched_renderables;
     arena_dyn_array_t renderables;
     arena_dyn_array_t materials;
     arena_dyn_array_t meshes;
+    arena_dyn_array_t vertex_allocations;
     rpe_comp_manager_t* comp_manager;
 
 } rpe_rend_manager_t;
 
-rpe_renderable_t rpe_renderable_init();
+rpe_renderable_t* rpe_renderable_init(arena_t* arena);
 
 rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena);
 
 rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t* obj);
 
-arena_dyn_array_t
-rpe_rend_manager_batch_renderables(rpe_rend_manager_t* m, arena_dyn_array_t* object_arr);
+void rpe_rend_manager_batch_renderables(
+    rpe_rend_manager_t* m, arena_dyn_array_t* object_arr, arena_dyn_array_t* batched_renderables);
 
 #endif

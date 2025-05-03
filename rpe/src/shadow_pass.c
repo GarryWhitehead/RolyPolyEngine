@@ -112,7 +112,7 @@ rg_handle_t rpe_shadow_pass_render(
         .width = dimensions,
         .height = dimensions,
         .depth_format = depth_format,
-        .cascade_count = sm->settings.cascade_count,
+        .cascade_count = sm->settings->cascade_count,
         .scene = scene};
     rg_pass_t* p = rg_add_pass(
         rg,

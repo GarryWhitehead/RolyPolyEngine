@@ -445,8 +445,11 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
             indices_count = primitive->indices->count;
         }
 
+        rpe_valloc_handle v_handle = rpe_rend_manager_alloc_vertex_buffer(asset->rend_manager, vert_count);
+        rpe_valloc_handle i_handle = rpe_rend_manager_alloc_index_buffer(asset->rend_manager, indices_count);
         rpe_mesh_t* new_mesh = rpe_rend_manager_create_mesh_interleaved(
             asset->rend_manager,
+            v_handle,
             (float*)pos_base,
             (float*)uv_base[0],
             (float*)uv_base[1],
@@ -456,6 +459,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
             (float*)weights_base,
             (float*)joints_base,
             vert_count,
+            i_handle,
             indices_base,
             indices_count,
             indices_type);

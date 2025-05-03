@@ -211,7 +211,8 @@ vkapi_texture_t vkapi_texture_init(
         .info.format = format,
         .image_layout = VK_IMAGE_LAYOUT_UNDEFINED,
         .image = VK_NULL_HANDLE,
-        .frames_until_gc = 0};
+        .frames_until_gc = 0,
+        .is_valid = true};
 
     return tex;
 }

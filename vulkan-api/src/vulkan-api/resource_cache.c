@@ -205,10 +205,11 @@ void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t han
         return;
     }
 
-    vkapi_texture_t t = DYN_ARRAY_GET(vkapi_texture_t, &cache->textures, handle.id);
-    t.frames_until_gc = VKAPI_MAX_COMMAND_BUFFER_SIZE;
-    DYN_ARRAY_APPEND(&cache->textures_gc, &t);
+    vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &cache->textures, handle.id);
+    t->frames_until_gc = VKAPI_MAX_COMMAND_BUFFER_SIZE;
+    DYN_ARRAY_APPEND(&cache->textures_gc, t);
     DYN_ARRAY_APPEND(&cache->free_tex_slots, &handle);
+    t->is_valid = false;
 }
 
 void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)

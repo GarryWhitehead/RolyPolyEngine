@@ -209,7 +209,7 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     rpe_shadow_manager_t* sm = lm->engine->shadow_manager;
 
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
-    lm->light_consts.csm_split_count = sm->settings.cascade_count;
+    lm->light_consts.csm_split_count = sm->settings->cascade_count;
 
      // Binding for the camera UBO
     shader_bundle_update_ubo_desc(

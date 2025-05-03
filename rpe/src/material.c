@@ -39,7 +39,6 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* a
     assert(e);
 
     rpe_material_t instance = {0};
-    instance.view_layer = 0x2;
     instance.double_sided = false;
     // Material will cast shadows by default.
     instance.shadow_caster = true;
@@ -264,20 +263,6 @@ void rpe_material_set_shadow_caster_state(rpe_material_t* m, bool state)
     m->shadow_caster = state;
 }
 
-void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer)
-{
-    assert(m);
-    if (layer > RPE_RENDER_QUEUE_MAX_VIEW_LAYER_COUNT)
-    {
-        log_warn(
-            "Layer value of %i is outside max allowed value (%i). Ignoring.",
-            layer,
-            RPE_RENDER_QUEUE_MAX_VIEW_LAYER_COUNT);
-        return;
-    }
-    m->view_layer = layer;
-}
-
 void rpe_material_set_base_colour_factor(rpe_material_t* m, math_vec4f* f)
 {
     assert(m);
@@ -396,7 +381,7 @@ texture_handle_t rpe_material_map_texture(
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         params);
     assert(vkapi_tex_handle_is_valid(h));
-
+    
     vkapi_driver_map_gpu_texture(
         engine->driver, h, tex->image_data, tex->image_data_size, tex->offsets, generate_mipmaps);
 

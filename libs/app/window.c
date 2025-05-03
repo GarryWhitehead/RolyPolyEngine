@@ -136,7 +136,7 @@ int app_window_init(
     if (new_win->show_ui)
     {
         const char* font_path = RPE_ASSETS_DIRECTORY "/Roboto-Regular.ttf";
-        new_win->nk = nk_helper_init(font_path, 14.0f, app->engine, new_win, &app->arena);
+        new_win->nk = nk_helper_init(font_path, 16.0f, app->engine, new_win, &app->arena);
         if (!new_win->nk)
         {
             return APP_ERROR_UI_FONT_NOT_FOUND;
@@ -264,27 +264,46 @@ void app_window_mouse_button_response(GLFWwindow* window, int button, int action
         {
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
-            rpe_camera_view_mouse_button_down(&input_sys->cam_view, xpos, ypos);
 
             if (input_sys->show_ui)
             {
                 nk_instance_t* nk = input_sys->nk;
-                double dt = glfwGetTime() - nk->last_button_click;
-                if (dt > RPE_NK_HELPER_DOUBLE_CLICK_LO && dt < RPE_NK_HELPER_DOUBLE_CLICK_HI)
+                if (nk_item_is_any_active(&nk->ctx))
                 {
-                    nk->is_double_click_down = nk_true;
-                    nk->double_click_pos = nk_vec2((float)xpos, (float)ypos);
+                    double dt = glfwGetTime() - nk->last_button_click;
+                    if (dt > RPE_NK_HELPER_DOUBLE_CLICK_LO && dt < RPE_NK_HELPER_DOUBLE_CLICK_HI)
+                    {
+                        nk->is_double_click_down = nk_true;
+                        nk->double_click_pos = nk_vec2((float)xpos, (float)ypos);
+                    }
+                    nk->last_button_click = glfwGetTime();
                 }
-                nk->last_button_click = glfwGetTime();
+                else
+                {
+                    rpe_camera_view_mouse_button_down(&input_sys->cam_view, xpos, ypos);
+                }
+            }
+            else
+            {
+                rpe_camera_view_mouse_button_down(&input_sys->cam_view, xpos, ypos);
             }
         }
         else if (action == GLFW_RELEASE)
         {
-            rpe_camera_view_mouse_button_up(&input_sys->cam_view);
-
             if (input_sys->show_ui)
             {
-                input_sys->nk->is_double_click_down = nk_false;
+                if (nk_item_is_any_active(&input_sys->nk->ctx))
+                {
+                    input_sys->nk->is_double_click_down = nk_false;
+                }
+                else
+                {
+                    rpe_camera_view_mouse_button_up(&input_sys->cam_view);
+                }
+            }
+            else
+            {
+                rpe_camera_view_mouse_button_up(&input_sys->cam_view);
             }
         }
     }

@@ -62,6 +62,9 @@ typedef struct Material
         int material_type;
     } mesh_consts;
 
+    /* Specialisation constants used by the material shader.
+     * NOTE: Must be in the same order as defined by the shader.
+     */
     struct MaterialConstants
     {
         int has_alpha_mask;
@@ -114,7 +117,6 @@ typedef struct Material
 
     bool double_sided;
     bool shadow_caster;
-    uint8_t view_layer;
 
     // ============== vulkan backend stuff =======================
 

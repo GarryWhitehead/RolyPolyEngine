@@ -16,6 +16,7 @@ TEST_GROUP_RUNNER(ArenaGroup)
     RUN_TEST_CASE(ArenaGroup, ArenaTests_GeneralTests)
     RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArray)
     RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArrayWithChar)
+    RUN_TEST_CASE(ArenaGroup, ArenaTests_DynamicArrayRemove)
 }
 
 TEST_GROUP_RUNNER(HashSetGroup)

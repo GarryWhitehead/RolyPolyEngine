@@ -26,8 +26,8 @@
 #include "managers/renderable_manager.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <vulkan-api/resource_cache.h>
 
 #define RPE_VERTEX_GPU_BUFFER_SIZE (1 << 20)
@@ -35,6 +35,13 @@
 
 typedef struct VkApiStageInstance vkapi_staging_instance_t;
 typedef struct VkApiBuffer vkapi_buffer_t;
+
+typedef struct VertexAllocInfo
+{
+    uint32_t offset;
+    uint8_t* memory_ptr;
+    uint32_t size;
+} rpe_vertex_alloc_info_t;
 
 typedef struct VertexBuffer
 {
@@ -57,12 +64,18 @@ typedef struct VertexBuffer
 
 rpe_vertex_buffer_t* rpe_vertex_buffer_init(vkapi_driver_t* driver, arena_t* arena);
 
-uint32_t rpe_vertex_buffer_copy_vert_data(rpe_vertex_buffer_t* vb, size_t size, rpe_vertex_t* data);
+void rpe_vertex_buffer_copy_vert_data(
+    rpe_vertex_buffer_t* vb, rpe_vertex_alloc_info_t alloc_info, rpe_vertex_t* data);
 
-uint32_t
-rpe_vertex_buffer_copy_index_data_u32(rpe_vertex_buffer_t* vb, size_t size, const int32_t* data);
-uint32_t
-rpe_vertex_buffer_copy_index_data_u16(rpe_vertex_buffer_t* vb, size_t size, const int16_t* data);
+void rpe_vertex_buffer_copy_index_data_u32(
+    rpe_vertex_buffer_t* vb, rpe_vertex_alloc_info_t alloc_info, const int32_t* data);
+
+void rpe_vertex_buffer_copy_index_data_u16(
+    rpe_vertex_buffer_t* vb, rpe_vertex_alloc_info_t alloc_info, const int16_t* data);
+
+rpe_vertex_alloc_info_t rpe_vertex_buffer_alloc_vertex_buffer(rpe_vertex_buffer_t* vb, size_t size);
+
+rpe_vertex_alloc_info_t rpe_vertex_buffer_alloc_index_buffer(rpe_vertex_buffer_t* vb, size_t size);
 
 void rpe_vertex_buffer_upload_to_gpu(rpe_vertex_buffer_t* vb, vkapi_driver_t* driver);
 

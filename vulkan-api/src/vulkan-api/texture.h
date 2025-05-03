@@ -72,6 +72,7 @@ typedef struct Texture
     // termination.
     VkSampler sampler;
     uint64_t frames_until_gc;
+    bool is_valid;
 
 } vkapi_texture_t;
 

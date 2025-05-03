@@ -24,6 +24,7 @@
 #define __APP_NK_HELPER_H__
 
 #include <rpe/object.h>
+#include <rpe/renderable_manager.h>
 #include <utility/arena.h>
 
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
@@ -34,6 +35,8 @@
 #define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
 
+#define RPE_NK_HELPER_MAX_VERTEX_BUFFER_COUNT 2000
+#define RPE_NK_HELPER_MAX_INDEX_BUFFER_COUNT 3000
 #define RPE_NK_HELPER_MAX_RENDERABLES 10
 #define RPE_NK_HELPER_TEXT_MAX 256
 #define RPE_NK_HELPER_DOUBLE_CLICK_LO 0.02
@@ -43,10 +46,9 @@ typedef struct Scene rpe_scene_t;
 typedef struct Engine rpe_engine_t;
 typedef struct AppWindow app_window_t;
 typedef struct Camera rpe_camera_t;
-typedef struct Renderable rpe_renderable_t;
 typedef struct Material rpe_material_t;
 
-typedef void (*UiCallback)(rpe_engine_t*, app_window_t*);
+typedef void (*UiCallback)(rpe_engine_t*, rpe_scene_t*, app_window_t*);
 
 typedef struct NkInstance
 {
@@ -73,6 +75,8 @@ typedef struct NkInstance
     rpe_renderable_t* renderables[RPE_NK_HELPER_MAX_RENDERABLES];
     rpe_object_t transform_obj;
     rpe_material_t* font_mat;
+    rpe_valloc_handle vbuffer_handle;
+    rpe_valloc_handle ibuffer_handle;
 } nk_instance_t;
 
 nk_instance_t* nk_helper_init(

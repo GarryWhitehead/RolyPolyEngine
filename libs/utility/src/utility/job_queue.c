@@ -289,7 +289,7 @@ void* _thread_loop(void* arg)
     thread_info_t* info = (thread_info_t*)arg;
     uint32_t id = _get_thread_id();
     mutex_lock(&info->job_queue->thread_map_mutex);
-    HASH_SET_INSERT(&info->job_queue->thread_map, &id, &info);  // NOLINT
+    (&info->job_queue->thread_map, &id, &info);  // NOLINT
     mutex_unlock(&info->job_queue->thread_map_mutex);
 
     do

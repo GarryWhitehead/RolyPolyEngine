@@ -121,8 +121,8 @@ void rpe_transform_manager_insert_node(
     rpe_transform_manager_t* m, rpe_object_t* new_obj, rpe_object_t* parent_obj)
 {
     assert(m);
-    assert(new_obj->id != UINT32_MAX);
-    assert(parent_obj->id != UINT32_MAX);
+    assert(new_obj->id != RPE_INVALID_OBJECT);
+    assert(parent_obj->id != RPE_INVALID_OBJECT);
 
     uint64_t parent_idx = rpe_comp_manager_get_obj_idx(m->comp_manager, *parent_obj);
     rpe_transform_node_t* parent_node =
@@ -303,7 +303,7 @@ rpe_object_t rpe_transform_manager_copy(
 rpe_transform_node_t* rpe_transform_manager_get_node(rpe_transform_manager_t* m, rpe_object_t obj)
 {
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
-    assert(idx != UINT64_MAX);
+    assert(idx != RPE_INVALID_OBJECT);
     assert(idx <= m->nodes.size);
     return DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
 }
@@ -355,7 +355,7 @@ rpe_object_t* rpe_transform_manager_get_parent(rpe_transform_manager_t* m, rpe_o
 {
     assert(m);
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
-    assert(idx != UINT64_MAX);
+    assert(idx != RPE_INVALID_OBJECT);
     rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
     return node->parent;
 }
@@ -365,7 +365,7 @@ void rpe_transform_manager_set_translation(
 {
     assert(m);
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
-    assert(idx != UINT64_MAX);
+    assert(idx != RPE_INVALID_OBJECT);
     rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
     math_mat4f_translate(trans, &node->local_transform);
     rpe_transform_manager_update_world(m, obj);
@@ -375,7 +375,7 @@ rpe_object_t* rpe_transform_manager_get_child(rpe_transform_manager_t* m, rpe_ob
 {
     assert(m);
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
-    assert(idx != UINT64_MAX);
+    assert(idx != RPE_INVALID_OBJECT);
     rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
     return node->first_child;
 }

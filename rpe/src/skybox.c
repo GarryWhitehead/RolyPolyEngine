@@ -39,7 +39,6 @@ rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena)
     skybox->material = rpe_material_init(engine, engine->curr_scene, arena);
 
     rpe_material_set_cull_mode(&skybox->material, RPE_CULL_MODE_FRONT);
-    rpe_material_set_view_layer(&skybox->material, 0x4);
     rpe_material_set_type(&skybox->material, RPE_MATERIAL_SKYBOX);
     rpe_material_set_test_enable(&skybox->material, true);
     rpe_material_set_write_enable(&skybox->material, true);
@@ -64,8 +63,12 @@ rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena)
     };
     // clang-format on
 
+    rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
+    rpe_valloc_handle v_handle = rpe_rend_manager_alloc_vertex_buffer(rm, 8);
+    rpe_valloc_handle i_handle = rpe_rend_manager_alloc_index_buffer(rm, 36);
     skybox->cube_mesh = rpe_rend_manager_create_mesh_interleaved(
         engine->rend_manager,
+        v_handle,
         (float*)cube_vertices,
         NULL,
         NULL,
@@ -75,6 +78,7 @@ rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena)
         NULL,
         NULL,
         8,
+        i_handle,
         cube_indices,
         36,
         RPE_RENDERABLE_INDICES_U32);
@@ -97,5 +101,6 @@ void rpe_skybox_set_cubemap_from_ibl(rpe_skybox_t* sb, ibl_t* ibl, rpe_engine_t*
 
     rpe_renderable_t* renderable =
         rpe_engine_create_renderable(engine, &sb->material, sb->cube_mesh);
+    rpe_renderable_set_view_layer(renderable, 0x4);
     rpe_rend_manager_add(engine->rend_manager, renderable, sb->obj, sb->obj);
 }

@@ -31,19 +31,13 @@
 
 #include <utility/arena.h>
 
-void compute_cascade_partitions(
-    rpe_shadow_manager_t* m, rpe_camera_t* camera, int cascade_count, float lambda)
-{
-
-}
-
 rpe_shadow_manager_t*
 rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, arena_t* arena)
 {
     assert(settings->cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
 
     rpe_shadow_manager_t* sm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_shadow_manager_t);
-    sm->settings = *settings;
+    sm->settings = settings;
 
     vkapi_driver_t* driver = engine->driver;
 
@@ -168,25 +162,25 @@ void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 }
 
-void rpe_shadow_manager_compute_cascade_proj(rpe_shadow_manager_t* m, rpe_camera_t* camera)
+void rpe_shadow_manager_compute_csm_splits(rpe_shadow_manager_t* m, rpe_camera_t* camera)
 {
     float clip_range = camera->z - camera->n;
     float min_z = camera->n;
     float max_z = camera->n + clip_range;
     float ratio = max_z / min_z;
-    size_t cascade_count = m->settings.cascade_count;
+    size_t cascade_count = m->settings->cascade_count;
 
-    for (int i = 0; i < cascade_count; ++i)
+    for (size_t i = 0; i < cascade_count; ++i)
     {
         float ci = (float)(i + 1) / (float)cascade_count;
         float uniform = min_z + (max_z - min_z) * ci;
         float log_c = min_z * powf(ratio, ci);
-        float C = m->settings.split_lambda * (log_c - uniform) + uniform;
+        float C = m->settings->split_lambda * (log_c - uniform) + uniform;
         m->cascade_offsets[i] = (C - min_z) / clip_range;
     }
 }
 
-void rpe_shadow_manager_update(
+void rpe_shadow_manager_update_projections(
     rpe_shadow_manager_t* m,
     rpe_camera_t* camera,
     rpe_scene_t* scene,
@@ -204,7 +198,7 @@ void rpe_shadow_manager_update(
 
     math_mat4f inv_vp = math_mat4f_inverse(math_mat4f_mul(camera->projection, camera->view));
 
-    for (int i = 0; i < m->settings.cascade_count; ++i)
+    for (int i = 0; i < m->settings->cascade_count; ++i)
     {
         math_vec3f corners[8] = {
             {-1.0f, 1.0f, 0.0f},
@@ -246,7 +240,7 @@ void rpe_shadow_manager_update(
         // Create a consistent projection size by creating a circle around the frustum and
         // projecting over that - this reduces shimmering.
         float radius = math_vec3f_distance(corners[0], corners[6]) * 0.5f;
-        float texels_per_unit = (float)m->settings.cascade_dims / radius;
+        float texels_per_unit = (float)m->settings->cascade_dims / radius;
 
         math_mat4f scalar_mat = math_mat4f_identity();
         math_mat4f_scale(
@@ -295,7 +289,17 @@ void rpe_shadow_manager_update(
     vkapi_driver_map_gpu_buffer(
         engine->driver,
         m->cascade_ubo,
-        m->settings.cascade_count * sizeof(struct CascadeInfo),
+        m->settings->cascade_count * sizeof(struct CascadeInfo),
         0,
         m->shadow_map.cascades);
+}
+
+// Public functions
+
+void rpe_shadow_manager_update(rpe_shadow_manager_t* sm, rpe_scene_t* scene)
+{
+    assert(sm);
+    assert(scene);
+    assert(scene->curr_camera);
+    rpe_shadow_manager_compute_csm_splits(sm, scene->curr_camera);
 }

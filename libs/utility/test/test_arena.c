@@ -86,3 +86,54 @@ TEST(ArenaGroup, ArenaTests_DynamicArrayWithChar)
     const char* res2 = *DYN_ARRAY_GET_PTR(char*, &array, 1);
     TEST_ASSERT(strcmp(res2, str2) == 0);
 }
+
+TEST(ArenaGroup, ArenaTests_DynamicArrayRemove)
+{
+    arena_t arena;
+    int err = arena_new(1 << 30, &arena);
+    TEST_ASSERT_EQUAL(ARENA_SUCCESS, err);
+
+    arena_dyn_array_t array;
+    err = MAKE_DYN_ARRAY(int, &arena, 10, &array);
+    TEST_ASSERT_EQUAL(ARENA_SUCCESS, err);
+
+    for (int i = 0; i < 8; ++i)
+    {
+        DYN_ARRAY_APPEND(&array, &i);
+    }
+
+    // Delete the last item.
+    DYN_ARRAY_REMOVE(&array, 7);
+    TEST_ASSERT_EQUAL_UINT(7, array.size);
+    for (int i = 0; i < 7; ++i)
+    {
+        int val = DYN_ARRAY_GET(int, &array, i);
+        TEST_ASSERT_EQUAL_UINT(i, val);
+    }
+
+    // Delete the middle item.
+    DYN_ARRAY_REMOVE(&array, 3);
+    TEST_ASSERT_EQUAL_UINT(6, array.size);
+    TEST_ASSERT_EQUAL_UINT(0, DYN_ARRAY_GET(int, &array, 0));
+    TEST_ASSERT_EQUAL_UINT(1, DYN_ARRAY_GET(int, &array, 1));
+    TEST_ASSERT_EQUAL_UINT(2, DYN_ARRAY_GET(int, &array, 2));
+    TEST_ASSERT_EQUAL_UINT(4, DYN_ARRAY_GET(int, &array, 3));
+    TEST_ASSERT_EQUAL_UINT(5, DYN_ARRAY_GET(int, &array, 4));
+    TEST_ASSERT_EQUAL_UINT(6, DYN_ARRAY_GET(int, &array, 5));
+
+    // Delete the first and mid iterm.
+    DYN_ARRAY_REMOVE(&array, 0);
+    DYN_ARRAY_REMOVE(&array, 3);
+    TEST_ASSERT_EQUAL_UINT(4, array.size);
+    TEST_ASSERT_EQUAL_UINT(1, DYN_ARRAY_GET(int, &array, 0));
+    TEST_ASSERT_EQUAL_UINT(2, DYN_ARRAY_GET(int, &array, 1));
+    TEST_ASSERT_EQUAL_UINT(4, DYN_ARRAY_GET(int, &array, 2));
+    TEST_ASSERT_EQUAL_UINT(6, DYN_ARRAY_GET(int, &array, 3));
+
+    // Delete the middle values
+    DYN_ARRAY_REMOVE(&array, 1);
+    DYN_ARRAY_REMOVE(&array, 1);
+    TEST_ASSERT_EQUAL_UINT(2, array.size);
+    TEST_ASSERT_EQUAL_UINT(1, DYN_ARRAY_GET(int, &array, 0));
+    TEST_ASSERT_EQUAL_UINT(6, DYN_ARRAY_GET(int, &array, 1));
+}

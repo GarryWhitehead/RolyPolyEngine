@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -33,6 +33,7 @@ typedef struct Mesh rpe_mesh_t;
 typedef struct Material rpe_material_t;
 typedef struct Renderable rpe_renderable_t;
 typedef struct AABBox rpe_aabox_t;
+typedef struct Scene rpe_scene_t;
 
 #define RPE_RENDERABLE_MAX_UV_SET_COUNT 2
 
@@ -62,7 +63,7 @@ enum MeshAttributeFlags
 
 // Note: On linux and Windows we get an extra 8bytes of packing, so disable otherwise
 // messes up attribute strides on the shader.
-RPE_PACKED(typedef struct Vertex {
+typedef struct Vertex {
     float position[3];
     float normal[3];
     float uv0[2];
@@ -71,11 +72,17 @@ RPE_PACKED(typedef struct Vertex {
     float colour[4];
     float bone_weight[4];
     float bone_id[4];
-} rpe_vertex_t);
+} rpe_vertex_t;
 static_assert(sizeof(struct Vertex) == 104, "Vertex struct must have no padding.");
+
+typedef struct VertexAllocHandle
+{
+    uint32_t id;
+} rpe_valloc_handle;
 
 rpe_mesh_t* rpe_rend_manager_create_mesh_interleaved(
     rpe_rend_manager_t* m,
+    rpe_valloc_handle v_handle,
     float* pos_data,
     float* uv0_data,
     float* uv1_data,
@@ -85,13 +92,14 @@ rpe_mesh_t* rpe_rend_manager_create_mesh_interleaved(
     float* bone_weight_data,
     float* bone_id_data,
     uint32_t vertex_size,
+    rpe_valloc_handle i_handle,
     void* indices,
     uint32_t indices_size,
     enum IndicesType indices_type);
 
 /**
  Create a mesh and upload to the device.
- Note: This requires the vertex data to be interleaved in the format used internally which 
+ Note: This requires the vertex data to be interleaved in the format used internally which
  is found above in the `struct Vertex` data layout.
  @param m
  @param vertex_data
@@ -103,8 +111,10 @@ rpe_mesh_t* rpe_rend_manager_create_mesh_interleaved(
  */
 rpe_mesh_t* rpe_rend_manager_create_mesh(
     rpe_rend_manager_t* m,
+    rpe_valloc_handle v_handle,
     rpe_vertex_t* vertex_data,
     uint32_t vertex_size,
+    rpe_valloc_handle i_handle,
     void* indices,
     uint32_t indices_size,
     enum IndicesType indices_type,
@@ -113,20 +123,23 @@ rpe_mesh_t* rpe_rend_manager_create_mesh(
 // Convenience methods that make creating meshes easier.
 rpe_mesh_t* rpe_rend_manager_create_static_mesh(
     rpe_rend_manager_t* m,
+    rpe_valloc_handle v_handle,
     float* pos_data,
     float* uv0_data,
     float* normal_data,
     float* col_data,
     uint32_t vertex_size,
+    rpe_valloc_handle i_handle,
     void* indices,
     uint32_t indices_size,
     enum IndicesType indices_type);
 
 /**
- Use when a mesh contains numerous primitives based upon the same set of vertices. 
+ Use when a mesh contains numerous primitives based upon the same set of vertices.
  @param m
  @param mesh
- @pram index_offset The offset which will be applied to the base index stated by the original @sa mesh.
+ @pram index_offset The offset which will be applied to the base index stated by the original @sa
+ mesh.
  @param index_count The number of indices to draw.
  @returns a new mesh instance with the index_base + indices_offset.
  */
@@ -141,6 +154,8 @@ void rpe_rend_manager_add(
     rpe_object_t rend_obj,
     rpe_object_t transform_obj);
 
+bool rpe_rend_manager_remove(rpe_rend_manager_t*rm, rpe_object_t obj);
+
 /**
  Copy a renderable object from src to dst. Optional override of transform associated with this
  renderable.
@@ -152,10 +167,21 @@ void rpe_rend_manager_copy(
     rpe_object_t dst_obj,
     rpe_object_t* transform_obj);
 
+rpe_valloc_handle rpe_rend_manager_alloc_vertex_buffer(rpe_rend_manager_t* m, uint32_t vertex_size);
+rpe_valloc_handle rpe_rend_manager_alloc_index_buffer(rpe_rend_manager_t* m, uint32_t index_size);
+
 void rpe_renderable_set_box(rpe_renderable_t* r, rpe_aabox_t* box);
 void rpe_renderable_set_min_max_dimensions(rpe_renderable_t* r, math_vec3f min, math_vec3f max);
 void rpe_renderable_set_scissor(rpe_renderable_t* r, int32_t x, int32_t y, uint32_t w, uint32_t h);
-void rpe_renderable_set_viewport(rpe_renderable_t* r, int32_t x, int32_t y, uint32_t w, uint32_t h, float min_depth, float max_depth);
+void rpe_renderable_set_viewport(
+    rpe_renderable_t* r,
+    int32_t x,
+    int32_t y,
+    uint32_t w,
+    uint32_t h,
+    float min_depth,
+    float max_depth);
+void rpe_renderable_set_view_layer(rpe_renderable_t* r, uint8_t layer);
 
 bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj);
 

@@ -35,6 +35,7 @@ typedef struct Renderer rpe_renderer_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
 typedef struct LightManager rpe_light_manager_t;
+typedef struct ShadowManager rpe_shadow_manager_t;
 typedef struct Renderable rpe_renderable_t;
 typedef struct Material rpe_material_t;
 typedef struct Mesh rpe_mesh_t;
@@ -70,8 +71,12 @@ rpe_rend_manager_t* rpe_engine_get_rend_manager(rpe_engine_t* engine);
 rpe_obj_manager_t* rpe_engine_get_obj_manager(rpe_engine_t* engine);
 rpe_transform_manager_t* rpe_engine_get_transform_manager(rpe_engine_t* engine);
 rpe_light_manager_t* rpe_engine_get_light_manager(rpe_engine_t* engine);
+rpe_shadow_manager_t* rpe_engine_get_shadow_manager(rpe_engine_t* engine);
 
 job_queue_t* rpe_engine_get_job_queue(rpe_engine_t* engine);
 rpe_scene_t* rpe_engine_get_current_scene(rpe_engine_t* engine);
+
+rpe_settings_t rpe_engine_get_settings(rpe_engine_t* engine);
+void rpe_engine_update_settings(rpe_engine_t* engine, rpe_settings_t* settings);
 
 #endif

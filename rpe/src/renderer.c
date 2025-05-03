@@ -21,7 +21,7 @@
  */
 
 #include "renderer.h"
-
+#include "rpe/scene.h"
 #include "colour_pass.h"
 #include "engine.h"
 #include "light_pass.h"
@@ -270,7 +270,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
     rpe_settings_t settings = engine->settings;
-    bool draw_shadows = scene->draw_shadows & settings.draw_shadows;
+    bool draw_shadows = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
 
     rg_clear(rdr->rg);
 

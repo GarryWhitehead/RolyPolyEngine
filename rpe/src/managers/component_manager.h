@@ -54,16 +54,17 @@
         typeof(obj) _obj = obj;                                                                    \
         if (_idx >= _arr->size)                                                                    \
         {                                                                                          \
-            dyn_array_append(_arr, _obj);                                                   \
+            dyn_array_append(_arr, _obj);                                                          \
         }                                                                                          \
         else                                                                                       \
         {                                                                                          \
-            dyn_array_set(_arr, _idx, _obj);                                                \
+            dyn_array_set(_arr, _idx, _obj);                                                       \
         }                                                                                          \
     }
 #endif
 
-#define ADD_OBJECT_TO_MANAGER_UNSAFE(_arr, _idx, _obj) (_idx >= (_arr)->size) ? dyn_array_append((_arr), _obj) : dyn_array_set((_arr), _idx, _obj);                                                       \
+#define ADD_OBJECT_TO_MANAGER_UNSAFE(_arr, _idx, _obj)                                             \
+    (_idx >= (_arr)->size) ? dyn_array_append((_arr), _obj) : dyn_array_set((_arr), _idx, _obj);
 
 typedef struct ComponentManager
 {

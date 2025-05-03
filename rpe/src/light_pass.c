@@ -51,7 +51,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     rg_handle_t pbr = rg_backboard_get(bb, "pbr");
 
     rg_handle_t cascade_shadow_map;
-    if (scene->draw_shadows)
+    if (scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED)
     {
         cascade_shadow_map = rg_backboard_get(bb, "CascadeShadowDepth");
     }
@@ -85,7 +85,7 @@ void setup_light_pass(render_graph_t* rg, rg_pass_node_t* node, void* data, void
     d->normal = rg_add_read(rg, normal, node, VK_IMAGE_USAGE_SAMPLED_BIT);
     d->emissive = rg_add_read(rg, emissive, node, VK_IMAGE_USAGE_SAMPLED_BIT);
     d->pbr = rg_add_read(rg, pbr, node, VK_IMAGE_USAGE_SAMPLED_BIT);
-    d->cascade_shadow_map.id = scene->draw_shadows
+    d->cascade_shadow_map.id = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED
         ? rg_add_read(rg, cascade_shadow_map, node, VK_IMAGE_USAGE_SAMPLED_BIT).id
         : UINT32_MAX;
 
@@ -149,10 +149,7 @@ void execute_light_pass(
         csm_handle = engine->tex_dummy_array;
     }
     shader_bundle_add_image_sampler(
-        d->prog_bundle,
-        driver,
-        csm_handle,
-        RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP);
+        d->prog_bundle, driver, csm_handle, RPE_LIGHT_PASS_SAMPLER_CASCADE_SHADOW_MAP);
 
 
     // Bind the IBL env maps (dummy textures if not used to keep the validation layers happy).
@@ -187,7 +184,8 @@ rg_handle_t rpe_light_pass_render(
     assert(rg);
 
     // Seems like a good time to set the shadow specialised constant.
-    lm->light_consts.draw_shadows = scene->draw_shadows;
+    lm->light_consts.draw_shadows =
+        scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED ? true : false;
 
     struct LightLocalData local_d = {
         .prog_bundle = lm->program_bundle,

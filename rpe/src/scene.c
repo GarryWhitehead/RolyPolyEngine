@@ -42,6 +42,7 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     vkapi_driver_t* driver = engine->driver;
 
     rpe_scene_t* i = ARENA_MAKE_ZERO_STRUCT(arena, rpe_scene_t);
+    i->shadow_status = RPE_SCENE_SHADOW_STATUS_ENABLED;
     i->draw_data = ARENA_MAKE_ARRAY(arena, struct DrawData, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
     MAKE_DYN_ARRAY(rpe_object_t, arena, 100, &i->objects);
 
@@ -120,10 +121,13 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     // This is required to stop a validation layer message regarding the fact that no release
     // has yet been done on the graphics queue, when applying the barrier to the compute queue.
     vkapi_cmdbuffer_t* cmds = vkapi_driver_get_gfx_cmds(driver);
-    vkapi_driver_release_buffer_barrier(driver, cmds, i->indirect_draw_handle, VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
+    vkapi_driver_release_buffer_barrier(
+        driver, cmds, i->indirect_draw_handle, VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
     vkapi_driver_release_buffer_barrier(
         engine->driver, cmds, i->draw_count_handle, VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
     vkapi_driver_flush_gfx_cmds(driver);
+
+    MAKE_DYN_ARRAY(rpe_batch_renderable_t, arena, 100, &i->batched_draw_cache);
 
     return i;
 }
@@ -137,14 +141,14 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     rpe_transform_manager_t* tm = engine->transform_manager;
     vkapi_driver_t* driver = engine->driver;
     struct Settings settings = engine->settings;
-    bool draw_shadows = scene->draw_shadows & settings.draw_shadows;
+    bool draw_shadows = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
 
     rpe_render_queue_clear(scene->render_queue);
 
     rpe_light_manager_update(engine->light_manager, scene, scene->curr_camera);
     if (draw_shadows)
     {
-        rpe_shadow_manager_update(
+        rpe_shadow_manager_update_projections(
             engine->shadow_manager, scene->curr_camera, scene, engine, engine->light_manager);
     }
 
@@ -157,28 +161,22 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
 
     if (scene->is_dirty)
     {
-        scene->batched_draw_cache = rpe_rend_manager_batch_renderables(rm, &scene->objects);
+        rpe_rend_manager_batch_renderables(rm, &scene->objects, &scene->batched_draw_cache);
         scene->is_dirty = false;
     }
 
     rpe_scene_upload_extents(scene, engine, rm, tm);
 
     arena_dyn_array_t indirect_draws;
-    MAKE_DYN_ARRAY(struct IndirectDraw, &engine->frame_arena, 500, &indirect_draws);
+    MAKE_DYN_ARRAY(struct IndirectDraw, &engine->frame_arena, 100, &indirect_draws);
 
     vkapi_cmdbuffer_t* cmds = vkapi_driver_get_compute_cmds(driver);
 
     // Ensure the indirect commands have all been committed before updating the compute shader.
     vkapi_driver_acquire_buffer_barrier(
-        driver,
-        cmds,
-        scene->indirect_draw_handle,
-        VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
+        driver, cmds, scene->indirect_draw_handle, VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
     vkapi_driver_acquire_buffer_barrier(
-        driver,
-        cmds,
-        scene->draw_count_handle,
-        VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
+        driver, cmds, scene->draw_count_handle, VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
 
     // Update renderable objects.
     arena_dyn_array_t* batched_draws = &scene->batched_draw_cache;
@@ -197,8 +195,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
                 draw.indirect_cmd.firstIndex = rend->mesh_data->index_offset;
                 draw.indirect_cmd.indexCount = rend->mesh_data->index_count;
                 draw.indirect_cmd.vertexOffset = (int32_t)rend->mesh_data->vertex_offset;
-                draw.object_id = rpe_comp_manager_get_obj_idx(
-                    tm->comp_manager, rend->transform_obj);
+                draw.object_id =
+                    rpe_comp_manager_get_obj_idx(tm->comp_manager, rend->transform_obj);
                 draw.batch_id = i;
                 draw.shadow_caster = rend->material->shadow_caster;
                 DYN_ARRAY_APPEND(&indirect_draws, &draw);
@@ -223,6 +221,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
             struct PipelineBindCommand* pl_cmd = pkt0->cmds;
             pl_cmd->bundle = batch->material->program_bundle;
 
+            // 2. Bind the scissor [optional]
             rpe_cmd_packet_t* nxt_pkt = pkt0;
             if (batch->scissor.width > 0)
             {
@@ -238,6 +237,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
                 nxt_pkt = pkt1;
             }
 
+            // 3. Bind the viewport [optional]
             if (batch->viewport.rect.width > 0)
             {
                 rpe_cmd_packet_t* pkt2 = rpe_command_bucket_append_command(
@@ -252,7 +252,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
                 nxt_pkt = pkt2;
             }
 
-            // 2. The actual indirect draw (indexed) command.
+            // 4. The actual indirect draw (indexed) command.
             rpe_cmd_packet_t* pkt3 = rpe_command_bucket_append_command(
                 scene->render_queue->gbuffer_bucket,
                 nxt_pkt,
@@ -263,7 +263,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
             struct DrawIndirectIndexCommand* cmd = pkt3->cmds;
             cmd->stride = sizeof(struct IndirectDraw);
             cmd->count_handle = scene->draw_count_handle;
-            cmd->draw_count_offset = i * sizeof(uint32_t); 
+            cmd->draw_count_offset = i * sizeof(uint32_t);
             cmd->cmd_handle = scene->indirect_draw_handle;
             cmd->offset = batch->first_idx * sizeof(struct IndirectDraw);
         }
@@ -326,15 +326,9 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         driver, scene->cull_compute->bundle, scene->objects.size / 128 + 1, 1, 1);
 
     vkapi_driver_release_buffer_barrier(
-        driver,
-        cmds,
-        scene->indirect_draw_handle,
-        VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
+        driver, cmds, scene->indirect_draw_handle, VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
     vkapi_driver_release_buffer_barrier(
-        engine->driver,
-        cmds,
-        scene->draw_count_handle,
-        VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
+        engine->driver, cmds, scene->draw_count_handle, VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE);
 
     // Update GPU SSBO draw data buffer.
     vkapi_driver_map_gpu_buffer(
@@ -394,7 +388,7 @@ void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_engine_t* engine, rpe_
     scene->curr_camera = cam;
 
     // Update the shadow cascade maps based upon the current camera near/far values.
-    rpe_shadow_manager_compute_cascade_proj(engine->shadow_manager, cam);
+    rpe_shadow_manager_compute_csm_splits(engine->shadow_manager, cam);
 }
 
 void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl)
@@ -419,6 +413,7 @@ bool rpe_scene_remove_object(rpe_scene_t* scene, rpe_object_t obj)
         if (obj.id == other->id)
         {
             DYN_ARRAY_REMOVE(&scene->objects, i);
+            scene->is_dirty = true;
             return true;
         }
     }
@@ -440,10 +435,10 @@ void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb)
     rpe_scene_add_object(scene, sb->obj);
 }
 
-void rpe_scene_disable_shadows(rpe_scene_t* scene)
+void rpe_scene_set_shadow_status(rpe_scene_t* scene, enum ShadowStatus status)
 {
     assert(scene);
-    scene->draw_shadows = false;
+    scene->shadow_status = status;
 }
 
 void rpe_scene_skip_lighting_pass(rpe_scene_t* scene)

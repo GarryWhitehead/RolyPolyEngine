@@ -30,6 +30,16 @@ typedef struct Camera rpe_camera_t;
 typedef struct Ibl ibl_t;
 typedef struct Skybox rpe_skybox_t;
 
+enum ShadowStatus
+{
+    RPE_SCENE_SHADOW_STATUS_DISABLED, ///< Shadows are disabled for this scene (Can be overriden by
+                                      /// updating the settings).
+    RPE_SCENE_SHADOW_STATUS_ENABLED, ///< Shadows are enabled for this scene (also requires to be
+                                     /// enabled in the settings).
+    RPE_SCENE_SHADOW_STATUS_NEVER ///< Shadows are never allowed for this scene (think UI for
+                                  /// example).
+};
+
 void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_engine_t* engine, rpe_camera_t* cam);
 
 void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl);
@@ -44,7 +54,7 @@ void rpe_scene_set_current_skyox(rpe_scene_t* scene, rpe_skybox_t* sb);
  Disables shadow drawing for this scene - overrides the option in the settings.
  @param scene
  */
-void rpe_scene_disable_shadows(rpe_scene_t* scene);
+void rpe_scene_set_shadow_status(rpe_scene_t* scene, enum ShadowStatus status);
 
 /**
  Disables the lighting pass for this scene. This will result in only the colour buffer from the

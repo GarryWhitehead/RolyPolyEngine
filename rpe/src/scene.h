@@ -24,7 +24,7 @@
 #define __SCENE_PRIV_H__
 
 #include "rpe/aabox.h"
-
+#include "rpe/scene.h"
 #include <stdbool.h>
 #include <utility/arena.h>
 #include <utility/maths.h>
@@ -106,7 +106,7 @@ typedef struct Scene
     buffer_handle_t scene_ubo;
 
     // Scene specific options.
-    bool draw_shadows;
+    enum ShadowStatus shadow_status;
     bool skip_lighting_pass;
 
 } rpe_scene_t;

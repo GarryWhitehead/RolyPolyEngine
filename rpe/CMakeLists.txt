@@ -31,6 +31,7 @@ set (public_headers
     include/rpe/ibl.h
     include/rpe/skybox.h
     include/rpe/settings.h
+    include/rpe/shadow_manager.h
 )
 
 set (src_files

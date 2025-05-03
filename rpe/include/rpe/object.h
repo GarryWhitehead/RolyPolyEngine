@@ -24,6 +24,8 @@
 
 #include <stdint.h>
 
+#define RPE_INVALID_OBJECT UINT64_MAX
+
 typedef struct Object
 {
     uint64_t id;

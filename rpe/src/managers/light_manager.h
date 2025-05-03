@@ -25,6 +25,7 @@
 
 #include "component_manager.h"
 #include "rpe/light_manager.h"
+#include "rpe/scene.h"
 #include <utility/maths.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/resource_cache.h>

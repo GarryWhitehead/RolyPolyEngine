@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -19,45 +19,12 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+#ifndef __RPE_SHADOW_MANAGER_H__
+#define __RPE_SHADOW_MANAGER_H__
 
-#include "backboard.h"
+typedef struct ShadowManager rpe_shadow_manager_t;
+typedef struct Scene rpe_scene_t;
 
-#include <assert.h>
-#include <utility/hash.h>
+void rpe_shadow_manager_update(rpe_shadow_manager_t* sm, rpe_scene_t* scene);
 
-rg_backboard_t rg_backboard_init(arena_t* arena)
-{
-    rg_backboard_t i;
-    i.backboard =
-        hash_set_create(arena, murmur2_hash_string, sizeof(const char*), sizeof(rg_handle_t));
-    i.arena = arena;
-    return i;
-}
-
-void rg_backboard_add(rg_backboard_t* bb, const char* name, rg_handle_t handle)
-{
-    assert(bb);
-    void* res = hash_set_insert(&bb->backboard, (void*)name, &handle);
-    assert(res);
-}
-
-rg_handle_t rg_backboard_get(rg_backboard_t* bb, const char* name)
-{
-    assert(bb);
-    rg_handle_t* h = hash_set_get(&bb->backboard, (void*)name);
-    assert(h);
-    return *h;
-}
-
-void rg_backboard_remove(rg_backboard_t* bb, const char* name)
-{
-    assert(bb);
-    rg_handle_t* h = hash_set_erase(&bb->backboard, (void*)name);
-    assert(h);
-}
-
-void rg_backboard_reset(rg_backboard_t* bb)
-{
-    assert(bb);
-    hash_set_clear(&bb->backboard);
-}
+#endif

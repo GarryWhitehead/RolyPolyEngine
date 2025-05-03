@@ -29,15 +29,15 @@
 #include "managers/transform_manager.h"
 #include "renderer.h"
 #include "scene.h"
+#include "shadow_manager.h"
 #include "skybox.h"
 #include "vertex_buffer.h"
-#include "shadow_manager.h"
 
 #include <assert.h>
 #include <log.h>
+#include <utility/job_queue.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
-#include <utility/job_queue.h>
 
 rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings)
 {
@@ -57,7 +57,7 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
 
     MAKE_DYN_ARRAY(vkapi_swapchain_t, &instance->perm_arena, 5, &instance->swapchains);
     MAKE_DYN_ARRAY(rpe_renderer_t*, &instance->perm_arena, 5, &instance->renderers);
-    MAKE_DYN_ARRAY(rpe_renderable_t, &instance->perm_arena, 100, &instance->renderables);
+    MAKE_DYN_ARRAY(rpe_renderable_t*, &instance->perm_arena, 100, &instance->renderables);
     MAKE_DYN_ARRAY(rpe_scene_t*, &instance->perm_arena, 10, &instance->scenes);
     MAKE_DYN_ARRAY(rpe_camera_t*, &instance->perm_arena, 10, &instance->cameras);
     MAKE_DYN_ARRAY(rpe_skybox_t*, &instance->perm_arena, 5, &instance->skyboxes);
@@ -86,7 +86,8 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     instance->transform_manager = rpe_transform_manager_init(instance, &instance->perm_arena);
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
     instance->light_manager = rpe_light_manager_init(instance, &instance->perm_arena);
-    instance->shadow_manager = rpe_shadow_manager_init(instance, &settings->shadow, &instance->perm_arena);
+    instance->shadow_manager =
+        rpe_shadow_manager_init(instance, &settings->shadow, &instance->perm_arena);
     instance->vbuffer = rpe_vertex_buffer_init(driver, &instance->perm_arena);
 
     // Create dummy textures - only needed for bound samplers to prevent validation warnings.
@@ -213,7 +214,13 @@ rpe_scene_t* rpe_engine_create_scene(rpe_engine_t* engine)
 }
 
 rpe_camera_t* rpe_engine_create_camera(
-    rpe_engine_t* engine, float fovy, uint32_t width, uint32_t height, float n, float f, enum ProjectionType type)
+    rpe_engine_t* engine,
+    float fovy,
+    uint32_t width,
+    uint32_t height,
+    float n,
+    float f,
+    enum ProjectionType type)
 {
     assert(engine);
     rpe_camera_t* cam = rpe_camera_init(engine, fovy, width, height, n, f, type);
@@ -233,11 +240,12 @@ rpe_renderable_t*
 rpe_engine_create_renderable(rpe_engine_t* engine, rpe_material_t* mat, rpe_mesh_t* mesh)
 {
     assert(engine);
-    rpe_renderable_t rend = rpe_renderable_init();
-    rend.mesh_data = mesh;
-    rend.material = mat;
+    rpe_renderable_t* rend = rpe_renderable_init(&engine->perm_arena);
+    rend->mesh_data = mesh;
+    rend->material = mat;
     rpe_material_update_vertex_constants(mat, mesh);
-    return DYN_ARRAY_APPEND(&engine->renderables, &rend);
+    DYN_ARRAY_APPEND(&engine->renderables, &rend);
+    return rend;
 }
 
 bool rpe_engine_destroy_scene(rpe_engine_t* engine, rpe_scene_t* scene)
@@ -248,7 +256,6 @@ bool rpe_engine_destroy_scene(rpe_engine_t* engine, rpe_scene_t* scene)
         if (ptr == scene)
         {
             DYN_ARRAY_REMOVE(&engine->scenes, i);
-            // TODO: add some way of returning allocated scene ptr back to arena space.
             engine->curr_scene = engine->curr_scene == ptr ? NULL : engine->curr_scene;
             return true;
         }
@@ -264,7 +271,6 @@ bool rpe_engine_destroy_camera(rpe_engine_t* engine, rpe_camera_t* camera)
         if (ptr == camera)
         {
             DYN_ARRAY_REMOVE(&engine->cameras, i);
-            // TODO: add some way of returning allocated scene ptr back to arena space.
             if (engine->curr_scene && engine->curr_scene->curr_camera == ptr)
             {
                 engine->curr_scene->curr_camera = NULL;
@@ -283,7 +289,6 @@ bool rpe_engine_destroy_renderer(rpe_engine_t* engine, rpe_renderer_t* renderer)
         if (ptr == renderer)
         {
             DYN_ARRAY_REMOVE(&engine->renderers, i);
-            // TODO: add some way of returning allocated scene ptr back to arena space.
             return true;
         }
     }
@@ -298,7 +303,6 @@ bool rpe_engine_destroy_renderable(rpe_engine_t* engine, rpe_renderable_t* rende
         if (ptr == renderable)
         {
             DYN_ARRAY_REMOVE(&engine->renderables, i);
-            // TODO: add some way of returning allocated scene ptr back to arena space.
             return true;
         }
     }
@@ -306,6 +310,19 @@ bool rpe_engine_destroy_renderable(rpe_engine_t* engine, rpe_renderable_t* rende
 }
 
 /** Public functions **/
+
+void rpe_engine_update_settings(rpe_engine_t* engine, rpe_settings_t* settings)
+{
+    engine->settings = *settings;
+    for (size_t i = 0; i < engine->scenes.size; ++i)
+    {
+        rpe_scene_t* scene = DYN_ARRAY_GET(rpe_scene_t*, &engine->scenes, i);
+        scene->shadow_status =
+            scene->shadow_status == RPE_SCENE_SHADOW_STATUS_NEVER ? scene->shadow_status
+            : settings->draw_shadows ? RPE_SCENE_SHADOW_STATUS_ENABLED
+                                     : RPE_SCENE_SHADOW_STATUS_DISABLED;
+    }
+}
 
 void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)
 {
@@ -316,7 +333,7 @@ void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)
 }
 
 rpe_scene_t* rpe_engine_get_current_scene(rpe_engine_t* engine)
-{ 
+{
     assert(engine);
     return engine->curr_scene;
 }
@@ -352,8 +369,20 @@ rpe_light_manager_t* rpe_engine_get_light_manager(rpe_engine_t* engine)
     return engine->light_manager;
 }
 
+rpe_shadow_manager_t* rpe_engine_get_shadow_manager(rpe_engine_t* engine)
+{
+    assert(engine);
+    return engine->shadow_manager;
+}
+
 job_queue_t* rpe_engine_get_job_queue(rpe_engine_t* engine)
 {
     assert(engine);
     return engine->job_queue;
+}
+
+rpe_settings_t rpe_engine_get_settings(rpe_engine_t* engine)
+{
+    assert(engine);
+    return engine->settings;
 }

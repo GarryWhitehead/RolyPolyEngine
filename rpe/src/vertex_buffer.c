@@ -22,11 +22,10 @@
 
 #include "vertex_buffer.h"
 
+#include <string.h>
 #include <utility/arena.h>
 #include <vulkan-api/buffer.h>
 #include <vulkan-api/driver.h>
-
-#include <string.h>
 
 rpe_vertex_buffer_t* rpe_vertex_buffer_init(vkapi_driver_t* driver, arena_t* arena)
 {
@@ -44,53 +43,67 @@ rpe_vertex_buffer_t* rpe_vertex_buffer_init(vkapi_driver_t* driver, arena_t* are
     return i;
 }
 
-uint32_t rpe_vertex_buffer_copy_vert_data(rpe_vertex_buffer_t* vb, size_t size, rpe_vertex_t* data)
+void rpe_vertex_buffer_copy_vert_data(
+    rpe_vertex_buffer_t* vb, rpe_vertex_alloc_info_t alloc_info, rpe_vertex_t* data)
+{
+    assert(data);
+    assert(alloc_info.size > 0);
+    assert(alloc_info.memory_ptr);
+    memcpy(alloc_info.memory_ptr, data, alloc_info.size * sizeof(rpe_vertex_t));
+    vb->is_dirty = true;
+}
+
+rpe_vertex_alloc_info_t rpe_vertex_buffer_alloc_vertex_buffer(rpe_vertex_buffer_t* vb, size_t size)
 {
     assert(vb);
-    assert(data);
     assert(vb->curr_vertex_size + size < RPE_VERTEX_GPU_BUFFER_SIZE);
-    rpe_vertex_t* ptr = vb->vertex_data + vb->curr_vertex_size;
-    memcpy(ptr, data, size * sizeof(rpe_vertex_t));
-    uint32_t out = vb->curr_vertex_size;
+    rpe_vertex_alloc_info_t i;
+    i.memory_ptr = (uint8_t*)(vb->vertex_data + vb->curr_vertex_size);
+    i.offset = vb->curr_vertex_size;
+    i.size = size;
     vb->curr_vertex_size += size;
-    vb->is_dirty = true;
-    return out;
+    return i;
 }
 
-uint32_t
-rpe_vertex_buffer_copy_index_data_u32(rpe_vertex_buffer_t* vb, size_t size, const int32_t* data)
+rpe_vertex_alloc_info_t rpe_vertex_buffer_alloc_index_buffer(rpe_vertex_buffer_t* vb, size_t size)
 {
     assert(vb);
-    assert(data);
     assert(vb->curr_index_size + size < RPE_INDEX_GPU_BUFFER_SIZE);
-    uint32_t* ptr = vb->index_data + vb->curr_index_size;
-    memcpy(ptr, data, size * sizeof(uint32_t));
-    uint32_t out = vb->curr_index_size;
+    rpe_vertex_alloc_info_t i;
+    i.memory_ptr = (uint8_t*)(vb->index_data + vb->curr_index_size);
+    i.offset = vb->curr_index_size;
+    i.size = size;
     vb->curr_index_size += size;
-    vb->is_dirty = true;
-    return out;
+    return i;
 }
 
-uint32_t
-rpe_vertex_buffer_copy_index_data_u16(rpe_vertex_buffer_t* vb, size_t size, const int16_t* data)
+void rpe_vertex_buffer_copy_index_data_u32(
+    rpe_vertex_buffer_t* vb, rpe_vertex_alloc_info_t alloc_info, const int32_t* data)
 {
-    assert(vb);
     assert(data);
-    assert(vb->curr_index_size + size < RPE_INDEX_GPU_BUFFER_SIZE);
-    uint32_t* ptr = vb->index_data + vb->curr_index_size;
+    assert(alloc_info.memory_ptr);
+    assert(alloc_info.size > 0);
+    memcpy(alloc_info.memory_ptr, data, alloc_info.size * sizeof(uint32_t));
+    vb->is_dirty = true;
+}
+
+void rpe_vertex_buffer_copy_index_data_u16(
+    rpe_vertex_buffer_t* vb, rpe_vertex_alloc_info_t alloc_info, const int16_t* data)
+{
+    assert(data);
+    assert(alloc_info.memory_ptr);
+    assert(alloc_info.size > 0);
 
     // Currently we convert 16-bit integers to 32-bit.
     // FIXME: Add 16bit support to Vulkan backend.
-    for (size_t i = 0; i < size; ++i, ptr++)
+    uint32_t* ptr = (uint32_t*)alloc_info.memory_ptr;
+    for (size_t i = 0; i < alloc_info.size; ++i, ptr++)
     {
-        uint32_t val = (uint32_t)data[i];
-        memcpy(ptr, &val, sizeof(uint32_t));
+        int32_t val = (int32_t)data[i];
+        memcpy(ptr, &val, sizeof(int32_t));
     }
 
-    uint32_t out = vb->curr_index_size;
-    vb->curr_index_size += size;
     vb->is_dirty = true;
-    return out;
 }
 
 void rpe_vertex_buffer_upload_to_gpu(rpe_vertex_buffer_t* vb, vkapi_driver_t* driver)

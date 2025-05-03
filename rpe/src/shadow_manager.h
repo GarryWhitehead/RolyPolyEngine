@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_SHADOW_MANAGER_H__
-#define __RPE_SHADOW_MANAGER_H__
+#ifndef __PRIV_SHADOW_MANAGER_H__
+#define __PRIV_SHADOW_MANAGER_H__
 
 #include "rpe/settings.h"
 
@@ -56,7 +56,7 @@ typedef struct ShadowManager
 
     rpe_shadow_map shadow_map;
 
-    struct ShadowSettings settings;
+    struct ShadowSettings* settings;
 
     // ================= vulkan backend =======================
 
@@ -72,15 +72,17 @@ typedef struct ShadowManager
 rpe_shadow_manager_t*
 rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, arena_t* arena);
 
-void rpe_shadow_manager_update(
+void rpe_shadow_manager_update_projections(
     rpe_shadow_manager_t* m,
     rpe_camera_t* camera,
     rpe_scene_t* scene,
     rpe_engine_t* engine,
     rpe_light_manager_t* lm);
 
-void rpe_shadow_manager_compute_cascade_proj(rpe_shadow_manager_t* m, rpe_camera_t* camera);
+void rpe_shadow_manager_compute_csm_splits(rpe_shadow_manager_t* m, rpe_camera_t* camera);
 
 void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene);
+
+
 
 #endif

@@ -196,6 +196,7 @@ void rg_resource_destroy(rg_resource_t* r, vkapi_driver_t* driver)
         case RG_RESOURCE_TYPE_TEXTURE: {
             rg_texture_resource_t* r_tex = (rg_texture_resource_t*)r;
             vkapi_res_cache_delete_tex2d(driver->res_cache, r_tex->handle);
+            break;
         }
         case RG_RESOURCE_TYPE_IMPORTED:
         case RG_RESOURCE_TYPE_IMPORTED_RENDER_TARGET:

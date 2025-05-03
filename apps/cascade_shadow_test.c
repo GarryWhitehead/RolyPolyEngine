@@ -32,6 +32,7 @@
 #include <rpe/material.h>
 #include <rpe/object_manager.h>
 #include <rpe/renderable_manager.h>
+#include <rpe/shadow_manager.h>
 #include <rpe/settings.h>
 #include <rpe/skybox.h>
 #include <rpe/transform_manager.h>
@@ -86,14 +87,13 @@ void light_update(rpe_engine_t* engine, void* data)
     rpe_light_manager_set_position(rpe_engine_get_light_manager(engine), light_data->dir_obj, &pos);
 }
 
-void ui_callback(rpe_engine_t* engine, app_window_t* win)
+void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win)
 {
     nk_instance_t* nk = win->nk;
     struct nk_context* ctx = &nk->ctx;
-
-    int cascade_levels;
-    float lambda;
-    bool show_shadows;
+    rpe_settings_t settings = rpe_engine_get_settings(engine);
+    rpe_shadow_manager_t* sm = rpe_engine_get_shadow_manager(engine);
+    bool update_settings = false;
 
     if (nk_begin(
             ctx,
@@ -103,16 +103,23 @@ void ui_callback(rpe_engine_t* engine, app_window_t* win)
                 NK_WINDOW_TITLE))
     {
         nk_layout_row_dynamic(ctx, 30, 2);
-        nk_checkbox_label(ctx, "Show shadows", &show_shadows);
+        if (nk_checkbox_label(ctx, "Draw shadows", (nk_bool*)&settings.draw_shadows))
+        {
+            update_settings = true;
+        }
 
         // Cascade levels.
-        /*nk_layout_row_dynamic(ctx, 30, 2);
+        nk_layout_row_dynamic(ctx, 30, 2);
         nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
         {
             nk_layout_row_push(ctx, 50);
             nk_label(ctx, "Cascade levels:", NK_TEXT_LEFT);
             nk_layout_row_push(ctx, 110);
-            nk_slider_int(ctx, 0, &cascade_levels, 1, 8);
+            if (nk_slider_int(ctx, 0, &settings.shadow.cascade_count, 1, 8))
+            {
+                rpe_shadow_manager_update(sm, scene);
+                update_settings = true;
+            }
         }
 
         // Lambda
@@ -122,10 +129,19 @@ void ui_callback(rpe_engine_t* engine, app_window_t* win)
             nk_layout_row_push(ctx, 50);
             nk_label(ctx, "Split lambda:", NK_TEXT_LEFT);
             nk_layout_row_push(ctx, 110);
-            nk_slider_float(ctx, 0, &lambda, 0.1f, 1.0f);
-        }*/
+            if (nk_slider_float(ctx, 0, &settings.shadow.split_lambda, 0.1f, 1.0f))
+            {
+                rpe_shadow_manager_update(sm, scene);
+                update_settings = true;
+            }
+        }
     }
     nk_end(ctx);
+
+    if (update_settings)
+    {
+        rpe_engine_update_settings(engine, &settings);
+    }
 }
 
 int main(int argc, char** argv)
