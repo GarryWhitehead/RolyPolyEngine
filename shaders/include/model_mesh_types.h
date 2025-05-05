@@ -14,17 +14,16 @@ void skyboxMesh(vec4 pos)
     // Remove translation part from matrix.
     mat4 viewMatrix = mat4(mat3(camera_ubo.view));
     gl_Position = camera_ubo.proj * viewMatrix * vec4(inPos.xyz, 1.0);
+    gl_Position.y *= -1.0f;
 
     // Ensure skybox is renderered on the far plane.
     gl_Position.z = gl_Position.w;
-
     outPos = inPos;
 }
 
 void uiMesh(vec4 pos)
 {
     gl_Position = camera_ubo.proj * vec4(pos.xy, 0.0, 1.0);
-    gl_Position.y *= -1.0f;
     outPos = vec3(pos.xy, 0.0);
 }
 

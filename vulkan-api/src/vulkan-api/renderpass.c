@@ -27,6 +27,7 @@
 #include "utility.h"
 
 #include <utility/arena.h>
+#include <string.h>
 
 vkapi_render_target_t vkapi_render_target_init()
 {
@@ -42,8 +43,7 @@ vkapi_render_target_t vkapi_render_target_init()
 
 vkapi_rpass_t vkapi_rpass_init(arena_t* arena)
 {
-    vkapi_rpass_t rpass;
-    memset(&rpass, 0, sizeof(vkapi_rpass_t));
+    vkapi_rpass_t rpass = {0};
     MAKE_DYN_ARRAY(VkAttachmentDescription, arena, 10, &rpass.attach_descriptors);
     MAKE_DYN_ARRAY(VkAttachmentReference, arena, 10, &rpass.colour_attach_refs);
     return rpass;

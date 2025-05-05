@@ -27,12 +27,20 @@
 #include "rpe/transform_manager.h"
 #include "scene.h"
 
+math_mat4f compute_trs(rpe_model_transform_t* transform)
+{
+    math_mat4f T = math_mat4f_identity();
+    math_mat4f R = transform->rot;
+    math_mat4f S = math_mat4f_identity();
+    math_mat4f_translate(transform->translation, &T);
+    math_mat4f_scale(transform->scale, &S);
+    return math_mat4f_mul(T, math_mat4f_mul(R, S));
+}
+
 rpe_model_transform_t rpe_model_transform_init()
 {
     rpe_model_transform_t i = {.scale.x = 1.0f, .scale.y = 1.0f, .scale.z = 1.0f};
-    i.rot.data[0][0] = 1.0f;
-    i.rot.data[1][1] = 1.0f;
-    i.rot.data[2][2] = 1.0f;
+    i.rot = math_mat4f_identity();
     return i;
 }
 
@@ -107,13 +115,7 @@ void rpe_transform_manager_add_node(
 void rpe_transform_manager_add_local_transform(
     rpe_transform_manager_t* m, rpe_model_transform_t* transform, rpe_object_t* obj)
 {
-    math_mat4f T = math_mat4f_identity();
-    math_mat4f R = math_mat4f_identity();
-    math_mat4f S = math_mat4f_identity();
-    math_mat4f_translate(transform->translation, &T);
-    math_mat4f_from_mat3f(transform->rot, &R);
-    math_mat4f_scale(transform->scale, &S);
-    math_mat4f TRS = math_mat4f_mul(T, math_mat4f_mul(R, S));
+    math_mat4f TRS = compute_trs(transform);
     rpe_transform_manager_add_node(m, &TRS, NULL, obj);
 }
 
@@ -360,14 +362,14 @@ rpe_object_t* rpe_transform_manager_get_parent(rpe_transform_manager_t* m, rpe_o
     return node->parent;
 }
 
-void rpe_transform_manager_set_translation(
-    rpe_transform_manager_t* m, rpe_object_t obj, math_vec3f trans)
+void rpe_transform_manager_set_transform(
+    rpe_transform_manager_t* m, rpe_object_t obj, rpe_model_transform_t* trans)
 {
     assert(m);
     uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
     assert(idx != RPE_INVALID_OBJECT);
     rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
-    math_mat4f_translate(trans, &node->local_transform);
+    node->local_transform = compute_trs(trans);
     rpe_transform_manager_update_world(m, obj);
 }
 

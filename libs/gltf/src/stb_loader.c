@@ -50,7 +50,7 @@ bool gltf_stb_loader_decode_image(
         log_error("Unable to parse image: %s", stbi_failure_reason());
         return false;
     }
-
+   
     tex->image_data = image_buffer;
     tex->image_data_size = width * height * 4;
     tex->width = width;

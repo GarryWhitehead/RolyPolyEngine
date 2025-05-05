@@ -34,9 +34,10 @@ rpe_camera_view_t rpe_camera_view_init(rpe_engine_t* engine)
     cam_view.move_speed = 0.2f;
     cam_view.key_events = HASH_SET_CREATE(enum MovementType, bool, &engine->perm_arena);
     cam_view.view = math_mat4f_identity();
-    cam_view.eye.x = -0.12f;
-    cam_view.eye.y = 1.14f;
-    cam_view.eye.z = -1.0f;
+    cam_view.eye.x = 0.0f;
+    cam_view.eye.y = 0.0f;
+    cam_view.eye.z = 0.0f;
+    cam_view.cam_type = RPE_CAMERA_FIRST_PERSON;
     return cam_view;
 }
 
@@ -69,14 +70,14 @@ void rpe_camera_view_mouse_update(rpe_camera_view_t* cam_view, double x, double 
         return;
     }
 
-    float dx = x - cam_view->mouse_position.x;
-    float dy = cam_view->mouse_position.y - y;
-    cam_view->mouse_position.x = x;
-    cam_view->mouse_position.y = y;
+    float dy = cam_view->mouse_position.x - (float)x;
+    float dx = cam_view->mouse_position.y - (float)y;
+    cam_view->mouse_position.x = (float)x;
+    cam_view->mouse_position.y = (float)y;
 
     const float min_pitch = (float)(-M_PI_2 + 0.001);
     const float max_pitch = (float)(M_PI_2 - 0.001);
-    float pitch = CLAMP(dy * cam_view->move_speed, min_pitch, max_pitch);
+    float pitch = CLAMP(-dy * cam_view->move_speed, min_pitch, max_pitch);
     float yaw = dx * cam_view->move_speed;
 
     cam_view->rotation.y += pitch;
@@ -95,9 +96,9 @@ math_vec3f rpe_camera_view_front_vec(rpe_camera_view_t* cam_view)
 {
     assert(cam_view);
     math_vec3f out = {
-        cosf(math_to_radians(cam_view->rotation.y)) * sinf(math_to_radians(cam_view->rotation.x)),
-        -sinf(math_to_radians(cam_view->rotation.y)),
-        cosf(math_to_radians(cam_view->rotation.y)) * cosf(math_to_radians(cam_view->rotation.x))};
+        -cosf(math_to_radians(cam_view->rotation.x)) * sinf(math_to_radians(cam_view->rotation.y)),
+        sinf(math_to_radians(cam_view->rotation.x)),
+        -cosf(math_to_radians(cam_view->rotation.x)) * cosf(math_to_radians(cam_view->rotation.y))};
     return math_vec3f_normalise(out);
 }
 
@@ -110,10 +111,24 @@ math_vec3f rpe_camera_view_right_vec(math_vec3f front)
 void rpe_camera_view_update_view(rpe_camera_view_t* cam_view)
 {
     assert(cam_view);
-    math_vec3f up =
-        math_vec3f_normalise(math_vec3f_cross(cam_view->front_vec, cam_view->right_vec));
-    cam_view->view =
-        math_mat4f_lookat(math_vec3f_add(cam_view->eye, cam_view->front_vec), cam_view->eye, up);
+
+    math_mat4f yaw = math_mat4f_axis_rotate(
+        math_to_radians(-cam_view->rotation.x), math_vec3f_init(1.0f, 0.0f, 0.0f));
+    math_mat4f pitch = math_mat4f_axis_rotate(
+        math_to_radians(cam_view->rotation.y), math_vec3f_init(0.0f, 1.0f, 0.0f));
+
+    math_mat4f T = math_mat4f_identity();
+    math_mat4f_translate(cam_view->eye, &T);
+    math_mat4f M = math_mat4f_mul(yaw, pitch);
+
+    if (cam_view->cam_type == RPE_CAMERA_FIRST_PERSON)
+    {
+        cam_view->view = math_mat4f_mul(M, T);
+    }
+    else if (cam_view->cam_type == RPE_CAMERA_THIRD_PERSON)
+    {
+        cam_view->view = math_mat4f_mul(T, M);
+    }
 }
 
 bool get_movement_state(rpe_camera_view_t* cam_view, enum MovementType* type)
@@ -137,13 +152,13 @@ void rpe_camera_view_update_key_events(rpe_camera_view_t* cam_view, float dt)
     if (get_movement_state(cam_view, &type))
     {
         cam_view->eye =
-            math_vec3f_add(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
+            math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
     }
     type = RPE_MOVEMENT_BACKWARD;
     if (get_movement_state(cam_view, &type))
     {
         cam_view->eye =
-            math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
+            math_vec3f_add(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
     }
     type = RPE_MOVEMENT_LEFT;
     if (get_movement_state(cam_view, &type))
@@ -157,14 +172,20 @@ void rpe_camera_view_update_key_events(rpe_camera_view_t* cam_view, float dt)
         cam_view->eye =
             math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->right_vec, speed));
     }
-
     rpe_camera_view_update_view(cam_view);
 }
 
 void rpe_camera_view_set_position(rpe_camera_view_t* cam_view, const math_vec3f pos)
 {
+    assert(cam_view);
     cam_view->eye = pos;
     rpe_camera_view_update_view(cam_view);
+}
+
+void rpe_camera_view_set_camera_type(rpe_camera_view_t* cam_view, enum CameraType type)
+{
+    assert(cam_view);
+    cam_view->cam_type = type;
 }
 
 enum MovementType rpe_camera_view_convert_key_code(int code)

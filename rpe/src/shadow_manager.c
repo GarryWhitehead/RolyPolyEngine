@@ -32,9 +32,9 @@
 #include <utility/arena.h>
 
 rpe_shadow_manager_t*
-rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, arena_t* arena)
+rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, arena_t* arena)
 {
-    assert(settings->cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
+    assert(settings.cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
 
     rpe_shadow_manager_t* sm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_shadow_manager_t);
     sm->settings = settings;
@@ -115,7 +115,7 @@ rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, a
         engine->transform_manager->transform_buffer_handle,
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 
-    if (settings->enable_debug_cascade)
+    if (settings.enable_debug_cascade)
     {
         sm->csm_debug_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX] = program_cache_from_spirv(
             driver->prog_manager,
@@ -162,21 +162,21 @@ void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 }
 
-void rpe_shadow_manager_compute_csm_splits(rpe_shadow_manager_t* m, rpe_camera_t* camera)
+void rpe_shadow_manager_compute_csm_splits(rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera)
 {
     float clip_range = camera->z - camera->n;
     float min_z = camera->n;
     float max_z = camera->n + clip_range;
     float ratio = max_z / min_z;
-    size_t cascade_count = m->settings->cascade_count;
+    size_t cascade_count = m->settings.cascade_count;
 
     for (size_t i = 0; i < cascade_count; ++i)
     {
         float ci = (float)(i + 1) / (float)cascade_count;
         float uniform = min_z + (max_z - min_z) * ci;
         float log_c = min_z * powf(ratio, ci);
-        float C = m->settings->split_lambda * (log_c - uniform) + uniform;
-        m->cascade_offsets[i] = (C - min_z) / clip_range;
+        float C = m->settings.split_lambda * (log_c - uniform) + uniform;
+        scene->cascade_offsets[i] = (C - min_z) / clip_range;
     }
 }
 
@@ -198,7 +198,7 @@ void rpe_shadow_manager_update_projections(
 
     math_mat4f inv_vp = math_mat4f_inverse(math_mat4f_mul(camera->projection, camera->view));
 
-    for (int i = 0; i < m->settings->cascade_count; ++i)
+    for (int i = 0; i < m->settings.cascade_count; ++i)
     {
         math_vec3f corners[8] = {
             {-1.0f, 1.0f, 0.0f},
@@ -225,7 +225,7 @@ void rpe_shadow_manager_update_projections(
         {
             math_vec3f dist = math_vec3f_sub(corners[j + 4], corners[j]);
             corners[j + 4] =
-                math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, m->cascade_offsets[i]));
+                math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, scene->cascade_offsets[i]));
             corners[j] = math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, last_split));
         }
 
@@ -240,7 +240,7 @@ void rpe_shadow_manager_update_projections(
         // Create a consistent projection size by creating a circle around the frustum and
         // projecting over that - this reduces shimmering.
         float radius = math_vec3f_distance(corners[0], corners[6]) * 0.5f;
-        float texels_per_unit = (float)m->settings->cascade_dims / radius;
+        float texels_per_unit = (float)m->settings.cascade_dims / radius;
 
         math_mat4f scalar_mat = math_mat4f_identity();
         math_mat4f_scale(
@@ -271,35 +271,36 @@ void rpe_shadow_manager_update_projections(
         center.y = t_center.y / t_center.w;
         center.z = t_center.z / t_center.w;
 
-        math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, radius));
+        math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, -radius));
 
         // View matrix looking at the texel-corrected frustum center from the directional light
         // source.
         math_mat4f light_view = math_mat4f_lookat(center, eye, up);
         math_mat4f light_ortho =
-            math_mat4f_ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
+            math_mat4f_ortho(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
        
-        m->shadow_map.cascades[i].vp = math_mat4f_mul(light_ortho, light_view);
-        m->shadow_map.cascades[i].split_depth = (camera->n + m->cascade_offsets[i] * clip_range) * -1.0f;
+        scene->shadow_map.cascades[i].vp = math_mat4f_mul(light_ortho, light_view);
+        scene->shadow_map.cascades[i].split_depth = (camera->n + scene->cascade_offsets[i] * clip_range) * -1.0f;
 
-        last_split = m->cascade_offsets[i];
+        last_split = scene->cascade_offsets[i];
     }
 
     // Upload cascade UBO to device.
     vkapi_driver_map_gpu_buffer(
         engine->driver,
         m->cascade_ubo,
-        m->settings->cascade_count * sizeof(struct CascadeInfo),
+        m->settings.cascade_count * sizeof(struct CascadeInfo),
         0,
-        m->shadow_map.cascades);
+        scene->shadow_map.cascades);
 }
 
 // Public functions
 
-void rpe_shadow_manager_update(rpe_shadow_manager_t* sm, rpe_scene_t* scene)
+void rpe_shadow_manager_update(rpe_shadow_manager_t* sm, rpe_scene_t* scene, struct ShadowSettings* settings)
 {
     assert(sm);
     assert(scene);
     assert(scene->curr_camera);
-    rpe_shadow_manager_compute_csm_splits(sm, scene->curr_camera);
+    sm->settings = *settings;
+    rpe_shadow_manager_compute_csm_splits(sm, scene, scene->curr_camera);
 }

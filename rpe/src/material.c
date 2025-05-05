@@ -42,6 +42,8 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* a
     instance.double_sided = false;
     // Material will cast shadows by default.
     instance.shadow_caster = true;
+    // Disable PBR pipeline by default.
+    instance.material_consts.pipeline_type = RPE_MATERIAL_PIPELINE_NONE;
     MAKE_DYN_ARRAY(struct BufferInfo, arena, 50, &instance.buffers);
     instance.program_bundle = program_cache_create_program_bundle(e->driver->prog_manager, arena);
 
@@ -132,6 +134,10 @@ void rpe_material_set_pipeline(rpe_material_t* m, enum MaterialPipeline pipeline
     else if (pipeline == RPE_MATERIAL_PIPELINE_SPECULAR)
     {
         m->material_consts.pipeline_type = RPE_MATERIAL_PIPELINE_SPECULAR;
+    }
+    else
+    {
+        m->material_consts.pipeline_type = RPE_MATERIAL_PIPELINE_NONE;
     }
 }
 

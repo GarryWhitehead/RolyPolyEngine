@@ -26,6 +26,7 @@
 #include "driver.h"
 #include "sampler_cache.h"
 #include "utility.h"
+#include "backend/objects.h"
 
 #include <assert.h>
 #include <string.h>
@@ -748,8 +749,8 @@ void vkapi_texture_blit(
     src_subres.layerCount = 1;
 
     VkOffset3D src_offset = {0};
-    src_offset.x = src_texture->info.width;
-    src_offset.y = src_texture->info.height;
+    src_offset.x = (int32_t)src_texture->info.width;
+    src_offset.y = (int32_t)src_texture->info.height;
     src_offset.z = 1;
 
     // destination
@@ -760,8 +761,8 @@ void vkapi_texture_blit(
     dst_subres.layerCount = 1;
 
     VkOffset3D dst_offset = {0};
-    dst_offset.x = dst_texture->info.width;
-    dst_offset.y = dst_texture->info.height;
+    dst_offset.x = (int32_t)dst_texture->info.width;
+    dst_offset.y = (int32_t)dst_texture->info.height;
     dst_offset.z = 1;
 
     VkImageBlit image_blit;

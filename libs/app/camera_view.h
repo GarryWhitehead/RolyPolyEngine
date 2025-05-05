@@ -37,6 +37,12 @@ enum MovementType
     RPE_MOVEMENT_NONE
 };
 
+enum CameraType
+{
+    RPE_CAMERA_FIRST_PERSON,
+    RPE_CAMERA_THIRD_PERSON
+};
+
 typedef struct CameraView
 {
     math_mat4f view;
@@ -44,6 +50,7 @@ typedef struct CameraView
     math_vec3f rotation;
     math_vec3f right_vec;
     math_vec3f front_vec;
+    enum CameraType cam_type;
 
     hash_set_t key_events;
 
@@ -70,6 +77,8 @@ void rpe_camera_view_update_view(rpe_camera_view_t* cam_view);
 void rpe_camera_view_update_key_events(rpe_camera_view_t* cam_view, float dt);
 
 void rpe_camera_view_set_position(rpe_camera_view_t* cam_view, math_vec3f pos);
+
+void rpe_camera_view_set_camera_type(rpe_camera_view_t* cam_view, enum CameraType type);
 
 enum MovementType rpe_camera_view_convert_key_code(int code);
 

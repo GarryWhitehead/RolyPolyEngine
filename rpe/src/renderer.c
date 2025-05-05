@@ -28,6 +28,7 @@
 #include "material.h"
 #include "render_graph/render_graph.h"
 #include "render_graph/render_graph_handle.h"
+#include "managers/renderable_manager.h"
 #ifndef NDEBUG
 #include "render_graph/graphviz.h"
 #endif
@@ -36,6 +37,8 @@
 #include "scene.h"
 #include "shadow_pass.h"
 
+#include <backend/convert_to_vk.h>
+#include <backend/objects.h>
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
@@ -220,7 +223,9 @@ void rpe_renderer_render_single_quad(
     rpe_renderer_t* rdr,
     rpe_render_target_t* rt,
     shader_prog_bundle_t* bundle,
-    uint32_t multi_view_count)
+    uint32_t multi_view_count,
+    rpe_viewport_t* vp,
+    rpe_rect2d_t* scissor)
 {
     assert(rdr);
     assert(rt);
@@ -229,6 +234,16 @@ void rpe_renderer_render_single_quad(
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
+
+    if (vp)
+    {
+        vkapi_driver_set_viewport(driver, viewport_to_vk(vp));
+    }
+    if (scissor)
+    {
+        vkapi_driver_set_scissor(driver, rect2d_to_vk(scissor));
+    }
+
     vkapi_driver_draw_quad(driver, bundle);
     vkapi_driver_end_rpass(cmds->instance);
 }
@@ -242,7 +257,9 @@ void rpe_renderer_render_single_indexed(
     uint32_t index_count,
     struct PushBlockEntry* pb_entries,
     uint32_t push_block_count,
-    uint32_t multi_view_count)
+    uint32_t multi_view_count,
+    rpe_viewport_t* vp,
+    rpe_rect2d_t* scissor)
 {
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
@@ -261,6 +278,16 @@ void rpe_renderer_render_single_indexed(
             vkapi_driver_set_push_constant(driver, bundle, pb_entries[i].data, pb_entries[i].stage);
         }
     }
+
+    if (vp)
+    {
+        vkapi_driver_set_viewport(driver, viewport_to_vk(vp));
+    }
+    if (scissor)
+    {
+        vkapi_driver_set_scissor(driver, rect2d_to_vk(scissor));
+    }
+
     vkapi_driver_draw_indexed(driver, index_count, 0, 0);
     vkapi_driver_end_rpass(cmds->instance);
 }

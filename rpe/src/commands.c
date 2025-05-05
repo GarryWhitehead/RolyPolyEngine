@@ -92,9 +92,9 @@ void rpe_cmd_dispatch_viewport_cmd(vkapi_driver_t* driver, void* data)
     struct ViewportCommand* cmd = (struct ViewportCommand*)data;
     VkViewport vp = {
         .width = (float)cmd->vp.rect.width,
-        .height = -(float)cmd->vp.rect.height,
+        .height = (float)cmd->vp.rect.height,
         .x = 0,
-        .y = (float)cmd->vp.rect.height,
+        .y = 0,
         .minDepth = cmd->vp.min_depth,
         .maxDepth = cmd->vp.max_depth,
     };

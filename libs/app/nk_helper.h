@@ -64,6 +64,8 @@ typedef struct NkInstance
     int is_double_click_down;
     struct nk_vec2 double_click_pos;
     float delta_time_seconds_last;
+    struct nk_convert_config config;
+    struct nk_draw_vertex_layout_element vertex_layout[4];
 
     struct nk_buffer v_buffer;
     struct nk_buffer i_buffer;
@@ -88,9 +90,11 @@ nk_instance_t* nk_helper_init(
 
 void nk_helper_destroy(nk_instance_t* nk);
 
-void nk_helper_new_frame(nk_instance_t* nk, app_window_t* win);
-
-void nk_helper_render(
-    nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, UiCallback ui_callback, arena_t* arena);
+void nk_helper_new_frame(
+    nk_instance_t* nk,
+    rpe_engine_t* engine,
+    app_window_t* app_win,
+    UiCallback ui_callback,
+    arena_t* arena);
 
 #endif

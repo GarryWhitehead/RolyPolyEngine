@@ -957,8 +957,8 @@ static inline void math_mat4f_from_mat3f(math_mat3f r, math_mat4f* m)
 static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, math_vec3f up)
 {
     math_vec3f dir = math_vec3f_normalise(math_vec3f_sub(target, eye));
-    math_vec3f right = math_vec3f_normalise(math_vec3f_cross(dir, up));
-    math_vec3f cam_up = math_vec3f_cross(right, dir);
+    math_vec3f right = math_vec3f_normalise(math_vec3f_cross(up, dir));
+    math_vec3f cam_up = math_vec3f_cross(dir, right);
 
     math_mat4f m = {0.0f};
     m.data[0][0] = right.x;
@@ -1002,7 +1002,7 @@ math_mat4f_frustum(float left, float right, float bottom, float top, float near,
     m.data[0][0] = (2.0f * near) / (right - left);
     m.data[1][1] = -(2.0f * near) / (top - bottom);
     m.data[2][0] = (right + left) / (right - left);
-    m.data[2][1] = -(top + bottom) / (top - bottom);
+    m.data[2][1] = (top + bottom) / (top - bottom);
     m.data[2][2] = (far + near) / (far - near);
     m.data[2][3] = 1.0f;
     m.data[3][2] = -(2.0f * far * near) / (far - near);
@@ -1016,14 +1016,14 @@ math_mat4f_perspective(float fov_y, float aspect_ratio, float near_z, float far_
 
     math_mat4f m = {0};
     m.data[0][0] = 1.0f / (aspect_ratio * tanHalfFovy);
-    m.data[1][1] = 1.0f / tanHalfFovy;
+    m.data[1][1] = -1.0f / tanHalfFovy;
     m.data[2][2] = far_z / (near_z - far_z);
     m.data[2][3] = -1.0f;
-    m.data[3][2] = -(far_z * near_z) / (far_z- near_z);
+    m.data[3][2] = -(far_z * near_z) / (far_z - near_z);
     return m;
 }
 
-static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
+static inline math_mat4f math_mat4f_axis_rotate(float angle, math_vec3f axis)
 {
     math_mat4f out = math_mat4f_identity();
 
@@ -1033,7 +1033,7 @@ static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
 
     out.data[0][0] = (axis.x * axis.x * cos_val) + cos_theta;
     out.data[0][1] = (axis.x * axis.y * cos_val) + (axis.z * sin_theta);
-    out.data[0][1] = (axis.x * axis.z * cos_val) + (axis.y * sin_theta);
+    out.data[0][2] = (axis.x * axis.z * cos_val) - (axis.y * sin_theta);
 
     out.data[1][0] = (axis.y * axis.x * cos_val) - (axis.z * sin_theta);
     out.data[1][1] = (axis.y * axis.y * cos_val) + cos_theta;
@@ -1043,11 +1043,6 @@ static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
     out.data[2][1] = (axis.z * axis.y * cos_val) - (axis.x * sin_theta);
     out.data[2][2] = (axis.z * axis.z * cos_val) + cos_theta;
     return out;
-}
-
-static inline math_mat4f math_mat4f_rotate_lh(float angle, math_vec3f axis)
-{
-    return math_mat4f_rotate_rh(-angle, axis);
 }
 
 static inline math_mat3f math_mat4f_to_rotation_matrix(math_mat4f m)

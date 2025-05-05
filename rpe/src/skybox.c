@@ -39,6 +39,7 @@ rpe_skybox_t* rpe_skybox_init(rpe_engine_t* engine, arena_t* arena)
     skybox->material = rpe_material_init(engine, engine->curr_scene, arena);
 
     rpe_material_set_cull_mode(&skybox->material, RPE_CULL_MODE_FRONT);
+    rpe_material_set_front_face(&skybox->material, RPE_FRONT_FACE_CLOCKWISE);
     rpe_material_set_type(&skybox->material, RPE_MATERIAL_SKYBOX);
     rpe_material_set_test_enable(&skybox->material, true);
     rpe_material_set_write_enable(&skybox->material, true);

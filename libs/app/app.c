@@ -78,8 +78,8 @@ void rpe_app_run(
 
         if (app_win->show_ui)
         {
-            nk_helper_new_frame(app_win->nk, app_win);
-            nk_helper_render(app_win->nk, app->engine, app_win, ui_callback, &app->scratch_arena);
+            nk_helper_new_frame(
+                app_win->nk, app->engine, app_win, ui_callback, &app->scratch_arena);
         }
 
         double now = glfwGetTime();

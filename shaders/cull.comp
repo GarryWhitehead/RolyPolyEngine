@@ -117,6 +117,9 @@ void main()
     bool isVis = true; //checkIntersection(i.center, i.extent);
     if (isVis)
     {
+        // FIXME: The batching isn't correct here - different batches are at the moment placed 
+        // all in the same drawing context. Thus, we need to do something like this - outIndirectCmds[batchId][di] 
+        // or use the device address to offste outIndirectCmds based upon the max count of each batch.
         atomicAdd(batchDrawCounts[inputIndirectCmds[threadIdx].batchId], 1);
         uint di = atomicAdd(totalDrawCount[0], 1);
 
@@ -131,7 +134,7 @@ void main()
 
         // If the material is a shadow caster then add to the separate indirect calls buffer.
         // This seems a little wasteful for memory as the case will probably be that most
-        // material will be shadow casters. There seems few other ways to solve this with 
+        // materials will be shadow casters. There seems few other ways to solve this with 
         // the indirect draw call method - ideally casters could be partitioned and the
         // `firstInstance` set to take this into account when drawing into the shadow depth
         // buffer but this isn't really possible when using compute shaders. So for now,

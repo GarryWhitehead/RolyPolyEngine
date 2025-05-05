@@ -42,7 +42,7 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     vkapi_driver_t* driver = engine->driver;
 
     rpe_scene_t* i = ARENA_MAKE_ZERO_STRUCT(arena, rpe_scene_t);
-    i->shadow_status = RPE_SCENE_SHADOW_STATUS_ENABLED;
+    i->shadow_status = engine->settings.draw_shadows ? RPE_SCENE_SHADOW_STATUS_ENABLED : RPE_SCENE_SHADOW_STATUS_DISABLED;
     i->draw_data = ARENA_MAKE_ARRAY(arena, struct DrawData, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
     MAKE_DYN_ARRAY(rpe_object_t, arena, 100, &i->objects);
 
@@ -139,6 +139,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
 
     rpe_rend_manager_t* rm = engine->rend_manager;
     rpe_transform_manager_t* tm = engine->transform_manager;
+    rpe_shadow_manager_t* sm = engine->shadow_manager;
+
     vkapi_driver_t* driver = engine->driver;
     struct Settings settings = engine->settings;
     bool draw_shadows = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
@@ -267,37 +269,33 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
             cmd->cmd_handle = scene->indirect_draw_handle;
             cmd->offset = batch->first_idx * sizeof(struct IndirectDraw);
         }
-    }
 
-    rpe_shadow_manager_t* sm = engine->shadow_manager;
+        // ==================== Depth pass =========================
+        if (draw_shadows)
+        {
+            rpe_cmd_packet_t* pkt0 = rpe_command_bucket_add_command(
+                scene->render_queue->depth_bucket,
+                0,
+                sizeof(struct PipelineBindCommand),
+                &engine->frame_arena,
+                rpe_cmd_dispatch_pline_bind);
+            struct PipelineBindCommand* pl_cmd = pkt0->cmds;
+            pl_cmd->bundle = sm->csm_bundle;
 
-    // ==================== Depth pass =========================
-    if (draw_shadows)
-    {
-        // All visible shadow casters drawn with one draw call using the data generated via
-        // the compute-shader (no batching required as the pipeline remains the same for all calls).
-        rpe_cmd_packet_t* pkt0 = rpe_command_bucket_add_command(
-            scene->render_queue->depth_bucket,
-            0,
-            sizeof(struct PipelineBindCommand),
-            &engine->frame_arena,
-            rpe_cmd_dispatch_pline_bind);
-        struct PipelineBindCommand* pl_cmd = pkt0->cmds;
-        pl_cmd->bundle = sm->csm_bundle;
-
-        rpe_cmd_packet_t* pkt1 = rpe_command_bucket_append_command(
-            scene->render_queue->depth_bucket,
-            pkt0,
-            0,
-            sizeof(struct DrawIndirectIndexCommand),
-            &engine->frame_arena,
-            rpe_cmd_dispatch_draw_indirect_indexed);
-        struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
-        cmd->stride = sizeof(struct IndirectDraw);
-        cmd->count_handle = scene->shadow_draw_count_handle;
-        cmd->draw_count_offset = 0;
-        cmd->cmd_handle = scene->shadow_indirect_draw_handle;
-        cmd->offset = 0;
+            rpe_cmd_packet_t* pkt1 = rpe_command_bucket_append_command(
+                scene->render_queue->depth_bucket,
+                pkt0,
+                0,
+                sizeof(struct DrawIndirectIndexCommand),
+                &engine->frame_arena,
+                rpe_cmd_dispatch_draw_indirect_indexed);
+            struct DrawIndirectIndexCommand* cmd = pkt1->cmds;
+            cmd->stride = sizeof(struct IndirectDraw);
+            cmd->count_handle = scene->shadow_draw_count_handle;
+            cmd->draw_count_offset = i * sizeof(uint32_t);
+            cmd->cmd_handle = scene->shadow_indirect_draw_handle;
+            cmd->offset = 0;
+        }
     }
 
     vkapi_driver_map_gpu_buffer(
@@ -388,7 +386,7 @@ void rpe_scene_set_current_camera(rpe_scene_t* scene, rpe_engine_t* engine, rpe_
     scene->curr_camera = cam;
 
     // Update the shadow cascade maps based upon the current camera near/far values.
-    rpe_shadow_manager_compute_csm_splits(engine->shadow_manager, cam);
+    rpe_shadow_manager_compute_csm_splits(engine->shadow_manager, scene, cam);
 }
 
 void rpe_scene_set_ibl(rpe_scene_t* scene, ibl_t* ibl)

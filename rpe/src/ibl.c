@@ -27,11 +27,13 @@
 #include "material.h"
 #include "renderer.h"
 #include "rpe/engine.h"
+#include "rpe/renderable_manager.h"
 #include "rpe/renderer.h"
 #include "rpe/scene.h"
 #include "scene.h"
 
 #include <backend/enums.h>
+#include <backend/objects.h>
 #include <log.h>
 #include <utility/arena.h>
 #include <vulkan-api/driver.h>
@@ -57,14 +59,14 @@ void generate_face_views(math_mat4f* face_views)
         math_vec3f target = {0.0f, -1.0f, 0.0f};
         math_vec3f eye = {0.0f, 0.0f, 0.0f};
         math_vec3f up = {0.0f, 0.0f, -1.0f};
-        face_views[2] = math_mat4f_lookat(target, eye, up);
+        face_views[3] = math_mat4f_lookat(target, eye, up);
     }
     {
         // Y_NEGATIVE
         math_vec3f target = {0.0f, 1.0f, 0.0f};
         math_vec3f eye = {0.0f, 0.0f, 0.0f};
         math_vec3f up = {0.0f, 0.0f, 1.0f};
-        face_views[3] = math_mat4f_lookat(target, eye, up);
+        face_views[2] = math_mat4f_lookat(target, eye, up);
     }
     {
         // Z_POSITIVE
@@ -140,11 +142,13 @@ texture_handle_t ibl_eqirect_to_cubemap(
     rt.load_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR;
     rt.store_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
 
-    shader_bundle_set_viewport(
-        bundle, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, 0.0f, 1.0f);
-
+    rpe_viewport_t vp = {
+        .rect.width = RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
+        .rect.height = RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
+        .min_depth = 0.0f,
+        .max_depth = 1.0f};
     rpe_renderer_render_single_indexed(
-        ibl->renderer, &rt, bundle, ibl->cubemap_vertices, ibl->cubemap_indices, 36, NULL, 0, 6);
+        ibl->renderer, &rt, bundle, ibl->cubemap_vertices, ibl->cubemap_indices, 36, NULL, 0, 6, &vp, NULL);
 
     uint32_t mip_levels = rpe_material_max_mipmaps(
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS);
@@ -190,7 +194,12 @@ texture_handle_t ibl_create_brdf_lut(ibl_t* ibl, rpe_engine_t* engine)
     rt.load_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR;
     rt.store_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
 
-    rpe_renderer_render_single_quad(ibl->renderer, &rt, ibl->brdf.bundle, 0);
+    rpe_viewport_t vp = {
+        .rect.width = RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
+        .rect.height = RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS,
+        .min_depth = 0.0f,
+        .max_depth = 1.0f};
+    rpe_renderer_render_single_quad(ibl->renderer, &rt, ibl->brdf.bundle, 0, &vp, NULL);
 
     vkapi_driver_destroy_rt(driver, &rt.handle);
     return target_handle;
@@ -230,13 +239,11 @@ ibl_create_irradiance_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t
     rt.load_flags[0] = RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR;
     rt.store_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
 
-    shader_bundle_set_viewport(
-        ibl->irradiance_envmap.bundle,
-        RPE_IBL_IRRADIANCE_ENV_MAP_DIMENSIONS,
-        RPE_IBL_IRRADIANCE_ENV_MAP_DIMENSIONS,
-        0.0f,
-        1.0f);
-
+    rpe_viewport_t vp = {
+        .rect.width = RPE_IBL_IRRADIANCE_ENV_MAP_DIMENSIONS,
+        .rect.height = RPE_IBL_IRRADIANCE_ENV_MAP_DIMENSIONS,
+        .min_depth = 0.0f,
+        .max_depth = 1.0f};
     rpe_renderer_render_single_indexed(
         ibl->renderer,
         &rt,
@@ -246,7 +253,8 @@ ibl_create_irradiance_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t
         36,
         NULL,
         0,
-        6);
+        6,
+        &vp, NULL);
     vkapi_driver_destroy_rt(driver, &rt.handle);
 
     return target_handle;
@@ -305,8 +313,12 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
     for (uint32_t level = 0; level < max_mip_levels; ++level)
     {
         rt.attachments[0].mipLevel = level;
-        shader_bundle_set_viewport(ibl->specular.bundle, dim, dim, 0.0f, 1.0f);
 
+        rpe_viewport_t vp = {
+            .rect.width = dim,
+            .rect.height = dim,
+            .min_depth = 0.0f,
+            .max_depth = 1.0f};
         float roughness = (float)level / (float)(max_mip_levels - 1);
         struct PushBlockEntry entry = {
             .data = &roughness, .stage = RPE_BACKEND_SHADER_STAGE_FRAGMENT};
@@ -320,7 +332,8 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
             36,
             &entry,
             1,
-            6);
+            6,
+            &vp, NULL);
         vkapi_driver_destroy_rt(driver, &rt.handle);
 
         dim >>= 1;
@@ -543,8 +556,14 @@ ibl_t* rpe_ibl_init(rpe_engine_t* engine, rpe_scene_t* scene, struct PreFilterOp
 
     vkapi_driver_t* driver = engine->driver;
 
-    ibl->camera = rpe_engine_create_camera(
-        engine, 90.0f, 1, 1, 0.1f, 512.0f, RPE_PROJECTION_TYPE_PERSPECTIVE);
+    float near = 0.1f;
+    float far = 256.0f;
+    float fovy = 90.0f;
+    ibl->camera = rpe_engine_create_camera(engine);
+    float w = tanf(fovy * (float)M_PI / 360.0f) * near;
+    float h = w / 1.0f;
+    ibl->camera->projection = math_mat4f_frustum(-w, w, -h, h, near, far);
+
     rpe_camera_ubo_t cam_ubo = rpe_camera_update_ubo(ibl->camera, NULL);
     vkapi_driver_map_gpu_buffer(
         engine->driver, scene->camera_ubo, sizeof(rpe_camera_ubo_t), 0, &cam_ubo);

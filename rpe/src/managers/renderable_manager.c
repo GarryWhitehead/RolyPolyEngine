@@ -41,7 +41,6 @@ rpe_renderable_t* rpe_renderable_init(arena_t* arena)
 {
     rpe_renderable_t* rend = ARENA_MAKE_ZERO_STRUCT(arena, rpe_renderable_t);
     rend->sort_key = UINT32_MAX;
-    // rend.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     rend->box = rpe_aabox_init();
     rend->view_layer = 0x2;
     return rend;
@@ -392,8 +391,8 @@ int sort_renderables(void* rend_manager, const void* a, const void* b)
     rpe_rend_manager_t* rm = (rpe_rend_manager_t*)rend_manager;
     rpe_renderable_t* a_rend = rpe_rend_manager_get_mesh(rm, a_obj);
     rpe_renderable_t* b_rend = rpe_rend_manager_get_mesh(rm, b_obj);
-    assert(a_rend->sort_key != UINT32_MAX);
-    assert(b_rend->sort_key != UINT32_MAX);
+    assert(a_rend->sort_key != UINT64_MAX);
+    assert(b_rend->sort_key != UINT64_MAX);
     if (a_rend->sort_key > b_rend->sort_key)
     {
         return 1;

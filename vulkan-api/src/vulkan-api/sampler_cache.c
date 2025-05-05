@@ -24,6 +24,7 @@
 
 #include "backend/convert_to_vk.h"
 #include "backend/enums.h"
+#include "backend/objects.h"
 #include "driver.h"
 
 #include <utility/arena.h>

@@ -28,6 +28,7 @@
 #include "stb_loader.h"
 
 #include <backend/enums.h>
+#include <backend/objects.h>
 #include <cgltf.h>
 #include <log.h>
 #include <rpe/engine.h>
@@ -211,13 +212,16 @@ gltf_image_handle_t get_texture(
     // If the filesystem uri is defined, then load from disk.
     else if (texture->image->uri)
     {
+        char sep = fs_get_platform_seperator();
+        char null_sep[2] = {sep, '\0'};
         // Not cached, so try and load from disk.
         string_t path = fs_remove_filename(&asset->gltf_path, arena);
-        string_t full_path = string_append3(&path, "/", texture->image->uri, arena);
-        FILE* fp = fopen(full_path.data, "r");
+        string_t full_path =
+            string_append3(&path, null_sep, texture->image->uri, arena);
+        FILE* fp = fopen(full_path.data, "rb");
         if (!fp)
         {
-            log_error("Unable to open image at uri: %s", full_path);
+            log_error("Unable to open image at uri: %s", full_path.data);
             return out_handle;
         }
         size_t sz = fs_get_file_size(fp);
@@ -225,7 +229,7 @@ gltf_image_handle_t get_texture(
         size_t sz_read = fread(image_data, sizeof(uint8_t), sz, fp);
         if (sz_read != sz)
         {
-            log_error("Error whilst reading image file: %s", full_path);
+            log_error("Error whilst reading image file: %s", full_path.data);
             return out_handle;
         }
         fclose(fp);

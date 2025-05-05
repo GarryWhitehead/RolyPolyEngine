@@ -30,6 +30,7 @@
 
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct VkApiContext vkapi_context_t;
+typedef struct TextureSamplerParams sampler_params_t;
 
 /**
  Keep track of samplers dispersed between textures

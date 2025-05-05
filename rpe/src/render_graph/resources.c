@@ -31,6 +31,7 @@
 #include <vulkan-api/driver.h>
 #include <vulkan-api/resource_cache.h>
 #include <vulkan-api/texture.h>
+#include <backend/objects.h>
 
 rg_resource_t* rg_resource_init(const char* name, enum ResourceType type, arena_t* arena)
 {

@@ -429,9 +429,9 @@ void vkapi_driver_begin_rpass(
     // Viewport and scissor can be overwritten later by the user.
     VkViewport viewport = {
         .x = 0.0f,
-        .y = (float)fbo_key.height,
+        .y = 0.0f,
         .width = (float)fbo->width,
-        .height = -(float)fbo->height,
+        .height = (float)fbo->height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f};
     vkCmdSetViewport(cmds, 0, 1, &viewport);

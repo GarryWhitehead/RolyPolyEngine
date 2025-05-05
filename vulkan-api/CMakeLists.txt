@@ -73,8 +73,7 @@ target_sources(
     src/backend/enums.h
     src/backend/convert_to_vk.c
     src/backend/convert_to_vk.h
-#    src/backend/convert_to_yave.cpp
-#    src/backend/convert_to_yave.h
+    src/backend/objects.h
 )
 
 target_include_directories(

@@ -23,6 +23,7 @@
 
 #include "convert_to_vk.h"
 
+#include "objects.h"
 
 VkBlendFactor blend_factor_to_vk(enum BlendFactor factor)
 {
@@ -441,4 +442,26 @@ VkSampleCountFlagBits samples_to_vk(uint32_t count)
             break;
     }
     return result;
+}
+
+VkRect2D rect2d_to_vk(rpe_rect2d_t* rect)
+{
+    VkRect2D out = {
+        .offset.x = rect->x,
+        .offset.y = rect->y,
+        .extent.width = rect->width,
+        .extent.height = rect->height};
+    return out;
+}
+
+VkViewport viewport_to_vk(rpe_viewport_t* vp)
+{
+    VkViewport out = {
+        .x = vp->rect.x,
+        .y = vp->rect.y,
+        .width = vp->rect.width,
+        .height = vp->rect.height,
+        .minDepth = vp->min_depth,
+        .maxDepth = vp->max_depth};
+    return out;
 }

@@ -21,13 +21,10 @@
  */
 
 #include <app/app.h>
-#include <app/ibl_helper.h>
 #include <app/nk_helper.h>
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
-#include <parg.h>
-#include <rpe/ibl.h>
 #include <rpe/light_manager.h>
 #include <rpe/material.h>
 #include <rpe/object_manager.h>
@@ -36,11 +33,15 @@
 #include <rpe/settings.h>
 #include <rpe/skybox.h>
 #include <rpe/transform_manager.h>
-#include <stdlib.h>
-#include <string.h>
 #include <utility/filesystem.h>
 
-#define MODEL_TREE_COUNT 15
+#include <parg.h>
+#include <stdlib.h>
+#include <string.h>
+
+
+#define MODEL_TREE_COUNT 10
+#define MODEL_COUNT 1
 
 /**
  * A app for testing the casccade shadows method. Draws a basic landscape scene using models
@@ -53,16 +54,60 @@ void print_usage()
     printf("gltf_viewer [OPTIONS] <GLTF_ASSET_GIT_FOLDER> \n");
 }
 
-void add_model_obj_to_scene(rpe_app_t* app, gltf_asset_t* asset, rpe_rend_manager_t* rm)
+void create_ground_plane(rpe_engine_t* engine, rpe_scene_t* scene)
 {
-    for (size_t i = 0; i < asset->objects.size; ++i)
-    {
-        rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &asset->objects, i);
-        if (rpe_rend_manager_has_obj(rm, obj))
-        {
-            rpe_scene_add_object(app->scene, *obj);
-        }
-    }
+    uint32_t indices[] = {
+        0, 1, 2, 2, 3, 0
+    };
+
+    const math_vec3f vertices[4] = {
+        {-20.0f, 0.0f, -20.0f},
+        {-20.0f, 0.0f,  20.0f },
+        {20.0f, 0.0f,  20.0f},
+        {20.0f, 0.0f, -20.0f},
+    };
+
+    const math_vec4f col = {0.0f, 0.7f, 0.1f, 1.0f};
+    const math_vec4f colours[] = {col, col, col, col};
+
+    rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
+    rpe_obj_manager_t* om = rpe_engine_get_obj_manager(engine);
+    rpe_transform_manager_t* tm = rpe_engine_get_transform_manager(engine);
+
+    rpe_valloc_handle vbuffer_handle = rpe_rend_manager_alloc_vertex_buffer(rm, 4);
+    rpe_valloc_handle ibuffer_handle = rpe_rend_manager_alloc_index_buffer(rm, 6);
+
+    rpe_mesh_t* mesh = rpe_rend_manager_create_static_mesh(
+        rm,
+        vbuffer_handle,
+        (float*)vertices,
+        NULL,
+        NULL,
+        (float*)colours,
+        4,
+        ibuffer_handle,
+        indices,
+        6,
+        RPE_RENDERABLE_INDICES_U32);
+
+    rpe_material_t* mat = rpe_rend_manager_create_material(rm, scene);
+    rpe_material_set_cull_mode(mat, RPE_CULL_MODE_BACK);
+    rpe_material_set_test_enable(mat, true);
+    rpe_material_set_write_enable(mat, true);
+    rpe_material_set_depth_compare_op(mat, RPE_COMPARE_OP_LESS);
+    rpe_material_set_front_face(mat, RPE_FRONT_FACE_CLOCKWISE);
+    rpe_material_set_shadow_caster_state(mat, false);
+
+    rpe_renderable_t* renderable = rpe_engine_create_renderable(engine, mat, mesh);
+    rpe_object_t obj = rpe_obj_manager_create_obj(om);
+    rpe_object_t t_obj = rpe_obj_manager_create_obj(om);
+    rpe_rend_manager_add(rm, renderable, obj, t_obj);
+    rpe_scene_add_object(scene, obj);
+
+    rpe_model_transform_t t = rpe_model_transform_init();
+    t.translation = math_vec3f_init(10.0f, 0.0f, 10.0f);
+    t.rot = math_mat4f_axis_rotate(math_to_radians(180.0f), math_vec3f_init(1.0f, 0.0f, 0.0f));
+    rpe_transform_manager_add_local_transform(tm, &t, &t_obj);
 }
 
 struct LightData
@@ -92,8 +137,6 @@ void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win)
     nk_instance_t* nk = win->nk;
     struct nk_context* ctx = &nk->ctx;
     rpe_settings_t settings = rpe_engine_get_settings(engine);
-    rpe_shadow_manager_t* sm = rpe_engine_get_shadow_manager(engine);
-    bool update_settings = false;
 
     if (nk_begin(
             ctx,
@@ -102,10 +145,10 @@ void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win)
             NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
                 NK_WINDOW_TITLE))
     {
-        nk_layout_row_dynamic(ctx, 30, 2);
+        nk_layout_row_dynamic(ctx, 30, 1);
         if (nk_checkbox_label(ctx, "Draw shadows", (nk_bool*)&settings.draw_shadows))
         {
-            update_settings = true;
+            rpe_engine_update_settings(engine, &settings);
         }
 
         // Cascade levels.
@@ -114,11 +157,10 @@ void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win)
         {
             nk_layout_row_push(ctx, 50);
             nk_label(ctx, "Cascade levels:", NK_TEXT_LEFT);
-            nk_layout_row_push(ctx, 110);
-            if (nk_slider_int(ctx, 0, &settings.shadow.cascade_count, 1, 8))
+            nk_layout_row_push(ctx, 150);
+            if (nk_slider_int(ctx, 1, &settings.shadow.cascade_count, 8, 1))
             {
-                rpe_shadow_manager_update(sm, scene);
-                update_settings = true;
+                rpe_engine_update_settings(engine, &settings);
             }
         }
 
@@ -128,20 +170,14 @@ void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win)
         {
             nk_layout_row_push(ctx, 50);
             nk_label(ctx, "Split lambda:", NK_TEXT_LEFT);
-            nk_layout_row_push(ctx, 110);
-            if (nk_slider_float(ctx, 0, &settings.shadow.split_lambda, 0.1f, 1.0f))
+            nk_layout_row_push(ctx, 150);
+            if (nk_slider_float(ctx, 0.1f, &settings.shadow.split_lambda, 1.0f, 0.1f))
             {
-                rpe_shadow_manager_update(sm, scene);
-                update_settings = true;
+                rpe_engine_update_settings(engine, &settings);
             }
         }
     }
     nk_end(ctx);
-
-    if (update_settings)
-    {
-        rpe_engine_update_settings(engine, &settings);
-    }
 }
 
 int main(int argc, char** argv)
@@ -210,29 +246,24 @@ int main(int argc, char** argv)
     rpe_transform_manager_t* tm = rpe_engine_get_transform_manager(app.engine);
     rpe_renderer_t* renderer = rpe_engine_create_renderer(app.engine);
 
-    const char* model_filenames[2] = {"/models/terrain_gridlines.gltf", "/models/oaktree.gltf"};
-    gltf_asset_t* model_assets[2];
+    const char* model_filenames[MODEL_COUNT] = {"/models/oaktree.gltf"};
+    gltf_asset_t* model_assets[MODEL_COUNT];
 
     math_vec3f tree_positions[MODEL_TREE_COUNT] = {
         {0.0f, 0.0f, 0.0f},
         {1.25f, 0.0f, 1.25f},
-        {-1.25f, 0.0f, -0.2f},
-        {1.25f, 0.0f, 0.1f},
-        {-1.25f, 0.0f, -1.25f},
-        {2.0f, 0.0f, -2.5f},
-        {0.5f, 0.0f, -2.8f},
-        {2.5f, 0.0f, -3.0f},
-        {-4.0f, 0.0f, -3.0f},
-        {-1.25f, 0.0f, -5.0f},
-        {2.0f, 0.0f, 2.5f},
-        {0.5f, 0.0f, 2.8f},
-        {2.5f, 0.0f, 3.0f},
-        {-4.0f, 0.0f, 3.0f},
-        {-1.25f, 0.0f, 5.0f},
+        {-3.25f, 0.0f, -0.2f},
+        {3.25f, 0.0f, 2.1f},
+        {-5.25f, 0.0f, -1.25f},
+        {2.0f, 0.0f, -5.5f},
+        {3.5f, 0.0f, -6.8f},
+        {7.5f, 0.0f, -8.0f},
+        {9.0f, 0.0f, 8.0f},
+        {-5.0f, 0.0f, -5.0f}
     };
 
     char full_path[4096] = {0};
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < MODEL_COUNT; ++i)
     {
         strcpy(full_path, gltf_asset_path);
         strcat(full_path, model_filenames[i]);
@@ -258,16 +289,18 @@ int main(int argc, char** argv)
         free(buffer);
     }
 
-    // We don't want the terrian to cast shadows.
-    rpe_material_t* mat = DYN_ARRAY_GET(rpe_material_t*, &model_assets[0]->materials, 0);
-    rpe_material_set_shadow_caster_state(mat, false);
-
-    // Add the terrain model to the scene.
-    add_model_obj_to_scene(&app, model_assets[0], rm);
+    create_ground_plane(app.engine, app.scene);
 
     // Add trees to the scene.
+    rpe_model_transform_t tree_transforms[MODEL_TREE_COUNT];
+    for (int i = 0; i < MODEL_TREE_COUNT; ++i)
+    {
+        tree_transforms[i] = rpe_model_transform_init();
+        tree_transforms[i].translation = tree_positions[i];
+    }
+
     gltf_model_create_instances(
-        model_assets[1], rm, tm, om, app.scene, MODEL_TREE_COUNT, tree_positions, &app.arena);
+        model_assets[0], rm, tm, om, app.scene, MODEL_TREE_COUNT, tree_transforms, &app.arena);
 
     struct LightData data = {.timer = 0.2f, .timer_speed = 0.001f};
 
@@ -277,6 +310,7 @@ int main(int argc, char** argv)
     rpe_light_create_info_t ci = {0};
     rpe_light_manager_create_light(lm, &ci, data.dir_obj, RPE_LIGHTING_TYPE_DIRECTIONAL);
 
+    rpe_camera_view_set_position(&app.window.cam_view, math_vec3f_init(0.0f, -1.5f, -2.0f));
     rpe_app_run(&app, renderer, light_update, &data, NULL, NULL, ui_callback);
 
     rpe_app_shutdown(&app);

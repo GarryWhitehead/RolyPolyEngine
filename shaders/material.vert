@@ -72,10 +72,8 @@ void main()
 
     vec4 pos = modelTransform * vec4(inPos, 1.0);
 
-    mat4 normalTransform = transpose(inverse(modelTransform));
-
-    outNormal = HAS_NORMAL ? normalize(normalTransform * vec4(inNormal, 0.0)).rgb : vec3(0.0);
-    outTangent = modelTransform * inTangent;
+    outNormal = HAS_NORMAL ? vec3(mat3(modelTransform) * inNormal) : vec3(0.0);
+    outTangent = vec4(mat3(modelTransform) * inTangent.xyz, inTangent.w);
 
     outUv0 = inUv0;
     outUv1 = inUv1;

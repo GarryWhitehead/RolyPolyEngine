@@ -162,7 +162,6 @@ float gltf_model_material_convert_to_alpha(cgltf_alpha_mode mode)
 
 rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asset)
 {
-    assert(mat);
     assert(asset);
 
     rpe_rend_manager_t* r_manager = rpe_engine_get_rend_manager(asset->engine);
@@ -170,6 +169,19 @@ rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asse
     rpe_scene_t* scene = rpe_engine_get_current_scene(asset->engine);
     assert(scene);
     rpe_material_t* new_mat = rpe_rend_manager_create_material(r_manager, scene);
+
+    // Some assumed defaults for the material.
+    rpe_material_set_test_enable(new_mat, true);
+    rpe_material_set_write_enable(new_mat, true);
+    rpe_material_set_depth_compare_op(new_mat, RPE_COMPARE_OP_LESS);
+    rpe_material_set_front_face(new_mat, RPE_FRONT_FACE_COUNTER_CLOCKWISE);
+    rpe_material_set_cull_mode(new_mat, RPE_CULL_MODE_BACK);
+
+    // If the gltf has no material defined then use the defaults.
+    if (!mat)
+    {
+        return new_mat;
+    }
 
     // Two pipelines, either specular glossiness or metallic roughness,
     // according to the spec, metallic roughness should be preferred.
@@ -290,10 +302,10 @@ rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asse
     // Determines the type of culling required.
     rpe_material_set_double_sided_state(new_mat, mat->double_sided);
 
-    // Some assumed defaults for the material.
-    rpe_material_set_test_enable(new_mat, true);
-    rpe_material_set_write_enable(new_mat, true);
-    rpe_material_set_depth_compare_op(new_mat, RPE_COMPARE_OP_LESS);
+    if (mat->double_sided)
+    {
+        rpe_material_set_cull_mode(new_mat, RPE_CULL_MODE_NONE);
+    }
 
     return new_mat;
 }
@@ -719,10 +731,6 @@ gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine
     // Create the GLTF asset which contains all the parsed information which can be used by the
     // client.
     gltf_asset_t* asset = create_asset(engine, gltf_root, path, arena);
-    if (!asset)
-    {
-        return NULL;
-    }
 
     if (!create_model_instance(asset, arena))
     {
@@ -739,7 +747,7 @@ void gltf_model_create_instances(
     rpe_obj_manager_t* om,
     rpe_scene_t* scene,
     uint32_t count,
-    math_vec3f* translations,
+    rpe_model_transform_t* transforms,
     arena_t* arena)
 {
     arena_dyn_array_t objects;
@@ -761,7 +769,7 @@ void gltf_model_create_instances(
 
                 rpe_object_t model_trans_obj =
                     rpe_transform_manager_copy(tm, om, parent_trans_obj, &objects);
-                rpe_transform_manager_set_translation(tm, model_trans_obj, translations[i]);
+                rpe_transform_manager_set_transform(tm, model_trans_obj, &transforms[i]);
 
                 rpe_rend_manager_copy(rm, tm, src_obj, model_obj, rpe_transform_manager_get_child(tm, model_trans_obj));
                 // Add object to the scene.

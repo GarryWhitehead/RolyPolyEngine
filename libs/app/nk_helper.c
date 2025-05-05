@@ -25,6 +25,7 @@
 #include "window.h"
 
 #include <backend/enums.h>
+#include <backend/objects.h>
 #include <rpe/engine.h>
 #include <rpe/material.h>
 #include <rpe/object_manager.h>
@@ -42,6 +43,40 @@
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
+
+void set_ui_style(struct nk_context* ctx)
+{
+    struct nk_color table[NK_COLOR_COUNT] = {0};
+    table[NK_COLOR_TEXT] = nk_rgba(190, 190, 190, 255);
+    table[NK_COLOR_WINDOW] = nk_rgba(30, 33, 40, 215);
+    table[NK_COLOR_HEADER] = nk_rgba(181, 45, 69, 220);
+    table[NK_COLOR_BORDER] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_BUTTON] = nk_rgba(181, 45, 69, 255);
+    table[NK_COLOR_BUTTON_HOVER] = nk_rgba(190, 50, 70, 255);
+    table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(195, 55, 75, 255);
+    table[NK_COLOR_TOGGLE] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 60, 60, 255);
+    table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(181, 45, 69, 255);
+    table[NK_COLOR_SELECT] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(181, 45, 69, 255);
+    table[NK_COLOR_SLIDER] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(181, 45, 69, 255);
+    table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(186, 50, 74, 255);
+    table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(191, 55, 79, 255);
+    table[NK_COLOR_PROPERTY] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_EDIT] = nk_rgba(51, 55, 67, 225);
+    table[NK_COLOR_EDIT_CURSOR] = nk_rgba(190, 190, 190, 255);
+    table[NK_COLOR_COMBO] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_CHART] = nk_rgba(51, 55, 67, 255);
+    table[NK_COLOR_CHART_COLOR] = nk_rgba(170, 40, 60, 255);
+    table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+    table[NK_COLOR_SCROLLBAR] = nk_rgba(30, 33, 40, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(64, 84, 95, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(70, 90, 100, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(75, 95, 105, 255);
+    table[NK_COLOR_TAB_HEADER] = nk_rgba(181, 45, 69, 220);
+    nk_style_from_table(ctx, table);
+}
 
 nk_instance_t* nk_helper_init(
     const char* font_path,
@@ -62,8 +97,9 @@ nk_instance_t* nk_helper_init(
     rpe_scene_set_shadow_status(nk->scene, RPE_SCENE_SHADOW_STATUS_NEVER);
     rpe_scene_skip_lighting_pass(nk->scene);
 
-    nk->camera = rpe_engine_create_camera(
-        engine, 90.0f, app_win->width, app_win->height, 0.0f, 1.0f, RPE_PROJECTION_TYPE_ORTHO);
+    nk->camera = rpe_engine_create_camera(engine);
+    rpe_camera_set_proj_matrix(
+        nk->camera, 90.0f, app_win->width, app_win->height, 0.0f, 1.0f, RPE_PROJECTION_TYPE_ORTHO);
     rpe_scene_set_current_camera(nk->scene, engine, nk->camera);
 
     nk_font_atlas_init_default(&nk->atlas);
@@ -112,6 +148,29 @@ nk_instance_t* nk_helper_init(
     nk_buffer_init_default(&nk->i_buffer);
     nk_buffer_init_default(&nk->cmds);
 
+    // Setup draw call configuration.
+    nk->vertex_layout[0].attribute = NK_VERTEX_POSITION;
+    nk->vertex_layout[0].format = NK_FORMAT_FLOAT;
+    nk->vertex_layout[0].offset = offsetof(rpe_vertex_t, position);
+    nk->vertex_layout[1].attribute = NK_VERTEX_TEXCOORD;
+    nk->vertex_layout[1].format = NK_FORMAT_FLOAT;
+    nk->vertex_layout[1].offset = offsetof(rpe_vertex_t, uv0);
+    nk->vertex_layout[2].attribute = NK_VERTEX_COLOR;
+    nk->vertex_layout[2].format = NK_FORMAT_R32G32B32A32_FLOAT;
+    nk->vertex_layout[2].offset = offsetof(rpe_vertex_t, colour);
+    nk->vertex_layout[3].attribute = NK_VERTEX_LAYOUT_END;
+
+    nk->config.vertex_layout = nk->vertex_layout;
+    nk->config.vertex_size = sizeof(rpe_vertex_t);
+    nk->config.vertex_alignment = __alignof(rpe_vertex_t);
+    nk->config.tex_null = nk->tex_null;
+    nk->config.circle_segment_count = 22;
+    nk->config.curve_segment_count = 22;
+    nk->config.arc_segment_count = 22;
+    nk->config.global_alpha = 1.0f;
+    nk->config.shape_AA = NK_ANTI_ALIASING_ON;
+    nk->config.line_AA = NK_ANTI_ALIASING_ON;
+
     rpe_model_transform_t mt = rpe_model_transform_init();
     nk->transform_obj = rpe_obj_manager_create_obj(om);
     rpe_transform_manager_add_local_transform(
@@ -127,6 +186,7 @@ nk_instance_t* nk_helper_init(
     nk->ibuffer_handle =
         rpe_rend_manager_alloc_index_buffer(rm, RPE_NK_HELPER_MAX_INDEX_BUFFER_COUNT);
 
+    set_ui_style(&nk->ctx);
     return nk;
 }
 
@@ -138,7 +198,7 @@ void nk_helper_destroy(nk_instance_t* nk)
     nk_free(&nk->ctx);
 }
 
-void nk_helper_new_frame(nk_instance_t* nk, app_window_t* app_win)
+void update_nk_inputs(nk_instance_t* nk, app_window_t* app_win)
 {
     double x, y;
     struct nk_context* ctx = &nk->ctx;
@@ -268,14 +328,9 @@ void nk_helper_new_frame(nk_instance_t* nk, app_window_t* app_win)
     nk->scroll = nk_vec2(0, 0);
 }
 
-void nk_helper_render(
-    nk_instance_t* nk,
-    rpe_engine_t* engine,
-    app_window_t* win,
-    UiCallback ui_callback,
-    arena_t* arena)
+void update_nk_draw_calls(
+    nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, arena_t* arena)
 {
-    assert(ui_callback);
     assert(nk);
 
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
@@ -296,34 +351,13 @@ void nk_helper_render(
     nk_buffer_clear(&nk->i_buffer);
     nk_buffer_clear(&nk->cmds);
 
-    // Draw the widgets for this frame via the callback.
-    ui_callback(engine, rpe_engine_get_current_scene(engine), win);
-
-    struct nk_convert_config config = {0};
-    struct nk_draw_vertex_layout_element vertex_layout[] = {
-        {NK_VERTEX_POSITION, NK_FORMAT_FLOAT, offsetof(rpe_vertex_t, position)},
-        {NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, offsetof(rpe_vertex_t, uv0)},
-        {NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, offsetof(rpe_vertex_t, colour)},
-        {NK_VERTEX_LAYOUT_END}};
-
-    config.vertex_layout = vertex_layout;
-    config.vertex_size = sizeof(rpe_vertex_t);
-    config.vertex_alignment = __alignof(rpe_vertex_t);
-    config.tex_null = nk->tex_null;
-    config.circle_segment_count = 22;
-    config.curve_segment_count = 22;
-    config.arc_segment_count = 22;
-    config.global_alpha = 1.0f;
-    config.shape_AA = NK_ANTI_ALIASING_ON;
-    config.line_AA = NK_ANTI_ALIASING_ON;
-
     uint8_t* vertex_tmp = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, sizeof(rpe_vertex_t) * 2000);
     uint8_t* index_tmp = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, sizeof(uint16_t) * 2000);
 
     nk_buffer_init_fixed(&nk->v_buffer, vertex_tmp, sizeof(rpe_vertex_t) * 2000);
     nk_buffer_init_fixed(&nk->i_buffer, index_tmp, sizeof(uint16_t) * 2000);
 
-    nk_flags res = nk_convert(&nk->ctx, &nk->cmds, &nk->v_buffer, &nk->i_buffer, &config);
+    nk_flags res = nk_convert(&nk->ctx, &nk->cmds, &nk->v_buffer, &nk->i_buffer, &nk->config);
     assert(res == NK_CONVERT_SUCCESS);
 
     rpe_mesh_t* mesh = rpe_rend_manager_create_mesh(
@@ -375,4 +409,19 @@ void nk_helper_render(
 
     nk_clear(&nk->ctx);
     arena_reset(arena);
+}
+
+void nk_helper_new_frame(
+    nk_instance_t* nk,
+    rpe_engine_t* engine,
+    app_window_t* app_win,
+    UiCallback ui_callback,
+    arena_t* arena)
+{
+    update_nk_inputs(nk, app_win);
+
+    // Draw the widgets for this frame via the callback.
+    ui_callback(engine, rpe_engine_get_current_scene(engine), app_win);
+
+    update_nk_draw_calls(nk, engine, app_win, arena);
 }

@@ -60,11 +60,19 @@ vec3 peturbNormal(vec2 uv, vec3 pos, vec3 norm)
     vec2 st2 = dFdy(uv); // uv2
 
     vec3 N = normalize(inNormal);
+    N.y *= -1.0f;
 
     vec3 dq2 = cross(q2, N); 
     vec3 dq1 = cross(N, q1); 
     vec3 T = dq2 * st1.x + dq1 * st2.x; 
     vec3 B = dq2 * st1.y + dq1 * st2.y;
+
+    if (gl_FrontFacing == false)
+    {
+        //N *= -1.0;
+        T *= -1.0;
+        B *= -1.0;
+    }
 
     float invmax = inversesqrt(max(dot(T, T), dot(B, B)));
     mat3 TBN = mat3(T * invmax, B * invmax, N);
@@ -108,23 +116,30 @@ void main()
     if (HAS_NORMAL_SAMPLER && HAS_UV)
     {
         vec2 uv = iData.normalUv == 0 ? inUv0 : inUv1;
-        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - vec3(1.0);
-        
+        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - 1.0;
+   
         if (HAS_NORMAL && HAS_TANGENT)
         {
             vec3 N = normalize(inNormal);
 	        vec3 T = normalize(inTangent.xyz);
-	        vec3 B = cross(N, T) * inTangent.w;
+	        vec3 B = cross(inNormal, inTangent.xyz) * inTangent.w;
+
+            if (gl_FrontFacing == false)
+            {
+                //N *= -1.0;
+                T *= -1.0;
+                B *= -1.0;
+            }
+
 	        mat3 TBN = mat3(T, B, N);
             normOut = vec4(normalize(TBN * norm), 0.0);
+            normOut.y *= -1.0f;
         }
         else
         {
             norm.y *= -1.0;
             normOut = vec4(peturbNormal(uv, -V, norm), 0.0);
         }
-         // Need to flip this along with the R vector y (maybe should be an option or something?)
-        normOut.y *= -1.0;
     }
     else if (HAS_NORMAL)
     {

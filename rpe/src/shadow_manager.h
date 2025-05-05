@@ -52,11 +52,7 @@ typedef struct ShadowMap
 
 typedef struct ShadowManager
 {
-    float cascade_offsets[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
-
-    rpe_shadow_map shadow_map;
-
-    struct ShadowSettings* settings;
+    struct ShadowSettings settings;
 
     // ================= vulkan backend =======================
 
@@ -70,7 +66,7 @@ typedef struct ShadowManager
 } rpe_shadow_manager_t;
 
 rpe_shadow_manager_t*
-rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings* settings, arena_t* arena);
+rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, arena_t* arena);
 
 void rpe_shadow_manager_update_projections(
     rpe_shadow_manager_t* m,
@@ -79,7 +75,8 @@ void rpe_shadow_manager_update_projections(
     rpe_engine_t* engine,
     rpe_light_manager_t* lm);
 
-void rpe_shadow_manager_compute_csm_splits(rpe_shadow_manager_t* m, rpe_camera_t* camera);
+void rpe_shadow_manager_compute_csm_splits(
+    rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera);
 
 void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene);
 

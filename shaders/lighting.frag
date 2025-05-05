@@ -84,8 +84,7 @@ void main()
 
     vec3 V = normalize(camera_ubo.position.xyz - inPos);
     vec3 N = normalize(texture(NormalSampler, inUv).rgb);
-    vec3 R = normalize(reflect(-V, N));
-    R.y *= -1.0f;
+    vec3 R = reflect(-V, N);
 
     float NdotV = clamp(dot(N, V), 0.0, 1.0);
 
@@ -107,7 +106,7 @@ void main()
         vec3 diffuse = irradiance * baseColour;
 
         vec3 metalFresnel = calculateGGXFresnel(NdotV, roughness, baseColour.rgb, 1.0);
-        vec3 specularMetal = calculateRadianceGGX(NdotV, R, roughness, scene_ubo.iblMipLevels, 1.0);
+        vec3 specularMetal = calculateRadianceGGX(R, roughness, scene_ubo.iblMipLevels, 1.0);
         vec3 metalBrdf = metalFresnel * specularMetal;
 
         vec3 dielectricFresnel = calculateGGXFresnel(NdotV, roughness, F0, specularWeight);
@@ -162,9 +161,10 @@ void main()
     colour += emissive;
 
     // Apply shadow mapping.
+    uint cascadeIdx = 0;
     if (DRAW_SHADOWS)
     {
-        uint cascadeIdx = getCascadeIndex(inPos);
+        cascadeIdx = getCascadeIndex(inPos);
         vec4 shadowCoord = biasMat * cascades[cascadeIdx].vp * vec4(inPos, 1.0);
         float shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIdx, shadowMap);
         colour *= shadow;
@@ -174,4 +174,20 @@ void main()
     colour = toneMap(colour);
 
     outFrag = vec4(colour, 1.0);
+
+    /*switch(cascadeIdx) 
+    {
+        case 0 : 
+            outFrag.rgb *= vec3(1.0f, 0.25f, 0.25f);
+            break;
+        case 1 : 
+            outFrag.rgb *= vec3(0.25f, 1.0f, 0.25f);
+            break;
+        case 2 : 
+            outFrag.rgb *= vec3(0.25f, 0.25f, 1.0f);
+            break;
+        case 3 : 
+            outFrag.rgb *= vec3(1.0f, 1.0f, 0.25f);
+            break;
+	}*/
 }

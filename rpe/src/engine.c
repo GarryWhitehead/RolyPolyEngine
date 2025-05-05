@@ -32,6 +32,7 @@
 #include "shadow_manager.h"
 #include "skybox.h"
 #include "vertex_buffer.h"
+#include "rpe/shadow_manager.h"
 
 #include <assert.h>
 #include <log.h>
@@ -42,6 +43,7 @@
 rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings)
 {
     assert(driver);
+    assert(settings);
 
     rpe_engine_t* instance = calloc(1, sizeof(struct Engine));
     instance->settings = *settings;
@@ -87,7 +89,7 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
     instance->light_manager = rpe_light_manager_init(instance, &instance->perm_arena);
     instance->shadow_manager =
-        rpe_shadow_manager_init(instance, &settings->shadow, &instance->perm_arena);
+        rpe_shadow_manager_init(instance, settings->shadow, &instance->perm_arena);
     instance->vbuffer = rpe_vertex_buffer_init(driver, &instance->perm_arena);
 
     // Create dummy textures - only needed for bound samplers to prevent validation warnings.
@@ -213,17 +215,10 @@ rpe_scene_t* rpe_engine_create_scene(rpe_engine_t* engine)
     return scene;
 }
 
-rpe_camera_t* rpe_engine_create_camera(
-    rpe_engine_t* engine,
-    float fovy,
-    uint32_t width,
-    uint32_t height,
-    float n,
-    float f,
-    enum ProjectionType type)
+rpe_camera_t* rpe_engine_create_camera(rpe_engine_t* engine)
 {
     assert(engine);
-    rpe_camera_t* cam = rpe_camera_init(engine, fovy, width, height, n, f, type);
+    rpe_camera_t* cam = rpe_camera_init(engine);
     DYN_ARRAY_APPEND(&engine->cameras, &cam);
     return cam;
 }
@@ -322,6 +317,8 @@ void rpe_engine_update_settings(rpe_engine_t* engine, rpe_settings_t* settings)
             : settings->draw_shadows ? RPE_SCENE_SHADOW_STATUS_ENABLED
                                      : RPE_SCENE_SHADOW_STATUS_DISABLED;
     }
+
+    rpe_shadow_manager_update(engine->shadow_manager, engine->curr_scene, &settings->shadow);
 }
 
 void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)

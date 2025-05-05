@@ -1,4 +1,4 @@
-/* Copyright (c) 2022 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -197,21 +197,5 @@ enum StoreClearFlags
     RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE,
     RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_DONTCARE
 };
-
-typedef struct TextureSamplerParams
-{
-    enum SamplerFilter min;
-    enum SamplerFilter mag;
-    enum SamplerAddressMode addr_u;
-    enum SamplerAddressMode addr_v;
-    enum SamplerAddressMode addr_w;
-    enum CompareOp compare_op;
-    float anisotropy;
-    // NOTE: When creating sampled textures, this value is automatically set by the createTex2d
-    // function based upon the level count specified in the texture info.
-    uint32_t mip_levels;
-    VkBool32 enable_compare;
-    VkBool32 enable_anisotropy;
-} sampler_params_t;
 
 #endif

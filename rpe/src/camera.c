@@ -27,17 +27,10 @@
 
 #include <string.h>
 
-rpe_camera_t* rpe_camera_init(
-    rpe_engine_t* engine,
-    float fovy,
-    uint32_t width,
-    uint32_t height,
-    float n,
-    float f,
-    enum ProjectionType type)
+rpe_camera_t* rpe_camera_init(rpe_engine_t* engine)
 {
     rpe_camera_t* cam = ARENA_MAKE_ZERO_STRUCT(&engine->perm_arena, rpe_camera_t);
-    rpe_camera_set_proj_matrix(cam, fovy, width, height, n, f, type);
+    cam->projection = math_mat4f_identity();
     cam->view = math_mat4f_identity();
     cam->model = math_mat4f_identity();
     return cam;
@@ -46,7 +39,8 @@ rpe_camera_t* rpe_camera_init(
 math_vec3f rpe_camera_get_position(rpe_camera_t* cam)
 {
     assert(cam);
-    return math_vec3f_mul_sca(math_mat4f_translation_vec(cam->view), -1.0f);
+    math_vec3f tvec = {-1.0f, -1.0f, 1.0f};
+    return math_vec3f_mul(math_mat4f_translation_vec(cam->view), tvec);
 }
 
 void rpe_camera_set_proj_matrix(

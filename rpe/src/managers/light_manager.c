@@ -82,7 +82,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
     lm->engine = engine;
     lm->comp_manager = rpe_comp_manager_init(arena);
     lm->program_bundle->raster_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
-    lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
+    lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     return lm;
 }
 
@@ -209,7 +209,7 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     rpe_shadow_manager_t* sm = lm->engine->shadow_manager;
 
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
-    lm->light_consts.csm_split_count = sm->settings->cascade_count;
+    lm->light_consts.csm_split_count = sm->settings.cascade_count;
 
      // Binding for the camera UBO
     shader_bundle_update_ubo_desc(

@@ -119,8 +119,9 @@ int app_window_init(
     glfwGetWindowSize(app->window.glfw_window, (int*)&g_width, (int*)&g_height);
 
     new_win->cam_view = rpe_camera_view_init(app->engine);
-    new_win->camera = rpe_camera_init(
-        app->engine,
+    new_win->camera = rpe_camera_init(app->engine);
+    rpe_camera_set_proj_matrix(
+        new_win->camera,
         app->camera_fov,
         g_width,
         g_height,
@@ -326,8 +327,8 @@ void app_window_scroll_response(GLFWwindow* window, double xoffset, double yoffs
     if (input_sys->show_ui)
     {
         nk_instance_t* nk = input_sys->nk;
-        nk->scroll.x += xoffset;
-        nk->scroll.y += yoffset;
+        nk->scroll.x += (float)xoffset;
+        nk->scroll.y += (float)yoffset;
     }
 }
 

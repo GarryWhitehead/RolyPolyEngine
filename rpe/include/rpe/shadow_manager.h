@@ -22,9 +22,12 @@
 #ifndef __RPE_SHADOW_MANAGER_H__
 #define __RPE_SHADOW_MANAGER_H__
 
+#include <rpe/settings.h>
+
 typedef struct ShadowManager rpe_shadow_manager_t;
 typedef struct Scene rpe_scene_t;
 
-void rpe_shadow_manager_update(rpe_shadow_manager_t* sm, rpe_scene_t* scene);
+void rpe_shadow_manager_update(
+    rpe_shadow_manager_t* sm, rpe_scene_t* scene, struct ShadowSettings* settings);
 
 #endif

@@ -55,8 +55,7 @@ rpe_renderer_t* rpe_engine_create_renderer(rpe_engine_t* engine);
 rpe_renderable_t*
 rpe_engine_create_renderable(rpe_engine_t* engine, rpe_material_t* mat, rpe_mesh_t* mesh);
 rpe_scene_t* rpe_engine_create_scene(rpe_engine_t* engine);
-rpe_camera_t* rpe_engine_create_camera(
-    rpe_engine_t* engine, float fovy, uint32_t width, uint32_t height, float n, float f, enum ProjectionType type);
+rpe_camera_t* rpe_engine_create_camera(rpe_engine_t* engine);
 rpe_skybox_t* rpe_engine_create_skybox(rpe_engine_t* engine);
 
 void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene);

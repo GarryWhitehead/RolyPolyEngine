@@ -30,7 +30,7 @@ typedef struct TransformManager rpe_transform_manager_t;
 
 typedef struct ModelTransform
 {
-    math_mat3f rot;
+    math_mat4f rot;
     math_vec3f scale;
     math_vec3f translation;
 } rpe_model_transform_t;
@@ -51,8 +51,8 @@ rpe_object_t* rpe_transform_manager_get_child(rpe_transform_manager_t* m, rpe_ob
 
 void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_object_t obj);
 
-void rpe_transform_manager_set_translation(
-    rpe_transform_manager_t* m, rpe_object_t obj, math_vec3f trans);
+void rpe_transform_manager_set_transform(
+    rpe_transform_manager_t* m, rpe_object_t obj, rpe_model_transform_t* trans);
 
 void rpe_transform_manager_insert_node(
     rpe_transform_manager_t* m, rpe_object_t* new_obj, rpe_object_t* parent_obj);

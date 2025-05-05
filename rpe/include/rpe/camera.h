@@ -27,12 +27,15 @@
 #include <utility/maths.h>
 
 typedef struct Camera rpe_camera_t;
+typedef struct Engine rpe_engine_t;
 
 enum ProjectionType
 {
     RPE_PROJECTION_TYPE_PERSPECTIVE,
     RPE_PROJECTION_TYPE_ORTHO
 };
+
+rpe_camera_t* rpe_camera_init(rpe_engine_t* engine);
 
 void rpe_camera_set_projection(
     rpe_camera_t* cam,

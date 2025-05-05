@@ -25,6 +25,7 @@
 
 #include "rpe/aabox.h"
 #include "rpe/scene.h"
+#include "shadow_manager.h"
 #include <stdbool.h>
 #include <utility/arena.h>
 #include <utility/maths.h>
@@ -108,6 +109,10 @@ typedef struct Scene
     // Scene specific options.
     enum ShadowStatus shadow_status;
     bool skip_lighting_pass;
+
+    // Per-scene shadow info
+    float cascade_offsets[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
+    rpe_shadow_map shadow_map;
 
 } rpe_scene_t;
 

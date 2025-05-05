@@ -27,27 +27,13 @@
 #include "rpe/aabox.h"
 #include "rpe/renderable_manager.h"
 
+#include <backend/objects.h>
 #include <utility/arena.h>
 #include <vulkan-api/program_manager.h>
 
 typedef struct Engine rpe_engine_t;
 typedef struct ComponentManager rpe_comp_manager_t;
 typedef struct Object rpe_object_t;
-
-typedef struct Rect2D
-{
-    int32_t x;
-    int32_t y;
-    uint32_t width;
-    uint32_t height;
-} rpe_rect_2d_t;
-
-typedef struct ViewPort
-{
-    rpe_rect_2d_t rect;
-    float min_depth;
-    float max_depth;
-} rpe_viewport_t;
 
 typedef struct Mesh
 {
@@ -66,14 +52,14 @@ typedef struct Renderable
     // The extents of this primitive.
     rpe_aabox_t box;
     uint64_t sort_key;
-    rpe_rect_2d_t scissor;
+    rpe_rect2d_t scissor;
     rpe_viewport_t viewport;
     uint8_t view_layer;
 
     // Used for the material key - batching is dependent on viewport/scissor changes.
     struct RenderableKey
     {
-        rpe_rect_2d_t scissor;
+        rpe_rect2d_t scissor;
         rpe_viewport_t viewport;
     } key;
 
@@ -84,7 +70,7 @@ typedef struct BatchedDraw
     rpe_material_t* material;
     uint32_t first_idx;
     uint32_t count;
-    rpe_rect_2d_t scissor;
+    rpe_rect2d_t scissor;
     rpe_viewport_t viewport;
 } rpe_batch_renderable_t;
 

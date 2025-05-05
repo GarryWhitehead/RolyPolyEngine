@@ -104,7 +104,7 @@ struct PipelineBindCommand
 
 struct ScissorCommand
 {
-    rpe_rect_2d_t scissor;
+    rpe_rect2d_t scissor;
 };
 
 struct ViewportCommand

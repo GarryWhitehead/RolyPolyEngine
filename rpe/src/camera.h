@@ -59,9 +59,6 @@ typedef struct Camera
 
 } rpe_camera_t;
 
-rpe_camera_t* rpe_camera_init(
-    rpe_engine_t* engine, float fovy, uint32_t width, uint32_t height, float n, float f, enum ProjectionType type);
-
 void rpe_camera_set_proj_matrix(
     rpe_camera_t* cam,
     float fovy,

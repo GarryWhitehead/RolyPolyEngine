@@ -29,6 +29,8 @@ typedef struct VkApiDriver vkapi_driver_t;
 typedef struct Scene rpe_scene_t;
 typedef struct RenderTarget rpe_render_target_t;
 typedef struct Engine rpe_engine_t;
+typedef struct Rect2D rpe_rect2d_t;
+typedef struct ViewPort rpe_viewport_t;
 
 void rpe_renderer_begin_frame(rpe_renderer_t* r);
 
@@ -39,7 +41,9 @@ void rpe_renderer_render_single_quad(
     rpe_render_target_t* rt,
     // FIXME: Need to hide this from public (using a material?).
     shader_prog_bundle_t* bundle,
-    uint32_t multi_view_index);
+    uint32_t multi_view_index,
+    rpe_viewport_t* vp,
+    rpe_rect2d_t* scissor);
 
 void rpe_renderer_render_single_indexed(
     rpe_renderer_t* rdr,
@@ -51,7 +55,9 @@ void rpe_renderer_render_single_indexed(
     uint32_t index_count,
     struct PushBlockEntry* pb_entries,
     uint32_t push_block_count,
-    uint32_t multi_view_index);
+    uint32_t multi_view_index,
+    rpe_viewport_t* vp,
+    rpe_rect2d_t* scissor);
 
 void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count);
 

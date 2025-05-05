@@ -22,7 +22,6 @@
 
 #include <app/app.h>
 #include <app/ibl_helper.h>
-#include <getopt.h>
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
@@ -33,8 +32,10 @@
 #include <rpe/settings.h>
 #include <rpe/skybox.h>
 #include <rpe/light_manager.h>
-#include <stdlib.h>
 #include <utility/filesystem.h>
+
+#include <parg.h>
+#include <stdlib.h>
 
 void print_usage()
 {
@@ -55,65 +56,61 @@ int main(int argc, char** argv)
         exit(0);
     }
 
+    const char* gltf_model_path = NULL;
     uint32_t win_width = 1920;
     uint32_t win_height = 1080;
     const char* ibl_eqirect_image = NULL;
     const char* ibl_cubemap_image = NULL;
     bool draw_skybox = true;
 
-    struct option options[] = {
-        {"help", no_argument, NULL, 'h'},
-        {"eqi-rect", required_argument, NULL, 'e'},
-        {"cubemap", required_argument, NULL, 'c'},
-        {"win-width", required_argument, NULL, 'w'},
-        {"win-height", required_argument, NULL, 't'},
-        {"disable-skybox", no_argument, NULL, 's'},
-        {0, 0, NULL, 0}};
+    struct parg_state ps;
+    parg_init(&ps);
 
-    int opt_index = 0;
     int opt;
-
-    while ((opt = getopt_long(argc, argv, "he:c:w:h:s", options, &opt_index)) != -1)
+    while ((opt = parg_getopt(&ps, argc, argv, "he:c:w:h:s")) != -1)
     {
         switch (opt)
         {
+            case 1:
+                gltf_model_path = ps.optarg;
+                break;
             case 'h':
                 print_usage();
                 exit(0);
             case 'e':
-                ibl_eqirect_image = optarg;
+                ibl_eqirect_image = ps.optarg;
                 break;
             case 'c':
-                ibl_cubemap_image = optarg;
+                ibl_cubemap_image = ps.optarg;
                 break;
             case 'w':
-                win_width = strtol(optarg, NULL, 0);
+                win_width = strtol(ps.optarg, NULL, 0);
                 break;
             case 't':
-                win_height = strtol(optarg, NULL, 0);
+                win_height = strtol(ps.optarg, NULL, 0);
                 break;
             case 's':
                 draw_skybox = false;
                 break;
             default:
-                break;
+                log_error("error: unhandled option -%c\n", opt);
+                return EXIT_FAILURE;
         }
     }
 
-    if (argv[optind] == NULL)
+    if (!gltf_model_path)
     {
         printf("Gltf model path not specified.\n");
         print_usage();
         exit(1);
     }
-    const char* gltf_model_path = argv[optind];
 
     rpe_settings_t settings = {
         .gbuffer_dims = 2048,
         .draw_shadows = false};
 
     rpe_app_t app;
-    int error = rpe_app_init("GLTF Viewer", win_width, win_height, &app, &settings);
+    int error = rpe_app_init("GLTF Viewer", win_width, win_height, &app, &settings, false);
     if (error != APP_SUCCESS)
     {
         exit(1);
@@ -143,7 +140,7 @@ int main(int argc, char** argv)
         struct PreFilterOptions pf_options = {
             .specular_level_count = 8, .brdf_sample_count = 1024, .specular_sample_count = 32};
 
-        ibl_t* ibl = rpe_ibl_init(app.engine, pf_options);
+        ibl_t* ibl = rpe_ibl_init(app.engine, app.scene, pf_options);
         if (!ibl)
         {
             exit(1);
@@ -168,7 +165,7 @@ int main(int argc, char** argv)
     }
 
     // GLTF model parsing.
-    FILE* fp = fopen(gltf_model_path, "r");
+    FILE* fp = fopen(gltf_model_path, "rb");
     if (!fp)
     {
         log_error("Unable to open gltf model at path: %s", gltf_model_path);
@@ -178,13 +175,13 @@ int main(int argc, char** argv)
     uint8_t* buffer = malloc(file_sz);
     fread(buffer, sizeof(uint8_t), file_sz, fp);
 
-    gltf_asset_t* asset = gltf_model_parse_data(buffer, file_sz, app.engine, gltf_model_path);
+    gltf_asset_t* asset = gltf_model_parse_data(buffer, file_sz, app.engine, gltf_model_path, &app.scratch_arena);
     if (!asset)
     {
         exit(1);
     }
 
-    gltf_resource_loader_load_textures(asset, app.engine);
+    gltf_resource_loader_load_textures(asset, app.engine, &app.scratch_arena);
     free(buffer);
 
     // Add objects created by gltf loader to the scene.
@@ -198,7 +195,10 @@ int main(int argc, char** argv)
         }
     }
 
-    rpe_app_run(&app, renderer, NULL, NULL);
+    rpe_camera_view_set_camera_type(&app.window.cam_view, RPE_CAMERA_FIRST_PERSON);
+    rpe_camera_view_set_position(&app.window.cam_view, math_vec3f_init(0.0f, 0.0f, -1.0f));
+
+    rpe_app_run(&app, renderer, NULL, NULL, NULL, NULL, NULL);
 
     rpe_app_shutdown(&app);
 

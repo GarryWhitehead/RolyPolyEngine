@@ -292,6 +292,8 @@ void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_pro
                 sizeof(VkSpecializationMapEntry) * b->spec_const_params[i].entry_count);
             c->graphics_pline_requires.spec_map_entry_count[i] =
                 b->spec_const_params[i].entry_count;
+            c->graphics_pline_requires.spec_data_hash[i] =
+                murmur2_hash(b->spec_const_params[i].data, b->spec_const_params[i].data_size, 0);
         }
     }
 }
