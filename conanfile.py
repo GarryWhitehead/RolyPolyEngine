@@ -19,13 +19,16 @@ class VkSceneEditor3dPackage(ConanFile):
         "fPIC": [True, False],
         "with_validation_layers": [True, False],
         "build_tests" : [True, False],
+        "build_gpu_tests": [True, False],
         "verbose": [True, False]
     }
     default_options = {
         "shared": False, 
         "fPIC": True, 
         "with_validation_layers": True, 
-        "build_tests": True, 
+        "build_tests": True,
+        # Intended for use of the CI where Vulkan is not present on the remote servers.
+        "build_gpu_tests": True,
         "verbose": False,
         }
 
@@ -54,6 +57,8 @@ class VkSceneEditor3dPackage(ConanFile):
         self.requires("jsmn/1.1.0")
         self.requires("log.c/cci.20200620")
         self.requires("ktx/4.0.0")
+        self.requires("parg/1.0.3")
+        self.requires("nuklear/4.12.0")
 
         if self.options.build_tests:
             self.requires("unity/2.6.0")
@@ -69,6 +74,7 @@ class VkSceneEditor3dPackage(ConanFile):
         tc.variables["BUILD_SHARED"] = self.options.shared
         tc.variables["VERBOSE_OUTPUT"] = self.options.verbose
         tc.variables["BUILD_TESTS"] = self.options.build_tests
+        tc.variables["BUILD_GPU_TESTS"] = self.options.build_gpu_tests
         tc.generate()
 
     def build(self):

@@ -170,7 +170,7 @@ VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver)
 
 vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_driver_t* driver,
-    bool multiView,
+    uint32_t multi_view_count,
     math_vec4f clear_col,
     vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
@@ -185,7 +185,7 @@ vkapi_rt_handle_t vkapi_driver_create_rt(
         .clear_colour.b = clear_col.b,
         .clear_colour.a = clear_col.a,
         .samples = 1,
-        .multi_view = multiView};
+        .multi_view_count = multi_view_count};
     memcpy(
         rt.colours,
         colours,
@@ -332,7 +332,7 @@ void vkapi_driver_begin_rpass(
         ++attach_count;
     }
     rpass_key.samples = rt->samples;
-    rpass_key.multi_view = rt->multi_view;
+    rpass_key.multi_view_count = rt->multi_view_count;
 
     for (int i = 0; i < VKAPI_RENDER_TARGET_MAX_COLOR_ATTACH_COUNT; ++i)
     {
@@ -426,13 +426,12 @@ void vkapi_driver_begin_rpass(
     bi.pClearValues = clear_values;
     vkCmdBeginRenderPass(cmds, &bi, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Use a custom defined viewing area - at the moment set to the framebuffer
-    // size
+    // Viewport and scissor can be overwritten later by the user.
     VkViewport viewport = {
         .x = 0.0f,
-        .y = (float)fbo_key.height,
+        .y = 0.0f,
         .width = (float)fbo->width,
-        .height = -(float)fbo->height,
+        .height = (float)fbo->height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f};
     vkCmdSetViewport(cmds, 0, 1, &viewport);
@@ -533,6 +532,8 @@ void vkapi_driver_bind_gfx_pipeline(
     vkapi_pline_cache_bind_depth_test_enable(driver->pline_cache, bundle->ds_state.test_enable);
     vkapi_pline_cache_bind_depth_write_enable(driver->pline_cache, bundle->ds_state.write_enable);
     vkapi_pline_cache_bind_depth_compare_op(driver->pline_cache, bundle->ds_state.compare_op);
+    vkapi_pline_cache_bind_depth_clamp(
+        driver->pline_cache, bundle->raster_state.depth_clamp_enable);
 
     // TODO: Need to support differences in front/back stencil
     struct DepthStencilBlock ds_state = {0};
@@ -565,20 +566,21 @@ void vkapi_driver_bind_gfx_pipeline(
         driver->pline_cache, bundle->vert_attrs, bundle->vert_bind_desc);
     vkapi_pline_cache_bind_spec_constants(driver->pline_cache, bundle);
 
-    // if the width and height are zero then ignore setting the scissors and/or
-    // viewport and go with the extents set upon initiation of the renderpass
-    if (bundle->scissor.extent.width > 0)
-    {
-        vkCmdSetScissor(cmds->instance, 0, 1, &bundle->scissor);
-    }
-    if (bundle->viewport.width > 0)
-    {
-        vkCmdSetViewport(cmds->instance, 0, 1, &bundle->viewport);
-    }
-
     vkapi_pline_cache_bind_gfx_pl_layout(driver->pline_cache, pl_layout->instance);
     vkapi_pline_cache_bind_graphics_pline(
         driver->pline_cache, cmds->instance, bundle->spec_const_params, force_rebind);
+}
+
+void vkapi_driver_set_scissor(vkapi_driver_t* driver, VkRect2D scissor)
+{
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkCmdSetScissor(cmd_buffer->instance, 0, 1, &scissor);
+}
+
+void vkapi_driver_set_viewport(vkapi_driver_t* driver, VkViewport vp)
+{
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
+    vkCmdSetViewport(cmd_buffer->instance, 0, 1, &vp);
 }
 
 void vkapi_driver_set_push_constant(
@@ -837,6 +839,11 @@ void vkapi_driver_acquire_buffer_barrier(
         srcQueueIndex = driver->context->queue_info.graphics;
         dstQueueIndex = driver->context->queue_info.compute;
     }
+    else
+    {
+        log_warn("Unsupported barrier type. Memory buffer barrier won't be acquire.");
+        return;
+    }
 
     VkBufferMemoryBarrier barrier = {0};
     barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -895,6 +902,11 @@ void vkapi_driver_release_buffer_barrier(
         dstAccess = 0;
         srcQueueIndex = driver->context->queue_info.compute;
         dstQueueIndex = driver->context->queue_info.graphics;
+    }
+    else
+    {
+        log_warn("Unsupported barrier type. Memory buffer barrier won't be released.");
+        return;
     }
 
     VkBufferMemoryBarrier barrier = {0};

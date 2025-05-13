@@ -28,6 +28,7 @@
 #include "shader.h"
 #include "texture.h"
 
+#include <string.h>
 #include <utility/hash.h>
 
 vkapi_desc_cache_t* vkapi_desc_cache_init(vkapi_driver_t* driver, arena_t* arena)
@@ -83,6 +84,7 @@ void vkapi_desc_cache_bind_descriptors(
         vkapi_desc_set_t new_set = vkapi_desc_cache_create_desc_sets(c, bundle);
         new_set.frame_last_used = c->driver->current_frame;
         s = HASH_SET_INSERT(&c->descriptor_sets, &c->desc_requires, &new_set);
+        assert(s);
     }
 
     vkCmdBindDescriptorSets(
@@ -278,10 +280,15 @@ vkapi_desc_cache_create_desc_sets(vkapi_desc_cache_t* c, shader_prog_bundle_t* b
             for (uint32_t i = VKAPI_RES_CACHE_MAX_RESERVED_COUNT; i < rs->textures.size; ++i)
             {
                 vkapi_texture_t* tex = DYN_ARRAY_GET_PTR(vkapi_texture_t, &rs->textures, i);
-                ii[count].imageView = tex->image_views[0];
-                ii[count].imageLayout = tex->image_layout;
-                ii[count++].sampler = tex->sampler;
-                assert(tex->sampler && tex->image_views[0]);
+                // NOTE: The image view will be NULL if not a valid texture (i.e. ready for gc) -
+                // this is OK as using the image robustness extension.
+                if (tex->is_valid)
+                {
+                    assert(tex->sampler && tex->image_views[0]);
+                    ii[count].imageView = tex->image_views[0];
+                    ii[count].imageLayout = tex->image_layout;
+                    ii[count++].sampler = tex->sampler;
+                }
             }
             if (count > 0)
             {

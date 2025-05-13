@@ -28,18 +28,21 @@
 #include "stb_loader.h"
 
 #include <backend/enums.h>
+#include <backend/objects.h>
 #include <cgltf.h>
 #include <log.h>
+#include <rpe/engine.h>
 #include <rpe/material.h>
 #include <string.h>
 #include <utility/filesystem.h>
-#include <utility/hash.h>
 
-gltf_resource_loader_t gltf_resource_loader_init(arena_t* arena)
+gltf_resource_loader_t
+gltf_resource_loader_init(rpe_engine_t* engine, cgltf_data* data, arena_t* arena)
 {
     gltf_resource_loader_t rl = {0};
-    rl.uri_filename_cache = HASH_SET_CREATE(char*, rpe_mapped_texture_t, arena);
-    rl.buffer_texture_cache = HASH_SET_CREATE(uint8_t*, rpe_mapped_texture_t, arena);
+    rl.texture_cache = gltf_material_cache_init(data);
+    MAKE_DYN_ARRAY(struct DecodeEntry, arena, 100, &rl.decode_queue);
+    rl.parent_job = job_queue_create_job(rpe_engine_get_job_queue(engine), NULL, NULL, NULL);
     return rl;
 }
 
@@ -122,205 +125,211 @@ uint8_t* parse_data_uri(const char* uri, string_t* mime_type, size_t* sz, arena_
     return NULL;
 }
 
-sampler_params_t gltf_resource_loader_create_sampler(gltf_asset_t* asset, cgltf_texture_view* view)
+sampler_params_t gltf_resource_loader_create_sampler(gltf_asset_t* asset, cgltf_sampler* sampler)
 {
     assert(asset);
-    assert(view);
 
     sampler_params_t out = {0};
 
-    // Not guaranteed to have a texture or uri.
-    if (view->texture->image)
+    // Check whether this texture has a sampler.
+    if (sampler)
     {
-        // Check whether this texture has a sampler.
-        if (view->texture->sampler)
-        {
-            cgltf_sampler* sampler = view->texture->sampler;
-            out.mag = gltf_resource_loader_get_sampler_filter(sampler->mag_filter);
-            out.min = gltf_resource_loader_get_sampler_filter(sampler->min_filter);
-            out.addr_u = gltf_resource_loader_get_addr_mode(sampler->wrap_s);
-            out.addr_v = gltf_resource_loader_get_addr_mode(sampler->wrap_t);
-        }
-        else
-        {
-            // Default sampler settings specified by the spec.
-            out.mag = RPE_SAMPLER_FILTER_LINEAR;
-            out.min = RPE_SAMPLER_FILTER_LINEAR;
-            out.addr_u = RPE_SAMPLER_ADDR_MODE_REPEAT;
-            out.addr_v = RPE_SAMPLER_ADDR_MODE_REPEAT;
-        }
+        out.mag = gltf_resource_loader_get_sampler_filter(sampler->mag_filter);
+        out.min = gltf_resource_loader_get_sampler_filter(sampler->min_filter);
+        out.addr_u = gltf_resource_loader_get_addr_mode(sampler->wrap_s);
+        out.addr_v = gltf_resource_loader_get_addr_mode(sampler->wrap_t);
+    }
+    else
+    {
+        // Default sampler settings specified by the spec.
+        out.mag = RPE_SAMPLER_FILTER_LINEAR;
+        out.min = RPE_SAMPLER_FILTER_LINEAR;
+        out.addr_u = RPE_SAMPLER_ADDR_MODE_REPEAT;
+        out.addr_v = RPE_SAMPLER_ADDR_MODE_REPEAT;
     }
 
     return out;
 }
 
 bool decode_image(
-    string_t* mime_type,
-    void* data,
-    size_t sz,
-    rpe_mapped_texture_t* tex,
-    gltf_asset_t* asset,
-    image_free_func* free_func)
+    gltf_resource_loader_t* rl, gltf_asset_t* asset, struct DecodeEntry* entry, struct Job* parent)
 {
-    bool res;
-    if (strcmp("image/png", mime_type->data) == 0 || strcmp("image/jpeg", mime_type->data) == 0 ||
-        strcmp("image/jpg", mime_type->data) == 0)
+    bool res = false;
+    if (strcmp("image/png", entry->mime_type.data) == 0 ||
+        strcmp("image/jpeg", entry->mime_type.data) == 0 ||
+        strcmp("image/jpg", entry->mime_type.data) == 0)
     {
-        res = gltf_stb_loader_decode_image(data, sz, tex, free_func);
+        gltf_stb_loader_push_job(asset->engine, entry, parent);
     }
-    else if (strcmp("image/ktx2", mime_type->data) == 0)
+    else if (strcmp("image/ktx2", entry->mime_type.data) == 0)
     {
-        res = gltf_ktx_loader_decode_image(data, sz, tex, &asset->arena, free_func);
+        gltf_ktx_loader_push_job(asset->engine, entry, parent);
     }
     else
     {
-        log_error("Unsupported image mime type: %s; Unable to load image", mime_type);
+        log_error("Unsupported image mime type: %s; Unable to load image", entry->mime_type.data);
         res = false;
     }
     return res;
 }
 
-rpe_mapped_texture_t* get_texture(
+gltf_image_handle_t get_texture(
     gltf_resource_loader_t* rl,
     cgltf_texture_view* view,
     gltf_asset_t* asset,
-    image_free_func* free_func)
+    image_free_func* free_func,
+    arena_t* arena)
 {
-    cgltf_image* image = view->texture->image;
-    rpe_mapped_texture_t new_tex = {0};
-    rpe_mapped_texture_t* out_tex = NULL;
+    cgltf_texture* texture = view->texture;
 
-    string_t mime_type = image->mime_type ? string_init(image->mime_type, &asset->arena)
-                                          : string_init("", &asset->arena);
+    gltf_image_handle_t out_handle = gltf_material_cache_get_entry(&rl->texture_cache, texture);
+    if (out_handle.id != UINT32_MAX)
+    {
+        return out_handle;
+    }
+
+    string_t mime_type = texture->image->mime_type ? string_init(texture->image->mime_type, arena)
+                                                   : string_init("", arena);
     size_t uri_data_bytes_count;
-    uint8_t* uri_data_bytes = image->uri
-        ? parse_data_uri(image->uri, &mime_type, &uri_data_bytes_count, &asset->arena)
+    uint8_t* uri_data_bytes = texture->image->uri
+        ? parse_data_uri(texture->image->uri, &mime_type, &uri_data_bytes_count, arena)
         : NULL;
 
     if (uri_data_bytes)
     {
-        if (!decode_image(
-                &mime_type, uri_data_bytes, uri_data_bytes_count, &new_tex, asset, free_func))
-        {
-            return NULL;
-        }
-        out_tex = HASH_SET_INSERT(&rl->buffer_texture_cache, &image->uri, &new_tex);
+        out_handle = gltf_material_cache_push_pending(&rl->texture_cache, texture);
+        rpe_mapped_texture_t* t = &gltf_material_cache_get(&rl->texture_cache, out_handle)->texture;
+
+        struct DecodeEntry entry = {
+            .image_data = uri_data_bytes,
+            .image_sz = uri_data_bytes_count,
+            .mapped_texture = t,
+            .free_func = free_func,
+            .mime_type = mime_type};
+        DYN_ARRAY_APPEND(&rl->decode_queue, &entry);
     }
 
     // If the filesystem uri is defined, then load from disk.
-    else if (image->uri)
+    else if (texture->image->uri)
     {
-        // First check whether the texture is already cached.
-        rpe_mapped_texture_t* tex = HASH_SET_GET(&rl->uri_filename_cache, &image->uri);
-        if (tex)
-        {
-            return tex;
-        }
-
+        char sep = fs_get_platform_seperator();
+        char null_sep[2] = {sep, '\0'};
         // Not cached, so try and load from disk.
-        string_t path = fs_remove_filename(&asset->gltf_path, &asset->arena);
-        string_t full_path = string_append3(&path, "/", image->uri, &asset->arena);
-        FILE* fp = fopen(full_path.data, "r");
+        string_t path = fs_remove_filename(&asset->gltf_path, arena);
+        string_t full_path = string_append3(&path, null_sep, texture->image->uri, arena);
+        FILE* fp = fopen(full_path.data, "rb");
         if (!fp)
         {
-            log_error("Unable to open image at uri: %s", full_path);
-            return NULL;
+            log_error("Unable to open image at uri: %s", full_path.data);
+            return out_handle;
         }
         size_t sz = fs_get_file_size(fp);
-        void* image_data = ARENA_MAKE_ZERO_ARRAY(&asset->arena, uint8_t, sz);
+        void* image_data = ARENA_MAKE_ZERO_ARRAY(arena, uint8_t, sz);
         size_t sz_read = fread(image_data, sizeof(uint8_t), sz, fp);
         if (sz_read != sz)
         {
-            log_error("Error whilst reading image file: %s", full_path);
-            return NULL;
+            log_error("Error whilst reading image file: %s", full_path.data);
+            return out_handle;
         }
         fclose(fp);
 
         if (strcmp(mime_type.data, "") == 0)
         {
             string_t suffix;
-            string_t filename = {.data = image->uri, strlen(image->uri)};
-            bool r = fs_get_extension(&filename, &suffix, &asset->arena);
+            string_t filename = {.data = texture->image->uri, strlen(texture->image->uri)};
+            bool r = fs_get_extension(&filename, &suffix, arena);
             assert(r);
-            string_t parent = string_init("image/", &asset->arena);
-            mime_type = string_append(&parent, suffix.data, &asset->arena);
+            string_t parent = string_init("image/", arena);
+            mime_type = string_append(&parent, suffix.data, arena);
         }
 
-        if (!decode_image(&mime_type, image_data, sz, &new_tex, asset, free_func))
-        {
-            log_error("Error whilst decoding image: %s", image->uri);
-            return NULL;
-        }
-        out_tex = HASH_SET_INSERT(&rl->uri_filename_cache, &image->uri, &new_tex);
+        out_handle = gltf_material_cache_push_pending(&rl->texture_cache, texture);
+        rpe_mapped_texture_t* t = &gltf_material_cache_get(&rl->texture_cache, out_handle)->texture;
+
+        struct DecodeEntry entry = {
+            .image_data = image_data,
+            .image_sz = sz,
+            .mapped_texture = t,
+            .free_func = free_func,
+            .mime_type = mime_type};
+        DYN_ARRAY_APPEND(&rl->decode_queue, &entry);
     }
-    else if (image->buffer_view)
+    else if (texture->image->buffer_view)
     {
-        // Check the data cache first, the texture may have already been stumbled upon in another
-        // texture.
-        void* bvd =
-            image->buffer_view->data ? image->buffer_view->data : image->buffer_view->buffer->data;
+        void* bvd = texture->image->buffer_view->data ? texture->image->buffer_view->data
+                                                      : texture->image->buffer_view->buffer->data;
         assert(bvd);
-        uint8_t* source_ptr = image->buffer_view->offset + bvd;
-        rpe_mapped_texture_t* tex = HASH_SET_GET(&rl->buffer_texture_cache, &source_ptr);
-        if (tex)
-        {
-            return tex;
-        }
-        if (!decode_image(
-                &mime_type, source_ptr, image->buffer_view->size, &new_tex, asset, free_func))
-        {
-            return NULL;
-        }
-        out_tex = HASH_SET_INSERT(&rl->buffer_texture_cache, &source_ptr, &new_tex);
+        uint8_t* source_ptr = texture->image->buffer_view->offset + (uint8_t*)bvd;
+
+        out_handle = gltf_material_cache_push_pending(&rl->texture_cache, texture);
+        rpe_mapped_texture_t* t = &gltf_material_cache_get(&rl->texture_cache, out_handle)->texture;
+
+        struct DecodeEntry entry = {
+            .image_data = source_ptr,
+            .image_sz = texture->image->buffer_view->size,
+            .mapped_texture = t,
+            .free_func = free_func,
+            .mime_type = mime_type};
+        DYN_ARRAY_APPEND(&rl->decode_queue, &entry);
     }
     else
     {
         log_error("Unable to create texture for: %s", view->texture->name);
-        return NULL;
     }
 
-    return out_tex;
+    return out_handle;
 }
 
-void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine)
+void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engine, arena_t* arena)
 {
-    gltf_resource_loader_t rl = gltf_resource_loader_init(&asset->arena);
+    gltf_resource_loader_t rl = gltf_resource_loader_init(engine, asset->model_data, arena);
 
+    // Generate the required image decoding work for materials.
     for (size_t i = 0; i < asset->textures.size; ++i)
     {
         struct AssetTextureParams* params =
             DYN_ARRAY_GET_PTR(struct AssetTextureParams, &asset->textures, i);
-        rpe_mapped_texture_t* tex = get_texture(&rl, params->gltf_tex, asset, &params->free_func);
-        if (tex)
-        {
-            params->mat_texture = *tex;
-        }
+        params->mat_texture = get_texture(&rl, params->gltf_tex, asset, &params->free_func, arena);
     }
 
-    // When async decoding is added, a wait will need to be called here to each loader to ensure all
-    // images have been decoded before proceeding.
+    // Decode the images.
+    for (size_t i = 0; i < rl.decode_queue.size; ++i)
+    {
+        struct DecodeEntry* entry = DYN_ARRAY_GET_PTR(struct DecodeEntry, &rl.decode_queue, i);
+        decode_image(&rl, asset, entry, rl.parent_job);
+    }
 
+    for (size_t i = 0; i < rl.decode_queue.size; ++i)
+    {
+        struct DecodeEntry* entry = DYN_ARRAY_GET_PTR(struct DecodeEntry, &rl.decode_queue, i);
+        job_queue_wait_and_release(rpe_engine_get_job_queue(engine), entry->decoder_job);
+    }
+
+    // Upload the decoded images to the device.
+    for (uint32_t i = 0; i < rl.texture_cache.count; ++i)
+    {
+        struct ImageEntry* entry = &rl.texture_cache.entries[i];
+
+        sampler_params_t sampler = gltf_resource_loader_create_sampler(asset, entry->sampler);
+        bool gen_mipmaps = !entry->texture.mip_levels ? true : false;
+        entry->backend_handle =
+            rpe_material_map_texture(engine, &entry->texture, &sampler, gen_mipmaps);
+    }
+
+    // Create the material from the generated images and params.
     for (size_t i = 0; i < asset->textures.size; ++i)
     {
         struct AssetTextureParams* params =
             DYN_ARRAY_GET_PTR(struct AssetTextureParams, &asset->textures, i);
 
-        // Add texture to the image - this uploads the texture to the GPU.
-        sampler_params_t sampler = gltf_resource_loader_create_sampler(asset, params->gltf_tex);
-        bool gen_mipmaps = !params->mat_texture.mip_levels ? true : false;
-        rpe_material_set_texture(
-            params->mat,
-            engine,
-            &params->mat_texture,
-            params->tex_type,
-            &sampler,
-            params->uv_index,
-            gen_mipmaps);
+        struct ImageEntry* entry = gltf_material_cache_get(&rl.texture_cache, params->mat_texture);
+        rpe_material_set_device_texture(
+            params->mat, entry->backend_handle, params->tex_type, params->uv_index);
 
         // Done with the image buffers so delete.
         if (params->free_func)
         {
-            params->free_func(&params->mat_texture.image_data);
+            params->free_func(&entry->texture.image_data);
         }
     }
 }

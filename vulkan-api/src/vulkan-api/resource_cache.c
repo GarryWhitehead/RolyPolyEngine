@@ -61,6 +61,7 @@ vkapi_res_cache_t* vkapi_res_cache_init(vkapi_driver_t* driver, arena_t* arena)
 texture_handle_t vkapi_res_push_reserved_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
+    VmaAllocator vma,
     uint32_t width,
     uint32_t height,
     VkFormat format,
@@ -70,7 +71,7 @@ texture_handle_t vkapi_res_push_reserved_tex2d(
 {
     assert(cache);
     assert(idx < VKAPI_RES_CACHE_MAX_RESERVED_COUNT);
-    vkapi_texture_t tex = vkapi_texture_init(width, height, 1, 1, 1, format);
+    vkapi_texture_t tex = vkapi_texture_init(width, height, 1, 1, VKAPI_TEXTURE_2D, format);
 
     if (image)
     {
@@ -78,7 +79,7 @@ texture_handle_t vkapi_res_push_reserved_tex2d(
     }
     else
     {
-        vkapi_texture_create_image(context, &tex, usage_flags);
+        vkapi_texture_create_image(vma, &tex, usage_flags);
     }
 
     tex.framebuffer_imageview = vkapi_texture_create_image_view(context, &tex, 0, 1);
@@ -95,21 +96,22 @@ texture_handle_t vkapi_res_push_reserved_tex2d(
 texture_handle_t vkapi_res_cache_create_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
+    VmaAllocator vma,
     vkapi_sampler_cache_t* sampler_cache,
     VkFormat format,
     uint32_t width,
     uint32_t height,
     uint32_t mip_levels,
-    uint32_t face_count,
     uint32_t array_count,
+    enum TextureType type,
     VkImageUsageFlags usage_flags,
     sampler_params_t* sampler_params)
 {
     uint32_t levels =
         mip_levels == 0xffff ? (uint32_t)floorf(log2f((float)MAX(width, height)) + 1) : mip_levels;
-    vkapi_texture_t t = vkapi_texture_init(width, height, levels, face_count, array_count, format);
+    vkapi_texture_t t = vkapi_texture_init(width, height, levels, array_count, type, format);
     texture_handle_t handle = {.id = cache->textures.size};
-    vkapi_texture_create_2d(context, sampler_cache, &t, usage_flags, sampler_params);
+    vkapi_texture_create_2d(context, vma, sampler_cache, &t, usage_flags, sampler_params);
     if (cache->free_tex_slots.size > 0)
     {
         handle = DYN_ARRAY_POP_BACK(texture_handle_t, &cache->free_tex_slots);
@@ -203,10 +205,11 @@ void vkapi_res_cache_delete_tex2d(vkapi_res_cache_t* cache, texture_handle_t han
         return;
     }
 
-    vkapi_texture_t t = DYN_ARRAY_GET(vkapi_texture_t, &cache->textures, handle.id);
-    t.frames_until_gc = VKAPI_MAX_COMMAND_BUFFER_SIZE;
-    DYN_ARRAY_APPEND(&cache->textures_gc, &t);
+    vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &cache->textures, handle.id);
+    t->frames_until_gc = VKAPI_MAX_COMMAND_BUFFER_SIZE;
+    DYN_ARRAY_APPEND(&cache->textures_gc, t);
     DYN_ARRAY_APPEND(&cache->free_tex_slots, &handle);
+    t->is_valid = false;
 }
 
 void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)
@@ -218,7 +221,7 @@ void vkapi_res_cache_gc(vkapi_res_cache_t* c, vkapi_driver_t* driver)
         vkapi_texture_t* tex = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures_gc, i);
         if (!--tex->frames_until_gc)
         {
-            vkapi_texture_destroy(driver->context, tex);
+            vkapi_texture_destroy(driver->context, driver->vma_allocator, tex);
         }
         else
         {
@@ -252,13 +255,13 @@ void vkapi_res_cache_destroy(vkapi_res_cache_t* c, vkapi_driver_t* driver)
         if (!dyn_array_find(&c->free_tex_slots, &i))
         {
             vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures, i);
-            vkapi_texture_destroy(driver->context, t);
+            vkapi_texture_destroy(driver->context, driver->vma_allocator, t);
         }
     }
     for (size_t i = 0; i < c->textures_gc.size; ++i)
     {
         vkapi_texture_t* t = DYN_ARRAY_GET_PTR(vkapi_texture_t, &c->textures_gc, i);
-        vkapi_texture_destroy(driver->context, t);
+        vkapi_texture_destroy(driver->context, driver->vma_allocator, t);
     }
     dyn_array_clear(&c->textures);
     dyn_array_clear(&c->textures_gc);

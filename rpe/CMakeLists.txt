@@ -30,6 +30,8 @@ set (public_headers
     include/rpe/aabox.h
     include/rpe/ibl.h
     include/rpe/skybox.h
+    include/rpe/settings.h
+    include/rpe/shadow_manager.h
 )
 
 set (src_files
@@ -39,6 +41,7 @@ set (src_files
     src/render_queue.c
     src/colour_pass.c
     src/light_pass.c
+    src/shadow_pass.c
     src/scene.c
     src/frustum.c
     src/renderer.c
@@ -47,6 +50,7 @@ set (src_files
     src/ibl.c
     src/skybox.c
     src/vertex_buffer.c
+    src/shadow_manager.c
     src/render_graph/render_graph.c
     src/render_graph/render_pass_node.c
     src/render_graph/resources.c
@@ -68,6 +72,7 @@ set (hdr_files
     src/render_queue.h
     src/colour_pass.h
     src/light_pass.h
+    src/shadow_pass.h
     src/scene.h
     src/engine.h
     src/frustum.h
@@ -77,6 +82,7 @@ set (hdr_files
     src/ibl.h
     src/skybox.h
     src/vertex_buffer.h
+    src/shadow_manager.h
     src/render_graph/render_graph.h
     src/render_graph/render_pass_node.h
     src/render_graph/resources.h
@@ -110,6 +116,7 @@ target_link_libraries(
     UtilityLib
     log.c::log.c
     stb::stb
+    Threads::Threads
 )
 
 add_dependencies(RPE Shaders)
@@ -117,7 +124,7 @@ add_dependencies(RPE Shaders)
 target_compile_definitions(
     RPE
     PRIVATE
-    RPE_SHADER_DIRECTORY="$RPE_SHADER_DIRECTORY}"
+    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}"
     RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
     "$<$<PLATFORM_ID:Windows>:_USE_MATH_DEFINES;NOMINMAX;_CRT_SECURE_NO_WARNINGS>"  
 )
@@ -140,12 +147,21 @@ if (BUILD_TESTS)
         test/test_visibility.c
         test/test_compute.c
         test/vk_setup.h
+        test/test_engine.c
     )
 
     add_executable(RpeTest ${test_srcs})
     target_link_libraries(RpeTest PRIVATE unity::unity RPE VulkanApi)
     set_target_properties(RpeTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
     rpe_add_compiler_flags(TARGET RpeTest)
+
+    if (BUILD_GPU_TESTS)
+        target_compile_definitions(
+            RpeTest
+            PUBLIC
+            RPE_BUILD_GPU_TESTS=1
+        )
+    endif()
 
     add_test(
             NAME RpeTest

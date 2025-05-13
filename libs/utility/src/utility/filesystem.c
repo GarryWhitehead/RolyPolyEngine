@@ -36,6 +36,17 @@ typedef struct FsBuffer
     size_t size;
 } fs_buffer_t;
 
+char fs_get_platform_seperator()
+{
+    char out;
+#if __linux__
+    out = '/';
+#elif WIN32
+    out = '\\';
+#endif
+    return out;
+}
+
 size_t fs_get_file_size(FILE* fp)
 {
     assert(fp);
@@ -98,7 +109,7 @@ bool fs_get_extension(string_t* path, string_t* out_ext, arena_t* arena)
 string_t fs_remove_filename(string_t* path, arena_t* arena)
 {
     assert(path);
-    uint32_t idx = string_find_last_of(path, '/');
+    uint32_t idx = string_find_last_of(path, fs_get_platform_seperator());
     if (idx == UINT32_MAX)
     {
         // No parent directory (or is it just not a path?!), so return an empty string.

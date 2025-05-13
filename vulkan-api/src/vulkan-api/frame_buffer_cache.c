@@ -93,9 +93,10 @@ vkapi_rpass_t* vkapi_fb_cache_find_or_create_rpass(
         attach.store_op = key->ds_store_op[0];
         attach.stencil_load_op = key->ds_load_op[1];
         attach.stencil_store_op = key->ds_store_op[1];
+        attach.sample_count = key->samples;
         vkapi_rpass_add_attach(&new_rpass, &attach);
     }
-    vkapi_rpass_create(&new_rpass, driver, key->multi_view);
+    vkapi_rpass_create(&new_rpass, driver, key->multi_view_count);
 
     return HASH_SET_INSERT(&cache->render_passes, key, &new_rpass);
 }

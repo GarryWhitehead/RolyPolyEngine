@@ -28,6 +28,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __GNUC__
+#define QSORT_RS qsort_r
+#elif WIN32
+#define QSORT_RS qsort_s
+#endif
+
 void radix_sort(uint64_t* arr, size_t sz, arena_t* arena, uint64_t* output);
 
 #endif

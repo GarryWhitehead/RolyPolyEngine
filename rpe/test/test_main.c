@@ -27,12 +27,20 @@ TEST_GROUP_RUNNER(ComputeGroup)
     RUN_TEST_CASE(ComputeGroup, TestComputePipeline)
 }
 
+TEST_GROUP_RUNNER(EngineGroup)
+{
+    RUN_TEST_CASE(EngineGroup, General_Test)
+}
+
 static void run_all_tests(void)
 {
-    RUN_TEST_GROUP(RenderGraphGroup)
     RUN_TEST_GROUP(CommandsGroup)
+#if RPE_BUILD_GPU_TESTS
+    RUN_TEST_GROUP(RenderGraphGroup)
     RUN_TEST_GROUP(VisibilityGroup)
     RUN_TEST_GROUP(ComputeGroup)
+    RUN_TEST_GROUP(EngineGroup)
+#endif
 }
 // clang-format on
 

@@ -30,7 +30,7 @@ typedef struct TransformManager rpe_transform_manager_t;
 
 typedef struct ModelTransform
 {
-    math_mat3f rot;
+    math_mat4f rot;
     math_vec3f scale;
     math_vec3f translation;
 } rpe_model_transform_t;
@@ -46,5 +46,21 @@ void rpe_transform_manager_add_node(
     rpe_object_t* parent_obj,
     rpe_object_t* child_obj);
 
+rpe_object_t* rpe_transform_manager_get_parent(rpe_transform_manager_t* m, rpe_object_t obj);
+rpe_object_t* rpe_transform_manager_get_child(rpe_transform_manager_t* m, rpe_object_t obj);
+
+void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_object_t obj);
+
+void rpe_transform_manager_set_transform(
+    rpe_transform_manager_t* m, rpe_object_t obj, rpe_model_transform_t* trans);
+
+void rpe_transform_manager_insert_node(
+    rpe_transform_manager_t* m, rpe_object_t* new_obj, rpe_object_t* parent_obj);
+
+rpe_object_t rpe_transform_manager_copy(
+    rpe_transform_manager_t* tm,
+    rpe_obj_manager_t* om,
+    rpe_object_t* parent_obj,
+    arena_dyn_array_t* objects);
 
 #endif

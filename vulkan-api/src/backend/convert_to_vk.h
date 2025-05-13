@@ -26,6 +26,9 @@
 #include "enums.h"
 #include "volk.h"
 
+typedef struct Rect2D rpe_rect2d_t;
+typedef struct ViewPort rpe_viewport_t;
+
 VkSamplerAddressMode sampler_addr_mode_to_vk(enum SamplerAddressMode mode);
 
 VkFilter sampler_filter_to_vk(enum SamplerFilter filter);
@@ -45,5 +48,13 @@ VkFrontFace front_face_to_vk(enum FrontFace ff);
 VkPolygonMode polygon_mode_to_vk(enum PolygonMode mode);
 
 VkPrimitiveTopology primitive_topology_to_vk(enum PrimitiveTopology topo);
+
+VkBlendFactor blend_factor_to_vk(enum BlendFactor factor);
+
+VkBlendOp blend_op_to_vk(enum BlendOp op);
+
+VkRect2D rect2d_to_vk(rpe_rect2d_t* rect);
+
+VkViewport viewport_to_vk(rpe_viewport_t* vp);
 
 #endif

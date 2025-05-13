@@ -22,6 +22,8 @@
 
 #include "job_queue.h"
 
+#include "maths.h"
+
 #include <log.h>
 #include <utility/arena.h>
 #include <utility/hash.h>
@@ -87,7 +89,7 @@ bool _active_jobs(job_queue_t* jq)
 
 bool _job_completed(job_t* job)
 {
-    int count = atomic_load_explicit(&job->run_count, memory_order_acquire);
+    int count = atomic_load_explicit(&job->child_run_count, memory_order_acquire);
     return count <= 0;
 }
 
@@ -135,11 +137,10 @@ job_t* _pop(job_queue_t* jq, thread_info_t* info)
 {
     atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
 
-    int* idx_ptr = work_stealing_queue_pop(&info->work_queue);
+    int idx = work_stealing_queue_pop(&info->work_queue);
     job_t* job = NULL;
-    if (idx_ptr)
+    if (idx != INT32_MAX)
     {
-        int idx = *idx_ptr;
         assert(idx >= 0);
         job = DYN_ARRAY_GET_PTR(job_t, &jq->job_cache, idx - 1);
     }
@@ -161,10 +162,9 @@ void _push(job_queue_t* jq, thread_info_t* info, job_t* job)
 {
     assert(job);
 
-    size_t job_idx = job - (job_t*)jq->job_cache.data;
+    int job_idx = (int)(job - (job_t*)jq->job_cache.data) + 1;
     assert(job_idx >= 0);
-    job_idx += 1;
-    WORK_STEALING_QUEUE_PUSH(&info->work_queue, (int*)&job_idx);
+    work_stealing_queue_push(&info->work_queue, job_idx);
 
     atomic_int old_job_count =
         atomic_fetch_add_explicit(&jq->active_job_count, 1, memory_order_relaxed);
@@ -180,12 +180,11 @@ job_t* _steal_from_queue(job_queue_t* jq, work_stealing_queue_t* queue)
 {
     atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
 
-    int* idx_ptr = work_stealing_queue_steal(queue);
+    int idx = work_stealing_queue_steal(queue);
     job_t* job = NULL;
-    if (idx_ptr)
+    if (idx != INT32_MAX)
     {
-        int idx = *idx_ptr;
-        assert(idx >= 0);
+        assert(idx > 0);
         job = DYN_ARRAY_GET_PTR(job_t, &jq->job_cache, idx - 1);
     }
 
@@ -205,24 +204,28 @@ job_t* _steal_from_queue(job_queue_t* jq, work_stealing_queue_t* queue)
 job_t* _steal_from_state(job_queue_t* jq, thread_info_t* info)
 {
     job_t* job = NULL;
-    do
+    if (jq->thread_count > 1)
     {
-        thread_info_t* steal_info = NULL;
-        int adopted_count = atomic_load_explicit(&jq->adopted_thread_count, memory_order_relaxed);
-        uint32_t thread_count = jq->thread_count + adopted_count;
-        if (thread_count >= 2)
+        do
         {
+            thread_info_t* steal_info = NULL;
+            int adopted_count =
+                atomic_load_explicit(&jq->adopted_thread_count, memory_order_relaxed);
+            uint32_t thread_count = jq->thread_count + adopted_count;
+            // Randomly get another thread to steal from.
             do
             {
                 uint64_t rand = xoro_rand_next(&info->rand_gen) % thread_count;
+                assert(rand < thread_count);
                 steal_info = &jq->thread_states[rand];
             } while (steal_info == info);
-        }
-        if (steal_info)
-        {
-            job = _steal_from_queue(jq, &steal_info->work_queue);
-        }
-    } while (!job && _active_jobs(jq));
+
+            if (steal_info)
+            {
+                job = _steal_from_queue(jq, &steal_info->work_queue);
+            }
+        } while (!job && _active_jobs(jq));
+    }
 
     return job;
 }
@@ -232,8 +235,12 @@ void _thread_finish(thread_info_t* info, job_t* job)
     bool wake_threads = false;
     do
     {
+        // We need to see the child run count from other threads, hence the acquire barrier. We
+        // also want to publish the new count to other threads, so we also use a release
+        // barrier.
         atomic_uint_fast16_t count =
-            atomic_fetch_sub_explicit(&job->run_count, 1, memory_order_relaxed);
+            atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel);
+        assert(count >= 1);
         if (count == 1)
         {
             job_t* parent_job = job->parent == UINT16_MAX
@@ -265,8 +272,11 @@ job_t* _thread_execute(thread_info_t* info)
     }
     if (job)
     {
-        assert(job->func);
-        job->func(job->args);
+        // A NULL function is allowed for creating a parent job.
+        if (job->func)
+        {
+            job->func(job->args);
+        }
         _thread_finish(info, job);
     }
     return job;
@@ -274,12 +284,12 @@ job_t* _thread_execute(thread_info_t* info)
 
 void* _thread_loop(void* arg)
 {
-    _set_thread_name("job_queue.loop");
+    _set_thread_name("RPE_JOB_QUEUE_THREAD_LOOP");
 
     thread_info_t* info = (thread_info_t*)arg;
-    mutex_lock(&info->job_queue->thread_map_mutex);
     uint32_t id = _get_thread_id();
-    HASH_SET_INSERT(&info->job_queue->thread_map, &id, &info);
+    mutex_lock(&info->job_queue->thread_map_mutex);
+    (&info->job_queue->thread_map, &id, &info); // NOLINT
     mutex_unlock(&info->job_queue->thread_map_mutex);
 
     do
@@ -301,7 +311,7 @@ void* _thread_loop(void* arg)
     return NULL;
 }
 
-job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_adpoted_threads)
+job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads)
 {
     assert(arena);
     assert(num_threads < JOB_QUEUE_MAX_THREAD_COUNT);
@@ -320,7 +330,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_a
     {
         jq->thread_count = _get_cpu_count();
     }
-    jq->thread_count = fmax(1, fmin(JOB_QUEUE_MAX_THREAD_COUNT, jq->thread_count));
+    jq->thread_count = MAX(1, fmin(JOB_QUEUE_MAX_THREAD_COUNT, jq->thread_count));
 
     mutex_init(&jq->thread_map_mutex);
     mutex_init(&jq->wait_mutex);
@@ -334,7 +344,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_a
         thread_info_t* info = &jq->thread_states[i];
         info->job_queue = jq;
         info->is_joinable = true;
-        info->work_queue = WORK_STEALING_DEQUE_INIT(int, arena, JOB_QUEUE_MAX_JOB_COUNT);
+        info->work_queue = work_stealing_queue_init(arena, JOB_QUEUE_MAX_JOB_COUNT);
         info->rand_gen = xoro_rand_init(_get_thread_id(), 0x1234);
         info->thread = thread_create(&_thread_loop, info, arena);
     }
@@ -343,18 +353,18 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads, uint32_t num_a
 
 job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t* parent)
 {
-    assert(func);
+    assert(jq);
 
     job_t job;
     job.func = func;
     job.args = args;
     job.ref_count = 1;
-    job.run_count = 1;
+    job.child_run_count = 1;
     job.parent = UINT16_MAX;
     if (parent)
     {
         atomic_uint_fast16_t count =
-            atomic_fetch_add_explicit(&parent->run_count, 1, memory_order_relaxed);
+            atomic_fetch_add_explicit(&parent->child_run_count, 1, memory_order_relaxed);
         assert(count > 0);
         job.parent = parent - (job_t*)jq->job_cache.data;
     }
@@ -369,7 +379,7 @@ void job_queue_destroy(job_queue_t* jq)
     condition_brdcast(&jq->wait_cond);
     mutex_unlock(&jq->wait_mutex);
 
-    for (int i = 0; i < jq->thread_count; ++i)
+    for (uint32_t i = 0; i < jq->thread_count; ++i)
     {
         thread_info_t* info = &jq->thread_states[i];
         if (info->is_joinable)
@@ -390,10 +400,17 @@ void job_queue_run_job(job_queue_t* jq, job_t* job)
     mutex_lock(&jq->thread_map_mutex);
     uint32_t id = _get_thread_id();
     thread_info_t** info = HASH_SET_GET(&jq->thread_map, &id);
-    assert(info && "Trying to run on a thread that hasn't been adopted?");
+    assert(*info && "Trying to run on a thread that hasn't been adopted?");
     mutex_unlock(&jq->thread_map_mutex);
 
     _push(jq, *info, job);
+}
+
+void job_queue_run_ref_job(job_queue_t* jq, job_t* job)
+{
+    // Add a reference to this job, so it won't be deleted on completion.
+    atomic_fetch_add_explicit(&job->ref_count, 1, memory_order_relaxed);
+    job_queue_run_job(jq, job);
 }
 
 void job_queue_run_and_wait(job_queue_t* jq, job_t* job)
@@ -402,19 +419,20 @@ void job_queue_run_and_wait(job_queue_t* jq, job_t* job)
 
     job_t* retain_job = job;
     atomic_fetch_add_explicit(&retain_job->ref_count, 1, memory_order_relaxed);
-    job_queue_run_job(jq, job);
+    job_queue_run_ref_job(jq, job);
     job_queue_wait_and_release(jq, job);
 }
 
 void job_queue_wait_and_release(job_queue_t* jq, job_t* job)
 {
     assert(job);
+    assert(atomic_load_explicit(&job->ref_count, memory_order_relaxed) > 0);
 
     uint32_t id = _get_thread_id();
     mutex_lock(&jq->thread_map_mutex);
     thread_info_t** info = HASH_SET_GET(&jq->thread_map, &id);
     mutex_unlock(&jq->thread_map_mutex);
-    assert(info);
+    assert(*info);
 
     do
     {
@@ -441,10 +459,10 @@ void job_queue_adopt_thread(job_queue_t* jq)
 {
     uint32_t id = _get_thread_id();
     mutex_lock(&jq->thread_map_mutex);
-    thread_info_t* info = HASH_SET_GET(&jq->thread_map, &id);
+    thread_info_t** info = HASH_SET_GET(&jq->thread_map, &id);
     mutex_unlock(&jq->thread_map_mutex);
 
-    if (info && info->job_queue == jq)
+    if (info && (*info)->job_queue == jq)
     {
         log_warn("This thread has already been adopted by this job queue.");
         return;
@@ -454,13 +472,13 @@ void job_queue_adopt_thread(job_queue_t* jq)
         atomic_fetch_add_explicit(&jq->adopted_thread_count, 1, memory_order_relaxed);
     assert(adopted_count + jq->thread_count < JOB_QUEUE_MAX_THREAD_COUNT);
 
-    info = &jq->thread_states[adopted_count + jq->thread_count];
-    info->job_queue = jq;
-    info->is_joinable = false;
-    info->work_queue = WORK_STEALING_DEQUE_INIT(uint32_t, jq->arena, JOB_QUEUE_MAX_JOB_COUNT);
-    info->rand_gen = xoro_rand_init(_get_thread_id(), 0x1234);
+    thread_info_t* adopted_info = &jq->thread_states[adopted_count + jq->thread_count];
+    adopted_info->job_queue = jq;
+    adopted_info->is_joinable = false;
+    adopted_info->work_queue = work_stealing_queue_init(jq->arena, JOB_QUEUE_MAX_JOB_COUNT);
+    adopted_info->rand_gen = xoro_rand_init(_get_thread_id(), 0x1234);
 
     mutex_lock(&jq->thread_map_mutex);
-    HASH_SET_INSERT(&jq->thread_map, &id, &info);
+    HASH_SET_INSERT(&jq->thread_map, &id, &adopted_info); // NOLINT
     mutex_unlock(&jq->thread_map_mutex);
 }

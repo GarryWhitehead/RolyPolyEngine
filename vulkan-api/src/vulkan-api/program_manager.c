@@ -22,6 +22,7 @@
 
 #include "program_manager.h"
 
+#include "backend/convert_to_vk.h"
 #include "backend/enums.h"
 #include "driver.h"
 #include "pipeline_cache.h"
@@ -62,7 +63,7 @@ shader_prog_bundle_t* shader_bundle_init(arena_t* arena)
     // Default rasterisation settings.
     out->raster_state.polygon_mode = VK_POLYGON_MODE_FILL;
     out->render_prim.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    out->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
+    out->raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     out->render_prim.prim_restart = VK_FALSE;
     out->ds_state.compare_op = VK_COMPARE_OP_LESS;
 
@@ -132,37 +133,25 @@ void shader_bundle_add_render_primitive(
     bundle->render_prim.topology = topo;
 }
 
-void shader_bundle_set_scissor(
-    shader_prog_bundle_t* bundle,
-    uint32_t width,
-    uint32_t height,
-    uint32_t x_offset,
-    uint32_t y_offset)
+void shader_bundle_set_cull_mode(shader_prog_bundle_t* bundle, enum CullMode mode)
 {
     assert(bundle);
-    VkRect2D rect = {
-        .offset = {.x = (int32_t)x_offset, .y = (int32_t)y_offset},
-        .extent = {.width = width, .height = height}};
-    bundle->scissor = rect;
+    bundle->raster_state.cull_mode = cull_mode_to_vk(mode);
 }
 
-void shader_bundle_set_viewport(
-    shader_prog_bundle_t* bundle, uint32_t width, uint32_t height, float minDepth, float maxDepth)
+void shader_bundle_set_depth_read_write_state(
+    shader_prog_bundle_t* bundle, bool test_state, bool write_state, enum CompareOp depth_op)
 {
     assert(bundle);
-    assert(width > 0);
-    assert(height > 0);
+    bundle->ds_state.test_enable = test_state;
+    bundle->ds_state.write_enable = write_state;
+    bundle->ds_state.compare_op = compare_op_to_vk(depth_op);
+}
 
-    // Negative viewport to mimic openGL co-ords.
-    VkViewport vp = {
-        .width = (float)width,
-        .height = -(float)height,
-        .x = 0,
-        .y = (float)height,
-        .minDepth = minDepth,
-        .maxDepth = maxDepth,
-    };
-    bundle->viewport = vp;
+void shader_bundle_set_depth_clamp_state(shader_prog_bundle_t* bundle, bool state)
+{
+    assert(bundle);
+    bundle->raster_state.depth_clamp_enable = state;
 }
 
 void shader_bundle_create_push_block(

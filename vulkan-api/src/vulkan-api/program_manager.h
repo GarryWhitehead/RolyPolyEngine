@@ -62,6 +62,7 @@ typedef struct ShaderProgramBundle
         VkCullModeFlagBits cull_mode;
         VkPolygonMode polygon_mode;
         VkFrontFace front_face;
+        VkBool32 depth_clamp_enable;
     } raster_state;
 
     struct StencilState
@@ -184,18 +185,12 @@ void shader_bundle_add_image_sampler(
 void shader_bundle_add_storage_image(
     shader_prog_bundle_t* bundle, texture_handle_t handle, uint8_t binding);
 
-void shader_bundle_set_viewport(
-    shader_prog_bundle_t* bundle, uint32_t width, uint32_t height, float minDepth, float maxDepth);
-
-void shader_bundle_set_scissor(
-    shader_prog_bundle_t* bundle,
-    uint32_t width,
-    uint32_t height,
-    uint32_t x_offset,
-    uint32_t y_offset);
-
 void shader_bundle_add_render_primitive(
     shader_prog_bundle_t* bundle, VkPrimitiveTopology topo, VkBool32 prim_restart);
+void shader_bundle_set_cull_mode(shader_prog_bundle_t* bundle, enum CullMode mode);
+void shader_bundle_set_depth_read_write_state(
+    shader_prog_bundle_t* bundle, bool test_state, bool write_state, enum CompareOp depth_op);
+void shader_bundle_set_depth_clamp_state(shader_prog_bundle_t* bundle, bool state);
 
 void shader_bundle_update_spec_const_data(
     shader_prog_bundle_t* bundle, uint32_t data_size, void* data, enum ShaderStage stage);

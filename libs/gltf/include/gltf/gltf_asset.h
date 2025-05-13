@@ -23,6 +23,8 @@
 #ifndef __GLTF_ASSET_H__
 #define __GLTF_ASSET_H__
 
+#include "material_cache.h"
+
 #include <cgltf.h>
 #include <rpe/aabox.h>
 #include <rpe/material.h>
@@ -33,8 +35,6 @@ typedef struct Engine rpe_engine_t;
 typedef struct Material rpe_material_t;
 typedef struct RenderableManager rpe_rend_manager_t;
 
-#define GLTF_ASSET_ARENA_SIZE 1 << 30
-
 typedef void (*image_free_func)(void*);
 
 typedef struct AssetTextureParams
@@ -42,7 +42,7 @@ typedef struct AssetTextureParams
     rpe_material_t* mat;
     cgltf_texture_view* gltf_tex;
     // This is updated via the appropriate loader.
-    rpe_mapped_texture_t mat_texture;
+    gltf_image_handle_t mat_texture;
     enum MaterialImageType tex_type;
     uint32_t uv_index;
     image_free_func free_func;
@@ -60,7 +60,6 @@ typedef struct GltfAsset
     arena_dyn_array_t nodes;
     rpe_aabox_t aabbox;
     string_t gltf_path;
-    arena_t arena;
 } gltf_asset_t;
 
 #endif

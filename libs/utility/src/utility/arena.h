@@ -249,7 +249,7 @@ void dyn_array_resize(arena_dyn_array_t* arr, size_t new_size);
  */
 void* dyn_array_get(arena_dyn_array_t* dyn_array, uint32_t idx);
 
-void dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item);
+void* dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item);
 
 void* dyn_array_pop_back(arena_dyn_array_t* arr);
 

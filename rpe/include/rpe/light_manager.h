@@ -22,7 +22,18 @@
 #ifndef __RPE_LIGHT_MANAGER_H__
 #define __RPE_LIGHT_MANAGER_H__
 
+#include "object.h"
+
 #include <utility/maths.h>
+
+typedef struct LightManager rpe_light_manager_t;
+
+enum LightType
+{
+    RPE_LIGHTING_TYPE_SPOT,
+    RPE_LIGHTING_TYPE_POINT,
+    RPE_LIGHTING_TYPE_DIRECTIONAL
+};
 
 typedef struct LightCreateInfo
 {
@@ -53,5 +64,10 @@ typedef struct LightCreateInfo
     float sun_halo_size;
     float sun_halo_falloff;
 } rpe_light_create_info_t;
+
+void rpe_light_manager_create_light(
+    rpe_light_manager_t* lm, rpe_light_create_info_t* ci, rpe_object_t obj, enum LightType type);
+
+void rpe_light_manager_set_position(rpe_light_manager_t* lm, rpe_object_t obj, math_vec3f* pos);
 
 #endif

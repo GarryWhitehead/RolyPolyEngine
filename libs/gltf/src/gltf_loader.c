@@ -30,12 +30,14 @@
 #include <rpe/object.h>
 #include <rpe/object_manager.h>
 #include <rpe/renderable_manager.h>
+#include <rpe/scene.h>
 #include <rpe/transform_manager.h>
 #include <utility/arena.h>
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 #include <jsmn.h>
+#include <string.h>
 
 struct ExtensionInstance
 {
@@ -160,11 +162,26 @@ float gltf_model_material_convert_to_alpha(cgltf_alpha_mode mode)
 
 rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asset)
 {
-    assert(mat);
     assert(asset);
 
     rpe_rend_manager_t* r_manager = rpe_engine_get_rend_manager(asset->engine);
-    rpe_material_t* new_mat = rpe_rend_manager_create_material(r_manager);
+    // TODO: Its annoying having a model tied (non-transparently) to a scene.
+    rpe_scene_t* scene = rpe_engine_get_current_scene(asset->engine);
+    assert(scene);
+    rpe_material_t* new_mat = rpe_rend_manager_create_material(r_manager, scene);
+
+    // Some assumed defaults for the material.
+    rpe_material_set_test_enable(new_mat, true);
+    rpe_material_set_write_enable(new_mat, true);
+    rpe_material_set_depth_compare_op(new_mat, RPE_COMPARE_OP_LESS);
+    rpe_material_set_front_face(new_mat, RPE_FRONT_FACE_COUNTER_CLOCKWISE);
+    rpe_material_set_cull_mode(new_mat, RPE_CULL_MODE_BACK);
+
+    // If the gltf has no material defined then use the defaults.
+    if (!mat)
+    {
+        return new_mat;
+    }
 
     // Two pipelines, either specular glossiness or metallic roughness,
     // according to the spec, metallic roughness should be preferred.
@@ -285,15 +302,16 @@ rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asse
     // Determines the type of culling required.
     rpe_material_set_double_sided_state(new_mat, mat->double_sided);
 
-    // Some assumed defaults for the material.
-    rpe_material_set_test_enable(new_mat, true);
-    rpe_material_set_write_enable(new_mat, true);
-    rpe_material_set_depth_compare_op(new_mat, RPE_COMPARE_OP_LESS);
+    if (mat->double_sided)
+    {
+        rpe_material_set_cull_mode(new_mat, RPE_CULL_MODE_NONE);
+    }
 
     return new_mat;
 }
 
-bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* transform_obj)
+bool create_mesh_instance(
+    cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* transform_obj, arena_t* arena)
 {
     assert(mesh);
 
@@ -310,6 +328,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
         // Only one material per mesh is allowed which is the case 99% of the
         // time cache the cgltf pointer and use to ensure this is the case.
         rpe_material_t* mesh_mat = create_material_instance(primitive->material, asset);
+        DYN_ARRAY_APPEND(&asset->materials, &mesh_mat);
 
         // Get the number of vertices to process.
         assert(primitive->attributes[0].data);
@@ -420,7 +439,7 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
         // If the model doesn't contain indices, generate sequential index values.
         if (!primitive->indices || primitive->indices->count == 0)
         {
-            uint32_t* indices = ARENA_MAKE_ZERO_ARRAY(&asset->arena, uint32_t, vert_count);
+            uint32_t* indices = ARENA_MAKE_ZERO_ARRAY(arena, uint32_t, vert_count);
             for (size_t i = 0; i < vert_count; ++i)
             {
                 indices[i] = (uint32_t)i;
@@ -439,8 +458,13 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
             indices_count = primitive->indices->count;
         }
 
-        rpe_mesh_t* new_mesh = rpe_rend_manager_create_mesh(
+        rpe_valloc_handle v_handle =
+            rpe_rend_manager_alloc_vertex_buffer(asset->rend_manager, vert_count);
+        rpe_valloc_handle i_handle =
+            rpe_rend_manager_alloc_index_buffer(asset->rend_manager, indices_count);
+        rpe_mesh_t* new_mesh = rpe_rend_manager_create_mesh_interleaved(
             asset->rend_manager,
+            v_handle,
             (float*)pos_base,
             (float*)uv_base[0],
             (float*)uv_base[1],
@@ -450,9 +474,11 @@ bool create_mesh_instance(cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* t
             (float*)weights_base,
             (float*)joints_base,
             vert_count,
+            i_handle,
             indices_base,
             indices_count,
             indices_type);
+        DYN_ARRAY_APPEND(&asset->meshes, &new_mesh);
 
         rpe_renderable_t* renderable =
             rpe_engine_create_renderable(asset->engine, mesh_mat, new_mesh);
@@ -517,10 +543,10 @@ math_mat4f gltf_node_prepare_translation(cgltf_node* node)
         }
         if (node->has_rotation)
         {
-            rot.x = node->rotation[1];
-            rot.y = node->rotation[2];
-            rot.z = node->rotation[3];
-            rot.w = node->rotation[0];
+            rot.x = node->rotation[0];
+            rot.y = node->rotation[1];
+            rot.z = node->rotation[2];
+            rot.w = node->rotation[3];
         }
         if (node->has_scale)
         {
@@ -529,9 +555,12 @@ math_mat4f gltf_node_prepare_translation(cgltf_node* node)
             scale.z = node->scale[2];
         }
 
-        out = math_quatf_to_mat4f(rot);
-        math_mat4f_translate(translation, &out);
-        math_mat4f_scale(scale, &out);
+        math_mat4f T = math_mat4f_identity();
+        math_mat4f S = math_mat4f_identity();
+        math_mat4f R = math_quatf_to_mat4f(rot);
+        math_mat4f_translate(translation, &T);
+        math_mat4f_scale(scale, &S);
+        out = math_mat4f_mul(T, math_mat4f_mul(R, S));
     }
     return out;
 }
@@ -540,7 +569,8 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
     cgltf_node* node,
     rpe_engine_t* engine,
     gltf_asset_t* asset,
-    rpe_object_t* parent_obj)
+    rpe_object_t* parent_obj,
+    arena_t* arena)
 {
     assert(node);
     assert(engine);
@@ -555,7 +585,7 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
 
     if (node->mesh)
     {
-        if (!create_mesh_instance(node->mesh, asset, obj_p))
+        if (!create_mesh_instance(node->mesh, asset, obj_p, arena))
         {
             return false;
         }
@@ -565,7 +595,7 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
     for (cgltf_size child_idx = 0; child_idx < node->children_count; ++child_idx)
     {
         if (!gltf_node_create_node_hierachy_recursive(
-                node->children[child_idx], engine, asset, obj_p))
+                node->children[child_idx], engine, asset, obj_p, arena))
         {
             return false;
         }
@@ -574,16 +604,17 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
     return true;
 }
 
-bool gltf_node_create_node_hierachy(cgltf_node* node, gltf_asset_t* asset, rpe_engine_t* engine)
+bool gltf_node_create_node_hierachy(
+    cgltf_node* node, gltf_asset_t* asset, rpe_engine_t* engine, arena_t* arena)
 {
     rpe_transform_manager_t* tm = rpe_engine_get_transform_manager(engine);
 
     rpe_object_t obj = rpe_obj_manager_create_obj(rpe_engine_get_obj_manager(engine));
     rpe_object_t* obj_p = DYN_ARRAY_APPEND(&asset->objects, &obj);
-    math_mat4f local_transform = math_mat4f_identity();
-    rpe_transform_manager_add_node(tm, &local_transform, NULL, &obj);
+    math_mat4f t = math_mat4f_identity();
+    rpe_transform_manager_add_node(tm, &t, NULL, &obj);
 
-    if (!gltf_node_create_node_hierachy_recursive(node, engine, asset, obj_p))
+    if (!gltf_node_create_node_hierachy_recursive(node, engine, asset, obj_p, arena))
     {
         return false;
     }
@@ -621,7 +652,7 @@ void linearise_nodes(cgltf_data* data, gltf_asset_t* asset)
     }
 }
 
-bool create_model_instance(gltf_asset_t* asset)
+bool create_model_instance(gltf_asset_t* asset, arena_t* arena)
 {
     assert(asset);
     cgltf_data* model_data = asset->model_data;
@@ -644,7 +675,8 @@ bool create_model_instance(gltf_asset_t* asset)
         cgltf_scene* scene = &asset->model_data->scenes[scene_idx];
         for (cgltf_size node_idx = 0; node_idx < scene->nodes_count; ++node_idx)
         {
-            if (!gltf_node_create_node_hierachy(scene->nodes[node_idx], asset, asset->engine))
+            if (!gltf_node_create_node_hierachy(
+                    scene->nodes[node_idx], asset, asset->engine, arena))
             {
                 return false;
             }
@@ -654,34 +686,32 @@ bool create_model_instance(gltf_asset_t* asset)
     return true;
 }
 
-gltf_asset_t* create_asset(rpe_engine_t* engine, cgltf_data* model_data, const char* path)
+gltf_asset_t*
+create_asset(rpe_engine_t* engine, cgltf_data* model_data, const char* path, arena_t* arena)
 {
     gltf_asset_t* new_asset = malloc(sizeof(gltf_asset_t));
+    assert(new_asset);
     memset(new_asset, 0, sizeof(gltf_asset_t));
 
     new_asset->engine = engine;
     new_asset->model_data = model_data;
     new_asset->rend_manager = rpe_engine_get_rend_manager(engine);
 
-    // Create a small arena for this gltf model.
-    int err = arena_new(GLTF_ASSET_ARENA_SIZE, &new_asset->arena);
-    if (err != ARENA_SUCCESS)
-    {
-        return NULL;
-    }
-    MAKE_DYN_ARRAY(rpe_object_t, &new_asset->arena, 30, &new_asset->objects);
-    MAKE_DYN_ARRAY(asset_texture_t, &new_asset->arena, 30, &new_asset->textures);
-    MAKE_DYN_ARRAY(cgltf_node, &new_asset->arena, 30, &new_asset->nodes);
-    new_asset->gltf_path = string_init(path, &new_asset->arena);
+    MAKE_DYN_ARRAY(rpe_object_t, arena, 30, &new_asset->objects);
+    MAKE_DYN_ARRAY(asset_texture_t, arena, 30, &new_asset->textures);
+    MAKE_DYN_ARRAY(cgltf_node, arena, 30, &new_asset->nodes);
+    MAKE_DYN_ARRAY(rpe_material_t*, arena, 30, &new_asset->materials);
+    MAKE_DYN_ARRAY(rpe_mesh_t*, arena, 30, &new_asset->meshes);
+    new_asset->gltf_path = string_init(path, arena);
 
     return new_asset;
 }
 
-gltf_asset_t*
-gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path)
+gltf_asset_t* gltf_model_parse_data(
+    uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path, arena_t* arena)
 {
     // No additional options required.
-    cgltf_options options = {};
+    cgltf_options options = {0};
 
     cgltf_data* gltf_root;
     cgltf_result res = cgltf_parse(&options, gltf_data, data_size, &gltf_root);
@@ -706,16 +736,56 @@ gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine
 
     // Create the GLTF asset which contains all the parsed information which can be used by the
     // client.
-    gltf_asset_t* asset = create_asset(engine, gltf_root, path);
-    if (!asset)
-    {
-        return NULL;
-    }
+    gltf_asset_t* asset = create_asset(engine, gltf_root, path, arena);
 
-    if (!create_model_instance(asset))
+    if (!create_model_instance(asset, arena))
     {
         return NULL;
     }
 
     return asset;
+}
+
+void gltf_model_create_instances(
+    gltf_asset_t* assets,
+    rpe_rend_manager_t* rm,
+    rpe_transform_manager_t* tm,
+    rpe_obj_manager_t* om,
+    rpe_scene_t* scene,
+    uint32_t count,
+    rpe_model_transform_t* transforms,
+    arena_t* arena)
+{
+    arena_dyn_array_t objects;
+    MAKE_DYN_ARRAY(rpe_object_t, arena, 50, &objects);
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        for (size_t j = 0; j < assets->objects.size; ++j)
+        {
+            rpe_object_t model_obj = rpe_obj_manager_create_obj(om);
+
+            rpe_object_t src_obj = DYN_ARRAY_GET(rpe_object_t, &assets->objects, j);
+            if (rpe_rend_manager_has_obj(rm, &src_obj))
+            {
+                rpe_object_t rend_trans_obj = rpe_rend_manager_get_transform(rm, src_obj);
+                rpe_object_t* parent_trans_obj =
+                    rpe_transform_manager_get_parent(tm, rend_trans_obj);
+                assert(parent_trans_obj);
+
+                rpe_object_t model_trans_obj =
+                    rpe_transform_manager_copy(tm, om, parent_trans_obj, &objects);
+                rpe_transform_manager_set_transform(tm, model_trans_obj, &transforms[i]);
+
+                rpe_rend_manager_copy(
+                    rm,
+                    tm,
+                    src_obj,
+                    model_obj,
+                    rpe_transform_manager_get_child(tm, model_trans_obj));
+                // Add object to the scene.
+                rpe_scene_add_object(scene, model_obj);
+            }
+        }
+    }
 }

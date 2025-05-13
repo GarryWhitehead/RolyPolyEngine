@@ -54,6 +54,7 @@ typedef struct PassDescriptor
     rg_attach_union_t attachments;
     math_vec4f clear_col;
     uint8_t samples;
+    uint32_t multi_view_count;
     enum LoadClearFlags ds_load_clear_flags[2];
     enum StoreClearFlags ds_store_clear_flags[2];
     vkapi_rt_handle_t rt_handle;

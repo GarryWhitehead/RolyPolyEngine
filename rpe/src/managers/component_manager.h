@@ -30,6 +30,7 @@
 
 #define RPE_COMPONENT_MANAGER_MAX_FREE_ID_COUNT 1024
 
+#ifdef __linux__
 #define ADD_OBJECT_TO_MANAGER(arr, idx, obj)                                                       \
     ({                                                                                             \
         __typeof__(arr) _arr = arr;                                                                \
@@ -44,6 +45,26 @@
             dyn_array_set(_arr, _idx, _obj);                                                       \
         }                                                                                          \
     })
+#elif WIN32
+// __typeof__ doesn't seem to be supported for MSVC - is typeof available for GCC/Clang?
+#define ADD_OBJECT_TO_MANAGER(arr, idx, obj)                                                       \
+    {                                                                                              \
+        typeof(arr) _arr = arr;                                                                    \
+        typeof(idx) _idx = idx;                                                                    \
+        typeof(obj) _obj = obj;                                                                    \
+        if (_idx >= _arr->size)                                                                    \
+        {                                                                                          \
+            dyn_array_append(_arr, _obj);                                                          \
+        }                                                                                          \
+        else                                                                                       \
+        {                                                                                          \
+            dyn_array_set(_arr, _idx, _obj);                                                       \
+        }                                                                                          \
+    }
+#endif
+
+#define ADD_OBJECT_TO_MANAGER_UNSAFE(_arr, _idx, _obj)                                             \
+    (_idx >= (_arr)->size) ? dyn_array_append((_arr), _obj) : dyn_array_set((_arr), _idx, _obj);
 
 typedef struct ComponentManager
 {

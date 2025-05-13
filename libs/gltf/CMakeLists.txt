@@ -21,6 +21,7 @@ target_link_libraries(
     stb::stb
     KTX::ktx
     log.c::log.c
+    Threads::Threads
     RPE
 )
 
@@ -37,11 +38,13 @@ target_sources(
     src/ktx_loader.c
     src/stb_loader.c
     src/resource_loader.c
+    src/material_cache.c
 
     src/skin_instance.h
     src/ktx_loader.h
     src/stb_loader.h
     src/resource_loader.h
+    src/material_cache.h
 )
 
 # add common compiler flags

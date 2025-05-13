@@ -25,15 +25,22 @@
 #include "colour_pass.h"
 #include "engine.h"
 #include "light_pass.h"
+#include "managers/renderable_manager.h"
 #include "material.h"
 #include "render_graph/render_graph.h"
 #include "render_graph/render_graph_handle.h"
+#include "rpe/scene.h"
 #ifndef NDEBUG
 #include "render_graph/graphviz.h"
 #endif
 #include "render_queue.h"
+#include "rpe/settings.h"
 #include "scene.h"
+#include "shadow_pass.h"
 
+#include <backend/convert_to_vk.h>
+#include <backend/objects.h>
+#include <string.h>
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
@@ -49,7 +56,7 @@ rpe_render_target_t rpe_render_target_init()
     return rt;
 }
 
-void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, bool multi_view)
+void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, uint32_t multi_view_count)
 {
     // convert attachment information to vulkan api format
     vkapi_render_target_t vk_rt = vkapi_render_target_init();
@@ -90,7 +97,7 @@ void create_backend_rt(rpe_render_target_t* t, rpe_engine_t* engine, bool multi_
     // Stencil ignored at the moment.
     vkapi_attach_info_t stencil = {0};
     t->handle = vkapi_driver_create_rt(
-        engine->driver, multi_view, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
+        engine->driver, multi_view_count, t->clear_col, vk_rt.colours, vk_rt.depth, stencil);
 }
 
 rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
@@ -110,6 +117,7 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
     i->depth_handle = vkapi_res_push_reserved_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         sc->extent.width,
         sc->extent.height,
         depth_format,
@@ -133,8 +141,7 @@ rpe_renderer_t* rpe_renderer_init(rpe_engine_t* engine, arena_t* arena)
         vkapi_attach_info_t depth = {.level = 0, .layer = 0, .handle = i->depth_handle};
         math_vec4f col = {0.0f, 0.0f, 0.0f, 1.0f};
         vkapi_attach_info_t stencil = {.level = 0, .layer = 0, .handle = UINT32_MAX};
-        i->rt_handles[idx] =
-            vkapi_driver_create_rt(engine->driver, false, col, colour, depth, stencil);
+        i->rt_handles[idx] = vkapi_driver_create_rt(engine->driver, 0, col, colour, depth, stencil);
     }
     return i;
 }
@@ -157,9 +164,12 @@ void rpe_renderer_end_frame(rpe_renderer_t* r)
 }
 
 void setup_single_render(
-    rpe_engine_t* engine, vkapi_render_pass_data_t* data, rpe_render_target_t* rt, bool multiview)
+    rpe_engine_t* engine,
+    vkapi_render_pass_data_t* data,
+    rpe_render_target_t* rt,
+    uint32_t multi_view_count)
 {
-    create_backend_rt(rt, engine, multiview);
+    create_backend_rt(rt, engine, multi_view_count);
 
     data->width = rt->width;
     data->height = rt->height;
@@ -189,14 +199,15 @@ void setup_single_render(
         sizeof(enum StoreClearFlags) * VKAPI_RENDER_TARGET_MAX_ATTACH_COUNT);
 }
 
-void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, bool multiview)
+void rpe_renderer_begin_renderpass(
+    rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count)
 {
     assert(rdr);
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_render_pass_data_t data = {0};
 
-    setup_single_render(rdr->engine, &data, rt, multiview);
+    setup_single_render(rdr->engine, &data, rt, multi_view_count);
     vkapi_driver_begin_rpass(driver, cmds->instance, &data, &rt->handle);
 }
 
@@ -209,7 +220,12 @@ void rpe_render_end_renderpass(rpe_renderer_t* rdr)
 }
 
 void rpe_renderer_render_single_quad(
-    rpe_renderer_t* rdr, rpe_render_target_t* rt, shader_prog_bundle_t* bundle, bool multiview)
+    rpe_renderer_t* rdr,
+    rpe_render_target_t* rt,
+    shader_prog_bundle_t* bundle,
+    uint32_t multi_view_count,
+    rpe_viewport_t* vp,
+    rpe_rect2d_t* scissor)
 {
     assert(rdr);
     assert(rt);
@@ -217,7 +233,17 @@ void rpe_renderer_render_single_quad(
 
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    rpe_renderer_begin_renderpass(rdr, rt, multiview);
+    rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
+
+    if (vp)
+    {
+        vkapi_driver_set_viewport(driver, viewport_to_vk(vp));
+    }
+    if (scissor)
+    {
+        vkapi_driver_set_scissor(driver, rect2d_to_vk(scissor));
+    }
+
     vkapi_driver_draw_quad(driver, bundle);
     vkapi_driver_end_rpass(cmds->instance);
 }
@@ -231,11 +257,13 @@ void rpe_renderer_render_single_indexed(
     uint32_t index_count,
     struct PushBlockEntry* pb_entries,
     uint32_t push_block_count,
-    bool multiview)
+    uint32_t multi_view_count,
+    rpe_viewport_t* vp,
+    rpe_rect2d_t* scissor)
 {
     vkapi_driver_t* driver = rdr->engine->driver;
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    rpe_renderer_begin_renderpass(rdr, rt, multiview);
+    rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
 
     vkapi_driver_bind_vertex_buffer(driver, vertex_buffer, 0);
     vkapi_driver_bind_index_buffer(driver, index_buffer);
@@ -250,22 +278,34 @@ void rpe_renderer_render_single_indexed(
             vkapi_driver_set_push_constant(driver, bundle, pb_entries[i].data, pb_entries[i].stage);
         }
     }
+
+    if (vp)
+    {
+        vkapi_driver_set_viewport(driver, viewport_to_vk(vp));
+    }
+    if (scissor)
+    {
+        vkapi_driver_set_scissor(driver, rect2d_to_vk(scissor));
+    }
+
     vkapi_driver_draw_indexed(driver, index_count, 0, 0);
     vkapi_driver_end_rpass(cmds->instance);
 }
 
-void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap)
+void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap)
 {
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
+    rpe_settings_t settings = engine->settings;
+    bool draw_shadows =
+        scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
 
     rg_clear(rdr->rg);
 
     // Update the renderable objects and lights.
-    rpe_scene_update(scene, rdr->engine);
+    rpe_scene_update(scene, engine);
 
     vkapi_swapchain_t* sc = rdr->engine->curr_swapchain;
-
     // Resource input which will be moved to the back-buffer RT.
     rg_handle_t input_handle;
 
@@ -277,10 +317,10 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
 
     // Store/clear flags for final colour attachment.
     desc.store_clear_flags[0] = RPE_BACKEND_RENDERPASS_STORE_CLEAR_FLAG_STORE;
-    desc.load_clear_flags[0] = !clearSwap ? RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR
+    desc.load_clear_flags[0] = clear_swap ? RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_CLEAR
                                           : RPE_BACKEND_RENDERPASS_LOAD_CLEAR_FLAG_LOAD;
     desc.final_layouts[0] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    desc.init_layouts[0] = !clearSwap ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    desc.init_layouts[0] = clear_swap ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     desc.final_layouts[VKAPI_RENDER_TARGET_DEPTH_INDEX - 1] =
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     desc.load_clear_flags[VKAPI_RENDER_TARGET_DEPTH_INDEX - 1] =
@@ -298,31 +338,41 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clearSwap
         rg_import_render_target(rdr->rg, "BackBuffer", desc, rdr->rt_handles[driver->image_index]);
     VkFormat depth_format = vkapi_driver_get_supported_depth_format(rdr->engine->driver);
 
-    // TODO: Pass these as user-defined options.
-    const uint32_t GBUFFER_TEX_WIDTH = 2048;
-    const uint32_t GBUFFER_TEX_HEIGHT = 2048;
+    input_handle = rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
 
-    // Fill the gbuffers - this can't be the final render target unless gbuffers are disabled
-    // due to the gBuffers requiring resolving down to a single render target in the lighting
-    // pass.
-    rpe_colour_pass_render(rdr->rg, GBUFFER_TEX_WIDTH, GBUFFER_TEX_HEIGHT, depth_format);
+    // Render the shadow maps - cascade and point/spot maps.
+    if (draw_shadows)
+    {
+        rpe_shadow_pass_render(
+            engine->shadow_manager, rdr->rg, scene, settings.shadow.cascade_dims, depth_format);
+    }
 
-    input_handle = rpe_light_pass_render(
-        engine->light_manager, rdr->rg, desc.width, desc.height, depth_format);
+    if (!scene->skip_lighting_pass)
+    {
+        input_handle = rpe_light_pass_render(
+            engine->light_manager, rdr->rg, scene, desc.width, desc.height, depth_format);
+    }
+
+    // TODO: move to post-processing when added.
+    if (draw_shadows && settings.shadow.enable_debug_cascade)
+    {
+        input_handle = rpe_cascade_shadow_debug_render(
+            engine->shadow_manager, rdr->rg, desc.width, desc.height);
+    }
 
     rg_move_resource(rdr->rg, input_handle, bb_handle);
     rg_add_present_pass(rdr->rg, bb_handle);
-
     rg_compile(rdr->rg);
 
-#ifndef NDEBUG
-    string_t graphviz_str =
-        rg_dep_graph_export_graph_viz(rg_get_dep_graph(rdr->rg), &engine->scratch_arena);
-    FILE* fp = fopen("/home/kudan/Documents/render_graph.svg", "w");
-    fwrite(graphviz_str.data, 1, graphviz_str.len, fp);
-    fclose(fp);
-    arena_reset(&engine->scratch_arena);
-#endif
+    //#ifndef NDEBUG
+    //   string_t graphviz_str =
+    //       rg_dep_graph_export_graph_viz(rg_get_dep_graph(rdr->rg), &engine->scratch_arena);
+    //   FILE* fp = fopen("/home/kudan/Documents/render_graph.svg", "wb");
+    //   assert(fp);
+    //   fwrite(graphviz_str.data, sizeof(uint8_t), graphviz_str.len, fp);
+    //   fclose(fp);
+    //   arena_reset(&engine->scratch_arena);
+    //#endif
 
     rg_execute(rdr->rg, rdr->engine->driver, engine);
 }

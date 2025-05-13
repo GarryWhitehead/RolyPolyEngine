@@ -76,6 +76,7 @@ typedef struct TextureDescriptor
     uint32_t height;
     uint8_t depth;
     uint8_t mip_levels;
+    uint8_t layers;
     VkFormat format;
 } rg_texture_desc_t;
 

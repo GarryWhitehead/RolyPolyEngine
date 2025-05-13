@@ -26,6 +26,7 @@
 #include "driver.h"
 #include "utility.h"
 
+#include <string.h>
 #include <utility/arena.h>
 
 vkapi_render_target_t vkapi_render_target_init()
@@ -42,8 +43,7 @@ vkapi_render_target_t vkapi_render_target_init()
 
 vkapi_rpass_t vkapi_rpass_init(arena_t* arena)
 {
-    vkapi_rpass_t rpass;
-    memset(&rpass, 0, sizeof(vkapi_rpass_t));
+    vkapi_rpass_t rpass = {0};
     MAKE_DYN_ARRAY(VkAttachmentDescription, arena, 10, &rpass.attach_descriptors);
     MAKE_DYN_ARRAY(VkAttachmentReference, arena, 10, &rpass.colour_attach_refs);
     return rpass;
@@ -70,7 +70,7 @@ vkapi_attach_handle_t vkapi_rpass_add_attach(vkapi_rpass_t* rp, struct VkApiAtta
     return handle;
 }
 
-void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiView)
+void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, uint32_t multi_view_count)
 {
     // create the attachment references
     bool surfacePass = false;
@@ -166,14 +166,17 @@ void vkapi_rpass_create(vkapi_rpass_t* rp, vkapi_driver_t* driver, bool multiVie
         ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint32_t, rp->attach_descriptors.size, 0);
     uint32_t* correlation_masks =
         ARENA_MAKE_ARRAY(&driver->_scratch_arena, uint32_t, rp->attach_descriptors.size, 0);
-    if (multiView)
+    if (multi_view_count > 0)
     {
-        // Note: at present only multi view rendering to cube maps
-        // is supported.
+        uint32_t mask = 0;
+        for (uint32_t i = 0; i < multi_view_count; ++i)
+        {
+            mask |= 1 << i;
+        }
+
         for (size_t i = 0; i < rp->attach_descriptors.size; ++i)
         {
-            // 1 bit set per layer - TODO: check how many layers
-            view_masks[i] = 0b00111111;
+            view_masks[i] = mask;
             correlation_masks[i] = view_masks[i];
         }
         mv_ci.correlationMaskCount = rp->attach_descriptors.size;

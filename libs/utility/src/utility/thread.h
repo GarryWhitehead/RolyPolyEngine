@@ -45,7 +45,7 @@ typedef pthread_mutex_t mutex_t;
 typedef pthread_cond_t cond_wait_t;
 #endif
 
-void mutex_init(mutex_t* m);
+bool mutex_init(mutex_t* m);
 
 bool mutex_lock(mutex_t* m);
 
@@ -53,7 +53,7 @@ void mutex_unlock(mutex_t* m);
 
 void mutex_destroy(mutex_t* m);
 
-void condition_init(cond_wait_t* c);
+bool condition_init(cond_wait_t* c);
 
 bool condition_wait(cond_wait_t* c, mutex_t* m);
 

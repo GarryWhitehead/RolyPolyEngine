@@ -32,14 +32,25 @@
 #include <arm_neon.h>
 #endif
 
+#ifdef WIN32
+#include <windows.h>
+#undef near
+#undef far
+#endif
+
+
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define MAX(a, b) a > b ? a : b
 #define MIN(a, b) a < b ? a : b
 
+#ifdef __linux__
 #define CLAMP(x, low, high)                                                                        \
     ({                                                                                             \
         __typeof__(x) __x = (x);                                                                   \
@@ -47,6 +58,9 @@
         __typeof__(high) __high = (high);                                                          \
         __x > __high ? __high : (__x < __low ? __low : __x);                                       \
     })
+#elif WIN32
+#define CLAMP(x, low, high) (x > high ? high : (x < low ? low : x))
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -210,6 +224,24 @@ static inline math_vec4f math_vec4f_sub(math_vec4f a, math_vec4f b)
 #else
     math_vec4f out = {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z, .w = a.w - b.w};
 #endif
+    return out;
+}
+
+static inline math_vec2f math_vec2f_sub_sca(math_vec2f a, float sca)
+{
+    math_vec2f out = {.x = a.x - sca, .y = a.y - sca};
+    return out;
+}
+
+static inline math_vec3f math_vec3f_sub_sca(math_vec3f a, float sca)
+{
+    math_vec3f out = {.x = a.x - sca, .y = a.y - sca, .z = a.z - sca};
+    return out;
+}
+
+static inline math_vec4f math_vec4f_sub_sca(math_vec4f a, float sca)
+{
+    math_vec4f out = {.x = a.x - sca, .y = a.y - sca, .z = a.z - sca, .w = a.w - sca};
     return out;
 }
 
@@ -389,6 +421,21 @@ static inline float math_vec2f_norm(math_vec2f a) { return sqrtf(math_vec2f_len(
 static inline float math_vec3f_norm(math_vec3f a) { return sqrtf(math_vec3f_len(a)); }
 
 static inline float math_vec4f_norm(math_vec4f a) { return sqrtf(math_vec4f_len(a)); }
+
+static inline float math_vec2f_distance(math_vec2f a, math_vec2f b)
+{
+    return math_vec2f_norm(math_vec2f_sub(a, b));
+}
+
+static inline float math_vec3f_distance(math_vec3f a, math_vec3f b)
+{
+    return math_vec3f_norm(math_vec3f_sub(a, b));
+}
+
+static inline float math_vec4f_distance(math_vec4f a, math_vec4f b)
+{
+    return math_vec4f_norm(math_vec4f_sub(a, b));
+}
 
 /** Normalise vector **/
 static inline math_vec2f math_vec2f_normalise(math_vec2f a)
@@ -758,14 +805,14 @@ static inline math_vec4f math_mat4f_mul_vec(math_mat4f m, math_vec4f v)
 
 static inline math_mat4f math_mat4f_inverse(math_mat4f m)
 {
-    math_mat4f out = math_mat4f_identity();
-
-    for (size_t i = 0; i < 4; ++i)
+    // math_mat4f m = math_mat4f_identity();
+#if 0
+    for (uint32_t i = 0; i < 4; ++i)
     {
         // Find the largest element in the i'th column.
-        size_t pivot = i;
+        uint32_t pivot = i;
         float t = fabsf(m.data[i][i]);
-        for (size_t j = i + 1; j < 4; ++j)
+        for (uint32_t j = i + 1; j < 4; ++j)
         {
             float tmp = fabsf(m.data[j][i]);
             if (tmp > t)
@@ -793,19 +840,19 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f m)
         }
 
         float denom = m.data[i][i];
-        for (size_t k = 0; k < 4; ++k)
+        for (uint32_t k = 0; k < 4; ++k)
         {
             m.data[i][k] /= denom;
             out.data[i][k] /= denom;
         }
 
         // Factor out the lower triangle.
-        for (size_t j = 0; j < 4; ++j)
+        for (uint32_t j = 0; j < 4; ++j)
         {
             if (j != i)
             {
                 float t = m.data[j][i];
-                for (size_t k = 0; k < 4; ++k)
+                for (uint32_t k = 0; k < 4; ++k)
                 {
                     m.data[j][k] -= m.data[i][k] * t;
                     out.data[j][k] -= out.data[i][k] * t;
@@ -813,8 +860,70 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f m)
             }
         }
     }
+#endif
 
-    return out;
+    float Coef00 = m.data[2][2] * m.data[3][3] - m.data[3][2] * m.data[2][3];
+    float Coef02 = m.data[1][2] * m.data[3][3] - m.data[3][2] * m.data[1][3];
+    float Coef03 = m.data[1][2] * m.data[2][3] - m.data[2][2] * m.data[1][3];
+
+    float Coef04 = m.data[2][1] * m.data[3][3] - m.data[3][1] * m.data[2][3];
+    float Coef06 = m.data[1][1] * m.data[3][3] - m.data[3][1] * m.data[1][3];
+    float Coef07 = m.data[1][1] * m.data[2][3] - m.data[2][1] * m.data[1][3];
+
+    float Coef08 = m.data[2][1] * m.data[3][2] - m.data[3][1] * m.data[2][2];
+    float Coef10 = m.data[1][1] * m.data[3][2] - m.data[3][1] * m.data[1][2];
+    float Coef11 = m.data[1][1] * m.data[2][2] - m.data[2][1] * m.data[1][2];
+
+    float Coef12 = m.data[2][0] * m.data[3][3] - m.data[3][0] * m.data[2][3];
+    float Coef14 = m.data[1][0] * m.data[3][3] - m.data[3][0] * m.data[1][3];
+    float Coef15 = m.data[1][0] * m.data[2][3] - m.data[2][0] * m.data[1][3];
+
+    float Coef16 = m.data[2][0] * m.data[3][2] - m.data[3][0] * m.data[2][2];
+    float Coef18 = m.data[1][0] * m.data[3][2] - m.data[3][0] * m.data[1][2];
+    float Coef19 = m.data[1][0] * m.data[2][2] - m.data[2][0] * m.data[1][2];
+
+    float Coef20 = m.data[2][0] * m.data[3][1] - m.data[3][0] * m.data[2][1];
+    float Coef22 = m.data[1][0] * m.data[3][1] - m.data[3][0] * m.data[1][1];
+    float Coef23 = m.data[1][0] * m.data[2][1] - m.data[2][0] * m.data[1][1];
+
+    math_vec4f Fac0 = math_vec4f_init(Coef00, Coef00, Coef02, Coef03);
+    math_vec4f Fac1 = math_vec4f_init(Coef04, Coef04, Coef06, Coef07);
+    math_vec4f Fac2 = math_vec4f_init(Coef08, Coef08, Coef10, Coef11);
+    math_vec4f Fac3 = math_vec4f_init(Coef12, Coef12, Coef14, Coef15);
+    math_vec4f Fac4 = math_vec4f_init(Coef16, Coef16, Coef18, Coef19);
+    math_vec4f Fac5 = math_vec4f_init(Coef20, Coef20, Coef22, Coef23);
+
+    math_vec4f Vec0 = math_vec4f_init(m.data[1][0], m.data[0][0], m.data[0][0], m.data[0][0]);
+    math_vec4f Vec1 = math_vec4f_init(m.data[1][1], m.data[0][1], m.data[0][1], m.data[0][1]);
+    math_vec4f Vec2 = math_vec4f_init(m.data[1][2], m.data[0][2], m.data[0][2], m.data[0][2]);
+    math_vec4f Vec3 = math_vec4f_init(m.data[1][3], m.data[0][3], m.data[0][3], m.data[0][3]);
+
+    math_vec4f Inv0 = math_vec4f_sub(math_vec4f_mul(Vec1, Fac0), math_vec4f_mul(Vec2, Fac1));
+    Inv0 = math_vec4f_add(Inv0, math_vec4f_mul(Vec3, Fac2));
+    math_vec4f Inv1 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac0), math_vec4f_mul(Vec2, Fac3));
+    Inv1 = math_vec4f_add(Inv1, math_vec4f_mul(Vec3, Fac4));
+    math_vec4f Inv2 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac1), math_vec4f_mul(Vec1, Fac3));
+    Inv2 = math_vec4f_add(Inv2, math_vec4f_mul(Vec3, Fac5));
+    math_vec4f Inv3 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac2), math_vec4f_mul(Vec1, Fac4));
+    Inv3 = math_vec4f_add(Inv3, math_vec4f_mul(Vec2, Fac5));
+
+    math_vec4f SignA = math_vec4f_init(+1.0f, -1.0f, +1.0f, -1.0f);
+    math_vec4f SignB = math_vec4f_init(-1.0f, +1.0f, -1.0f, +1.0f);
+    math_mat4f Inverse;
+    Inverse.cols[0] = math_vec4f_mul(Inv0, SignA);
+    Inverse.cols[1] = math_vec4f_mul(Inv1, SignB);
+    Inverse.cols[2] = math_vec4f_mul(Inv2, SignA);
+    Inverse.cols[3] = math_vec4f_mul(Inv3, SignB);
+
+    math_vec4f Row0 = math_vec4f_init(
+        Inverse.data[0][0], Inverse.data[1][0], Inverse.data[2][0], Inverse.data[3][0]);
+
+    math_vec4f Dot0 = math_vec4f_mul(m.cols[0], Row0);
+    float Dot1 = (Dot0.x + Dot0.y) + (Dot0.z + Dot0.w);
+
+    float OneOverDeterminant = 1.0f / Dot1;
+
+    return math_mat4f_mul_sca(Inverse, OneOverDeterminant);
 }
 
 /** Useful graphic functions **/
@@ -865,11 +974,25 @@ static inline math_mat4f math_mat4f_lookat(math_vec3f target, math_vec3f eye, ma
     m.data[1][2] = -dir.y;
     m.data[2][2] = -dir.z;
 
-    m.data[3][0] = math_vec3f_dot(right, eye);
+    m.data[3][0] = -math_vec3f_dot(right, eye);
     m.data[3][1] = -math_vec3f_dot(cam_up, eye);
-    m.data[3][2] = -math_vec3f_dot(dir, eye);
+    m.data[3][2] = math_vec3f_dot(dir, eye);
     m.data[3][3] = 1.0f;
 
+    return m;
+}
+
+static inline math_mat4f
+math_mat4f_ortho(float left, float right, float bottom, float top, float near, float far)
+{
+    math_mat4f m = {0};
+    m.data[0][0] = 2.0f / (right - left);
+    m.data[1][1] = 2.0f / (top - bottom);
+    m.data[2][2] = -1.0f / (far - near);
+    m.data[3][0] = -(right + left) / (right - left);
+    m.data[3][1] = -(top + bottom) / (top - bottom);
+    m.data[3][2] = -near / (far - near);
+    m.data[3][3] = 1.0f;
     return m;
 }
 
@@ -888,14 +1011,20 @@ math_mat4f_frustum(float left, float right, float bottom, float top, float near,
 }
 
 static inline math_mat4f
-math_mat4f_projection(float fov_y, float aspect_ratio, float near_z, float far_z)
+math_mat4f_perspective(float fov_y, float aspect_ratio, float near_z, float far_z)
 {
-    float w = tanf(fov_y * (float)M_PI / 360.0f) * near_z;
-    float h = w / aspect_ratio;
-    return math_mat4f_frustum(-w, w, -h, h, near_z, far_z);
+    float tanHalfFovy = tanf((fov_y * (float)M_PI / 360.0f) / 2.0f);
+
+    math_mat4f m = {0};
+    m.data[0][0] = 1.0f / (aspect_ratio * tanHalfFovy);
+    m.data[1][1] = -1.0f / tanHalfFovy;
+    m.data[2][2] = far_z / (near_z - far_z);
+    m.data[2][3] = -1.0f;
+    m.data[3][2] = -(far_z * near_z) / (far_z - near_z);
+    return m;
 }
 
-static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
+static inline math_mat4f math_mat4f_axis_rotate(float angle, math_vec3f axis)
 {
     math_mat4f out = math_mat4f_identity();
 
@@ -905,7 +1034,7 @@ static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
 
     out.data[0][0] = (axis.x * axis.x * cos_val) + cos_theta;
     out.data[0][1] = (axis.x * axis.y * cos_val) + (axis.z * sin_theta);
-    out.data[0][1] = (axis.x * axis.z * cos_val) + (axis.y * sin_theta);
+    out.data[0][2] = (axis.x * axis.z * cos_val) - (axis.y * sin_theta);
 
     out.data[1][0] = (axis.y * axis.x * cos_val) - (axis.z * sin_theta);
     out.data[1][1] = (axis.y * axis.y * cos_val) + cos_theta;
@@ -915,11 +1044,6 @@ static inline math_mat4f math_mat4f_rotate_rh(float angle, math_vec3f axis)
     out.data[2][1] = (axis.z * axis.y * cos_val) - (axis.x * sin_theta);
     out.data[2][2] = (axis.z * axis.z * cos_val) + cos_theta;
     return out;
-}
-
-static inline math_mat4f math_mat4f_rotate_lh(float angle, math_vec3f axis)
-{
-    return math_mat4f_rotate_rh(-angle, axis);
 }
 
 static inline math_mat3f math_mat4f_to_rotation_matrix(math_mat4f m)
@@ -941,6 +1065,18 @@ static inline math_vec3f math_mat4f_translation_vec(math_mat4f m)
 {
     math_vec3f out = {.x = m.data[3][0], .y = m.data[3][1], .z = m.data[3][2]};
     return out;
+}
+
+static inline void math_mat4f_print(math_mat4f m)
+{
+    for (int j = 0; j < 4; ++j)
+    {
+        for (int i = 0; i < 4; ++i)
+        {
+            printf("%f, ", m.data[i][j]);
+        }
+        printf("\n");
+    }
 }
 
 /** ================================ Quaternion functions ================================= **/

@@ -1,4 +1,3 @@
-
 #include <unity_fixture.h>
 #include <vulkan-api/descriptor_cache.h>
 #include <vulkan-api/pipeline_cache.h>

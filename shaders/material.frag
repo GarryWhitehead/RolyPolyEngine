@@ -5,37 +5,7 @@
 
 #include "include/math.h"
 #include "include/common.h"
-
-#define METALLIC_ROUGHNESS_PIPELINE     0
-#define SPECULAR_GLOSSINESS_PIPELINE    1
-#define NO_PIPELINE_WORKFLOW            2
-
-struct DrawData
-{
-    vec4 emissiveFactor;
-    vec4 baseColourFactor;
-    vec4 diffuseFactor;
-    vec4 specularFactor;
-    float alphaMaskCutOff;
-    float alphaMask;
-    float roughnessFactor;
-    float metallicFactor;
-    // Texture indices into the bindless samppler.
-    // Note: the order here is dictated by the TextureType enum.
-    uint colour;
-    uint normal;
-    uint mr;
-    uint diffuse;
-    uint emissive;
-    uint occlusion;
-    // uv indices
-    uint colourUv;
-    uint normalUv;
-    uint mrUv;
-    uint diffuseUv;
-    uint emissiveUv;
-    uint occlusionUv;
-};
+#include "include/draw_data.h"
 
 layout(location = 0) in vec2 inUv0;
 layout(location = 1) in vec2 inUv1;
@@ -67,6 +37,8 @@ layout (constant_id = 11) const bool HAS_NORMAL = false;
 layout (constant_id = 12) const bool HAS_TANGENT = false;
 layout (constant_id = 13) const bool HAS_COLOUR_ATTR = false;
 layout (constant_id = 14) const uint MATERIAL_TYPE = MATERIAL_TYPE_DEFAULT;
+layout (constant_id = 15) const bool HAS_LIGHTING = true;
+
 
 layout(set = 3, binding = 0) uniform sampler2D textures[];
 layout(set = 3, binding = 0) uniform samplerCube cubeMaps[];
@@ -88,11 +60,19 @@ vec3 peturbNormal(vec2 uv, vec3 pos, vec3 norm)
     vec2 st2 = dFdy(uv); // uv2
 
     vec3 N = normalize(inNormal);
+    N.y *= -1.0f;
 
     vec3 dq2 = cross(q2, N); 
     vec3 dq1 = cross(N, q1); 
     vec3 T = dq2 * st1.x + dq1 * st2.x; 
     vec3 B = dq2 * st1.y + dq1 * st2.y;
+
+    if (gl_FrontFacing == false)
+    {
+        //N *= -1.0;
+        T *= -1.0;
+        B *= -1.0;
+    }
 
     float invmax = inversesqrt(max(dot(T, T), dot(B, B)));
     mat3 TBN = mat3(T * invmax, B * invmax, N);
@@ -125,6 +105,9 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 
 void main()
 {
+    vec4 normOut = vec4(0.0);
+    vec4 baseColour = vec4(1.0);
+
     vec3 V = normalize(inCameraPos - inPos);
     
     DrawData iData = drawData[inModelDrawIdx];
@@ -133,56 +116,38 @@ void main()
     if (HAS_NORMAL_SAMPLER && HAS_UV)
     {
         vec2 uv = iData.normalUv == 0 ? inUv0 : inUv1;
-        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - vec3(1.0);
-        
+        vec3 norm = texture(textures[nonuniformEXT(iData.normal)], uv).xyz * 2.0 - 1.0;
+   
         if (HAS_NORMAL && HAS_TANGENT)
         {
             vec3 N = normalize(inNormal);
 	        vec3 T = normalize(inTangent.xyz);
-	        vec3 B = cross(N, T) * inTangent.w;
+	        vec3 B = cross(inNormal, inTangent.xyz) * inTangent.w;
+
+            if (gl_FrontFacing == false)
+            {
+                //N *= -1.0;
+                T *= -1.0;
+                B *= -1.0;
+            }
+
 	        mat3 TBN = mat3(T, B, N);
-            outNormal = vec4(normalize(TBN * norm), 0.0);
+            normOut = vec4(normalize(TBN * norm), 0.0);
+            normOut.y *= -1.0f;
         }
         else
         {
             norm.y *= -1.0;
-            outNormal = vec4(peturbNormal(uv, -V, norm), 0.0);
+            normOut = vec4(peturbNormal(uv, -V, norm), 0.0);
         }
-         // Need to flip this along with the R vector y (maybe should be an option or something?)
-        outNormal.y *= -1.0;
     }
     else if (HAS_NORMAL)
     {
-        outNormal = vec4(normalize(inNormal), 0.0);
+        normOut = vec4(normalize(inNormal), 0.0);
     }
     else
     {
-        outNormal = vec4(normalize(cross(dFdx(-V), dFdy(-V))), 0.0);
-    }
-
-    // albedo
-    vec4 baseColour = vec4(1.0);
-
-    // TODO: Remove this and set the colour to white by default.
-     if (HAS_COLOUR_ATTR)
-    {   
-        baseColour = inColour;
-    }
-    outColour = baseColour;
-    
-	if (HAS_ALPHA_MASK)
-    {
-	  // TODO: If has alpha mask value, only "OPAQUE" and "MASK" are dealt with. Need to do something when "BLEND"?
-      // alphaMsak == 1.0 == "MASK"; alphaMask == 0.0 == "OPAQUE"
-      // We don't have to do anything for "OPAQUE".
-      if (iData.alphaMask == 1.0)
-      { 
-        float cutoff = HAS_APLHA_MASK_CUTOFF ? iData.alphaMaskCutOff : 0.5;
-        if (baseColour.a < cutoff)
-        {
-            discard;
-        }
-      }
+        normOut = vec4(normalize(cross(dFdx(-V), dFdy(-V))), 0.0);
     }
     
     // default values for output attachments
@@ -264,28 +229,62 @@ void main()
                 diffuse.a);
              break;
         }
+
+        default:
+        {
+            // TODO: Remove this and set the colour to white by default.
+            if (HAS_COLOUR_ATTR)
+            {   
+                baseColour = inColour;
+            }
+            else if (HAS_BASECOLOUR_SAMPLER && HAS_UV)
+            {
+                vec2 uv = iData.colourUv == 0 ? inUv0 : inUv1;
+                baseColour = texture(textures[nonuniformEXT(iData.colour)], uv);
+            }
+        }
+    }
+
+    if (HAS_ALPHA_MASK)
+    {
+	    // TODO: Support blending - alphaMask == 1.0??
+        if (iData.alphaMask == 2.0)
+        { 
+            float cutoff = HAS_APLHA_MASK_CUTOFF ? iData.alphaMaskCutOff : 0.5;
+            // Spec: Any alpha value below cutoff value is completely transparent, whereas above is completely opaque.
+            if (baseColour.a < cutoff)
+            {
+                discard;
+            }
+        }
     }
 
     // =========== fragment outputs ====================
 
-    outPbr = vec2(metallic, roughness);
+    outColour = baseColour;
 
-    // occlusion
-    if (HAS_OCCLUSION_SAMPLER && HAS_UV)
+    if (HAS_LIGHTING)
     {
-        // Bake the occlusion value into the alpha channel of the colour - applied in the lighting stage.
-        vec2 uv = iData.occlusionUv == 0 ? inUv0 : inUv1;
-        outColour.a = texture(textures[nonuniformEXT(iData.occlusion)], uv).r;
-    }
+        outNormal = normOut;
+        outPbr = vec2(metallic, roughness);
 
-    // emmisive
-    vec3 emissive = iData.emissiveFactor.rgb;
-    if (HAS_EMISSIVE_SAMPLER && HAS_UV)
-    {
-        vec2 uv = iData.emissiveUv == 0 ? inUv0 : inUv1;
-        emissive *= texture(textures[nonuniformEXT(iData.emissive)], uv).rgb;
+        // occlusion
+        if (HAS_OCCLUSION_SAMPLER && HAS_UV)
+        {
+            // Bake the occlusion value into the alpha channel of the colour - applied in the lighting stage.
+            vec2 uv = iData.occlusionUv == 0 ? inUv0 : inUv1;
+            outColour.a = texture(textures[nonuniformEXT(iData.occlusion)], uv).r;
+        }
+
+        // emmisive
+        vec3 emissive = iData.emissiveFactor.rgb;
+        if (HAS_EMISSIVE_SAMPLER && HAS_UV)
+        {
+            vec2 uv = iData.emissiveUv == 0 ? inUv0 : inUv1;
+            emissive *= texture(textures[nonuniformEXT(iData.emissive)], uv).rgb;
+        }
+        outEmissive = vec4(emissive, 1.0);
     }
-    outEmissive = vec4(emissive, 1.0);
 
     modelFragment(iData);
 }

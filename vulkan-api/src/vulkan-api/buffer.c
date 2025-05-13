@@ -44,12 +44,12 @@ void vkapi_buffer_alloc(
 {
     buffer->size = buff_size;
 
-    VkBufferCreateInfo bufferInfo = {};
+    VkBufferCreateInfo bufferInfo = {0};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = buff_size;
     bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | usage;
 
-    VmaAllocationCreateInfo allocCreateInfo = {};
+    VmaAllocationCreateInfo allocCreateInfo = {0};
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     if (type == VKAPI_BUFFER_HOST_TO_GPU)
     {

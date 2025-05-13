@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -58,7 +58,14 @@ thread_t thread_current()
     return out;
 }
 
-void mutex_init(mutex_t* m) { memset(m, 0, sizeof(mutex_t)); }
+bool mutex_init(mutex_t* m)
+{
+    if (pthread_mutex_init(m, NULL) != 0)
+    {
+        return false;
+    }
+    return true;
+}
 
 bool mutex_lock(mutex_t* m)
 {
@@ -71,7 +78,14 @@ bool mutex_lock(mutex_t* m)
 
 void mutex_unlock(mutex_t* m) { pthread_mutex_unlock(m); }
 
-void condition_init(cond_wait_t* c) { memset(c, 0, sizeof(cond_wait_t)); }
+bool condition_init(cond_wait_t* c)
+{
+    if (pthread_cond_init(c, NULL) != 0)
+    {
+        return false;
+    }
+    return true;
+}
 
 bool condition_wait(cond_wait_t* c, mutex_t* m)
 {

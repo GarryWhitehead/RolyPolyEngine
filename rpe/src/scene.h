@@ -20,10 +20,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __RPE_SCENE_H__
-#define __RPE_SCENE_H__
+#ifndef __SCENE_PRIV_H__
+#define __SCENE_PRIV_H__
 
 #include "rpe/aabox.h"
+#include "rpe/scene.h"
+#include "shadow_manager.h"
 
 #include <stdbool.h>
 #include <utility/arena.h>
@@ -66,6 +68,8 @@ typedef struct Scene
 {
     rpe_render_queue_t* render_queue;
     arena_dyn_array_t objects;
+    arena_dyn_array_t batched_draw_cache;
+    bool is_dirty;
 
     // Used on the fragment shader - data from each material instance.
     struct DrawData* draw_data;
@@ -80,11 +84,19 @@ typedef struct Scene
     buffer_handle_t indirect_draw_handle;
     // Model draw data - indices based upon culling by the compute shader (GPU only).
     buffer_handle_t model_draw_data_handle;
+    // The shadow indirect draw cmds based upon culling by the compute (GPU only)
+    buffer_handle_t shadow_indirect_draw_handle;
+    // Shadow Model draw data - indices based upon culling by the compute shader (GPU only).
+    buffer_handle_t shadow_model_draw_data_handle;
     // Draw count for each batch (GPU only).
     buffer_handle_t draw_count_handle;
+    buffer_handle_t shadow_draw_count_handle;
     // Total draw count buffer (GPU only)
     buffer_handle_t total_draw_handle;
     rpe_compute_t* cull_compute;
+
+    /// Scene UBO.
+    buffer_handle_t camera_ubo;
 
     // Current camera information
     rpe_camera_t* curr_camera;
@@ -95,6 +107,14 @@ typedef struct Scene
 
     buffer_handle_t scene_ubo;
 
+    // Scene specific options.
+    enum ShadowStatus shadow_status;
+    bool skip_lighting_pass;
+
+    // Per-scene shadow info
+    float cascade_offsets[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
+    rpe_shadow_map shadow_map;
+
 } rpe_scene_t;
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena);
@@ -103,9 +123,5 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine);
 
 void rpe_scene_upload_extents(
     rpe_scene_t* scene, rpe_engine_t* engine, rpe_rend_manager_t* rm, rpe_transform_manager_t* tm);
-
-/** Public functions **/
-
-rpe_scene_t* rpe_scene_create(rpe_engine_t* engine);
 
 #endif

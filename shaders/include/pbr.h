@@ -37,7 +37,6 @@ vec3 FresnelRoughness(float cosTheta, vec3 F0, float roughness)
 vec3 calculateGGXFresnel(float NdotV, float roughness, vec3 F0, float specularWeight)
 {
     vec2 brdfUv = clamp(vec2(NdotV, roughness), vec2(0.0, 0.0), vec2(1.0, 1.0));
-    brdfUv.y *= -1.0;
     vec2 f_ab = texture(BrdfSampler, brdfUv).rg;
     vec3 Fr = max(vec3(1.0 - roughness), F0) - F0;
     vec3 k_S = F0 + Fr * pow(1.0 - NdotV, 5.0);
@@ -51,7 +50,7 @@ vec3 calculateGGXFresnel(float NdotV, float roughness, vec3 F0, float specularWe
     return FssEss + FmsEms;
 }
 
-vec3 calculateRadianceGGX(float NdotV, vec3 R, float roughness, uint mipCount, float envIntensity)
+vec3 calculateRadianceGGX(vec3 R, float roughness, uint mipCount, float envIntensity)
 {
     float lod = roughness * float(mipCount - 1);
     vec4 textureSample = textureLod(SpecularEnvMap, R, lod);

@@ -32,6 +32,8 @@ typedef struct Arena arena_t;
 typedef struct String string_t;
 typedef struct FsBuffer fs_buffer_t;
 
+char fs_get_platform_seperator();
+
 size_t fs_get_file_size(FILE* fp);
 
 fs_buffer_t* fs_load_file_into_memory(const char* path, arena_t* arena);

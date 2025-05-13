@@ -19,6 +19,7 @@ function(rpe_add_compiler_flags)
             /std:c17
             /experimental:c11atomics 
             /NODEFAULTLIB:library
+            /std:clatest
         )
     else()
         # common flags for gcc and clang

@@ -114,7 +114,7 @@ enum InsertResult _insert(hash_set_t* set, uint64_t hash, void* value, void** ne
     }
 
     uint32_t begin_idx = idx;
-    uint16_t remaining = set->capacity - idx;
+    int remaining = (int)set->capacity - (int)idx;
     assert(remaining >= 0);
     // Not found via leap-frogging, so revert to linear probing.
     for (; idx < set->capacity; ++idx)
@@ -298,7 +298,7 @@ uint32_t hash_set_default_hasher(void* key, uint32_t size)
 void hash_set_clear(hash_set_t* set)
 {
     assert(set);
-    memset(set->nodes, 0, sizeof(struct HashNode) * set->size);
+    memset(set->nodes, 0, sizeof(struct HashNode) * set->capacity);
     set->size = 0;
     set->_curr_node = NULL;
 }

@@ -42,7 +42,7 @@ typedef struct RPassKey
     enum StoreClearFlags ds_store_op[2];
     VkFormat depth;
     uint32_t samples;
-    bool multi_view;
+    uint32_t multi_view_count;
     uint8_t padding[3];
 } vkapi_rpass_key_t;
 

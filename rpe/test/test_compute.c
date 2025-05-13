@@ -1,6 +1,7 @@
 #include "vk_setup.h"
 
 #include <compute.h>
+#include <string.h>
 #include <unity_fixture.h>
 
 TEST_GROUP(ComputeGroup);

@@ -2,6 +2,8 @@
 #include "unity_fixture.h"
 #include "utility/maths.h"
 
+#include <string.h>
+
 TEST_GROUP(MathGroup);
 
 TEST_SETUP(MathGroup) {}
@@ -235,4 +237,34 @@ TEST(MathGroup, MathTests_Mat4)
     TEST_ASSERT_EQUAL_FLOAT(2.0f, res.data[3][1]);
     TEST_ASSERT_EQUAL_FLOAT(8.0f, res.data[3][2]);
     TEST_ASSERT_EQUAL_FLOAT(2.0f, res.data[3][3]);
+
+    // clang-format off
+    math_mat4f m = {
+        12.0f, 2.0f, 1.0f, 1.0f,
+        0.0f,  0.0f, 1.0f, 1.0f,
+        0.0f,  1.0f, 5.0f, 1.0f,
+        11.0f, 1.0f, 0.0f, 10.0f};
+    // clang-format on
+
+    math_mat4f expected = math_mat4f_identity();
+    math_mat4f inverse = math_mat4f_inverse(m);
+    res = math_mat4f_mul(m, inverse);
+    math_mat4f_print(res);
+
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[0][0], expected.data[0][0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[0][1], expected.data[0][1]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[0][2], expected.data[0][2]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[0][3], expected.data[0][3]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[1][0], expected.data[1][0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[1][1], expected.data[1][1]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[1][2], expected.data[1][2]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[1][3], expected.data[1][3]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[2][0], expected.data[2][0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[2][1], expected.data[2][1]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[2][2], expected.data[2][2]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[2][3], expected.data[2][3]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[3][0], expected.data[3][0]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[3][1], expected.data[3][1]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[3][2], expected.data[3][2]);
+    TEST_ASSERT_FLOAT_WITHIN(0.00001f, res.data[3][3], expected.data[3][3]);
 }

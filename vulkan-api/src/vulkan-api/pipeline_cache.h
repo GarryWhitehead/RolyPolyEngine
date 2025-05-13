@@ -51,8 +51,7 @@ typedef struct PipelineLayout
     uint64_t frame_last_used;
 } vkapi_pl_layout_t;
 
-RPE_PACKED typedef struct GraphicsPipelineKey
-{
+RPE_PACKED(typedef struct GraphicsPipelineKey {
     struct RasterStateBlock
     {
         VkCullModeFlagBits cull_mode;
@@ -63,6 +62,7 @@ RPE_PACKED typedef struct GraphicsPipelineKey
         VkBool32 prim_restart;
         VkBool32 depth_test_enable;
         VkBool32 depth_write_enable;
+        VkBool32 depth_clamp_enable;
         VkCompareOp depth_compare_op;
     } raster_state;
 
@@ -97,9 +97,14 @@ RPE_PACKED typedef struct GraphicsPipelineKey
     VkSpecializationMapEntry spec_map_entries[RPE_BACKEND_SHADER_STAGE_MAX_COUNT]
                                              [VKAPI_PIPELINE_MAX_SPECIALIZATION_COUNT];
     uint32_t spec_map_entry_count[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
+    // Note: The specialisation constant underlying data is hashed to ensure a new pipeline is
+    // created and bound if this changes. WIthout this, only the pointer to the data is hashed into
+    // the pipeline key, which isn't satisfactory as this rarely (if ever) changes.
+    uint32_t spec_data_hash[RPE_BACKEND_SHADER_STAGE_MAX_COUNT];
     uint32_t tesse_vert_count;
     uint32_t colour_attach_count;
-} graphics_pl_key_t;
+})
+graphics_pl_key_t;
 
 typedef struct ComputePipelineKey
 {
@@ -167,6 +172,7 @@ void vkapi_pline_cache_bind_blend_factor_block(
 void vkapi_pline_cache_bind_depth_test_enable(vkapi_pipeline_cache_t* c, bool state);
 void vkapi_pline_cache_bind_depth_write_enable(vkapi_pipeline_cache_t* c, bool state);
 void vkapi_pline_cache_bind_depth_compare_op(vkapi_pipeline_cache_t* c, VkCompareOp op);
+void vkapi_pline_cache_bind_depth_clamp(vkapi_pipeline_cache_t* c, bool state);
 
 void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_prog_bundle_t* b);
 

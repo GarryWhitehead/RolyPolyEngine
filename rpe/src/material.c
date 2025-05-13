@@ -34,13 +34,16 @@
 #include <vulkan-api/sampler_cache.h>
 #include <vulkan-api/utility.h>
 
-rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
+rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* arena)
 {
     assert(e);
 
     rpe_material_t instance = {0};
-    instance.view_layer = 0x2;
     instance.double_sided = false;
+    // Material will cast shadows by default.
+    instance.shadow_caster = true;
+    // Disable PBR pipeline by default.
+    instance.material_consts.pipeline_type = RPE_MATERIAL_PIPELINE_NONE;
     MAKE_DYN_ARRAY(struct BufferInfo, arena, 50, &instance.buffers);
     instance.program_bundle = program_cache_create_program_bundle(e->driver->prog_manager, arena);
 
@@ -70,7 +73,7 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
         VK_VERTEX_INPUT_RATE_INSTANCE);
 
     shader_bundle_update_ubo_desc(
-        instance.program_bundle, RPE_SCENE_CAMERA_UBO_BINDING, e->camera_ubo);
+        instance.program_bundle, RPE_SCENE_CAMERA_UBO_BINDING, scene->camera_ubo);
     shader_bundle_update_ssbo_desc(
         instance.program_bundle,
         RPE_SCENE_SKIN_SSBO_BINDING,
@@ -84,7 +87,7 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, arena_t* arena)
     shader_bundle_update_ssbo_desc(
         instance.program_bundle,
         RPE_SCENE_DRAW_DATA_SSBO_BINDING,
-        e->curr_scene->draw_data_handle,
+        scene->draw_data_handle,
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 
     return instance;
@@ -131,6 +134,10 @@ void rpe_material_set_pipeline(rpe_material_t* m, enum MaterialPipeline pipeline
     else if (pipeline == RPE_MATERIAL_PIPELINE_SPECULAR)
     {
         m->material_consts.pipeline_type = RPE_MATERIAL_PIPELINE_SPECULAR;
+    }
+    else
+    {
+        m->material_consts.pipeline_type = RPE_MATERIAL_PIPELINE_NONE;
     }
 }
 
@@ -183,8 +190,21 @@ void rpe_material_add_buffer(rpe_material_t* m, buffer_handle_t handle, enum Sha
 void rpe_material_set_blend_factors(rpe_material_t* m, struct MaterialBlendFactor factors)
 {
     assert(m);
-    m->program_bundle->blend_state.colour = factors.colour;
-    m->material_key.blend_state = factors;
+    m->material_key.blend_state.alpha = factors.alpha;
+    m->material_key.blend_state.colour = factors.colour;
+    m->material_key.blend_state.dst_alpha = factors.dst_alpha;
+    m->material_key.blend_state.dst_colour = factors.dst_colour;
+    m->material_key.blend_state.src_alpha = factors.src_alpha;
+    m->material_key.blend_state.src_colour = factors.src_colour;
+    m->material_key.blend_state.state = factors.state;
+
+    m->program_bundle->blend_state.colour = blend_op_to_vk(factors.colour);
+    m->program_bundle->blend_state.alpha = blend_op_to_vk(factors.alpha);
+    m->program_bundle->blend_state.dst_alpha = blend_factor_to_vk(factors.dst_alpha);
+    m->program_bundle->blend_state.dst_colour = blend_factor_to_vk(factors.dst_colour);
+    m->program_bundle->blend_state.src_alpha = blend_factor_to_vk(factors.src_alpha);
+    m->program_bundle->blend_state.src_colour = blend_factor_to_vk(factors.src_colour);
+    m->program_bundle->blend_state.blend_enable = factors.state;
 }
 
 void rpe_material_set_double_sided_state(rpe_material_t* m, bool state)
@@ -243,32 +263,10 @@ void rpe_material_set_cull_mode(rpe_material_t* m, enum CullMode mode)
     m->material_key.cull_mode = mode;
 }
 
-void rpe_material_set_scissor(
-    rpe_material_t* m, uint32_t width, uint32_t height, uint32_t xOffset, uint32_t yOffset)
+void rpe_material_set_shadow_caster_state(rpe_material_t* m, bool state)
 {
     assert(m);
-    shader_bundle_set_scissor(m->program_bundle, width, height, xOffset, yOffset);
-}
-
-void rpe_material_set_viewport(
-    rpe_material_t* m, uint32_t width, uint32_t height, float minDepth, float maxDepth)
-{
-    assert(m);
-    shader_bundle_set_viewport(m->program_bundle, width, height, minDepth, maxDepth);
-}
-
-void rpe_material_set_view_layer(rpe_material_t* m, uint8_t layer)
-{
-    assert(m);
-    if (layer > RPE_RENDER_QUEUE_MAX_VIEW_LAYER_COUNT)
-    {
-        log_warn(
-            "Layer value of %i is outside max allowed value (%i). Ignoring.",
-            layer,
-            RPE_RENDER_QUEUE_MAX_VIEW_LAYER_COUNT);
-        return;
-    }
-    m->view_layer = layer;
+    m->shadow_caster = state;
 }
 
 void rpe_material_set_base_colour_factor(rpe_material_t* m, math_vec4f* f)
@@ -322,6 +320,27 @@ void rpe_material_set_alpha_cutoff(rpe_material_t* m, float co)
     m->material_consts.has_alpha_mask_cutoff = true;
 }
 
+void rpe_material_set_blend_factor_preset(rpe_material_t* m, enum BlendFactorPresets preset)
+{
+    struct MaterialBlendFactor params = {0};
+
+    if (preset == RPE_BLEND_FACTOR_PRESET_TRANSLUCENT)
+    {
+        params.src_colour = RPE_BLEND_FACTOR_SRC_ALPHA;
+        params.dst_colour = RPE_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        params.colour = RPE_BLEND_OP_ADD;
+        params.src_alpha = RPE_BLEND_FACTOR_SRC_ALPHA;
+        params.dst_alpha = RPE_BLEND_FACTOR_ZERO;
+        params.alpha = RPE_BLEND_OP_ADD;
+        params.state = VK_TRUE;
+        rpe_material_set_blend_factors(m, params);
+    }
+    else
+    {
+        log_warn("Unrecognised blend factor preset. Skipped.");
+    }
+}
+
 void rpe_material_set_type(rpe_material_t* m, enum MaterialType type)
 {
     assert(m);
@@ -338,20 +357,15 @@ void rpe_material_set_device_texture(
     rpe_material_add_variant(type, m);
 }
 
-void rpe_material_set_texture(
-    rpe_material_t* m,
+texture_handle_t rpe_material_map_texture(
     rpe_engine_t* engine,
     rpe_mapped_texture_t* tex,
-    enum MaterialImageType type,
     sampler_params_t* params,
-    uint32_t uv_index,
     bool generate_mipmaps)
 {
-    assert(m);
     assert(engine);
     assert(tex);
     assert(params);
-    assert(uv_index < RPE_RENDERABLE_MAX_UV_SET_COUNT);
 
     vkapi_driver_t* driver = engine->driver;
 
@@ -362,20 +376,20 @@ void rpe_material_set_texture(
     texture_handle_t h = vkapi_res_cache_create_tex2d(
         driver->res_cache,
         driver->context,
+        driver->vma_allocator,
         driver->sampler_cache,
         tex->format,
         tex->width,
         tex->height,
         tex->mip_levels,
-        tex->face_count,
-        1,
+        tex->array_count,
+        tex->type,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         params);
     assert(vkapi_tex_handle_is_valid(h));
 
     vkapi_driver_map_gpu_texture(
         engine->driver, h, tex->image_data, tex->image_data_size, tex->offsets, generate_mipmaps);
-    // We have to adjust the image handles to take into account the four reserved slots - these are
-    // not bound to the shader, so we need to take this into account.
-    rpe_material_set_device_texture(m, h, type, uv_index);
+
+    return h;
 }

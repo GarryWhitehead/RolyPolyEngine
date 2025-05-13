@@ -82,10 +82,6 @@ typedef struct TransformManager
 
 rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_t* arena);
 
-void rpe_transform_manager_update_world(rpe_transform_manager_t* m, rpe_transform_node_t* node);
-
-void rpe_transform_manager_update_model(rpe_transform_manager_t* m, rpe_object_t obj);
-
 rpe_transform_node_t* rpe_transform_manager_get_node(rpe_transform_manager_t* m, rpe_object_t obj);
 
 void rpe_transform_manager_update_ssbo(rpe_transform_manager_t* m);

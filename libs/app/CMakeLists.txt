@@ -19,14 +19,22 @@ target_link_libraries(
     stb::stb
     KTX::ktx
     log.c::log.c
+    nuklear::nuklear
     ${glfw3_LIBRARIES}
 )
+
+set(util_defs 
+    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}" 
+    RPE_ASSETS_DIRECTORY="${RPE_ASSETS_DIRECTORY}"
+)
+if (MSVC)
+    list(APPEND util_defs "_USE_MATH_DEFINES=1 NOMINMAX=1 _CRT_SECURE_NO_WARNINGS=1")
+endif()
 
 target_compile_definitions(
     AppLib
     PRIVATE
-    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}"
-    RPE_ASSETS_DIRECTORY="${RPE_ASSETS_DIRECTORY}"
+    ${util_defs}
 )
 
 target_sources(
@@ -40,6 +48,8 @@ target_sources(
     camera_view.h
     ibl_helper.c
     ibl_helper.h
+    nk_helper.c
+    nk_helper.h
 )
 
 # add common compiler flags
@@ -50,3 +60,4 @@ rpe_source_group(
     TARGET AppLib
     ROOT_DIR ${RPE_UTILITY_ROOT_PATH}
 )
+

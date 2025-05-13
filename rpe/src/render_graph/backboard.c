@@ -37,7 +37,8 @@ rg_backboard_t rg_backboard_init(arena_t* arena)
 void rg_backboard_add(rg_backboard_t* bb, const char* name, rg_handle_t handle)
 {
     assert(bb);
-    hash_set_insert(&bb->backboard, (void*)name, &handle);
+    void* res = hash_set_insert(&bb->backboard, (void*)name, &handle);
+    assert(res);
 }
 
 rg_handle_t rg_backboard_get(rg_backboard_t* bb, const char* name)

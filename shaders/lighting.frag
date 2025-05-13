@@ -14,9 +14,12 @@ layout(set = 3, binding = 4) uniform sampler2D EmissiveSampler;
 layout(set = 3, binding = 5) uniform sampler2D BrdfSampler;
 layout(set = 3, binding = 6) uniform samplerCube IrradianceEnvMap;
 layout(set = 3, binding = 7) uniform samplerCube SpecularEnvMap;
+layout(set = 3, binding = 8) uniform sampler2DArray shadowMap;
 
 layout (constant_id = 0) const bool HAS_IBL = false;
 layout (constant_id = 1) const uint LIGHT_COUNT = 0;
+layout (constant_id = 2) const uint SHADOW_CASCADE_COUNT = 1;
+layout (constant_id = 3) const bool DRAW_SHADOWS = true;
 
 #define LIGHT_TYPE_POINT        0
 #define LIGHT_TYPE_SPOT         1   
@@ -41,8 +44,26 @@ layout (binding = 1, set = 0) uniform SceneUbo
 #include "include/pbr.h"
 #include "include/lights.h"
 #include "include/tonemapping.h"
+#include "include/shadow.h"
 
-//layout (constant_id = 0) const int LIGHT_COUNT = 0;
+layout (binding = 0, set = 2) buffer CascadeSSbo
+{
+    CascadeInfo cascades[];
+};
+
+uint getCascadeIndex(vec3 position)
+{
+    uint idx = 0;
+    vec3 viewPos = (camera_ubo.view * vec4(position, 1.0)).xyz;
+	for (uint i = 0; i < SHADOW_CASCADE_COUNT - 1; ++i)
+    {
+        if (viewPos.z < cascades[i].splitDepth)
+        {	
+			idx = i + 1;
+		}
+	}
+    return idx;
+}
 
 void main()
 {   
@@ -63,8 +84,7 @@ void main()
 
     vec3 V = normalize(camera_ubo.position.xyz - inPos);
     vec3 N = normalize(texture(NormalSampler, inUv).rgb);
-    vec3 R = normalize(reflect(-V, N));
-    R.y *= -1.0f;
+    vec3 R = reflect(-V, N);
 
     float NdotV = clamp(dot(N, V), 0.0, 1.0);
 
@@ -86,7 +106,7 @@ void main()
         vec3 diffuse = irradiance * baseColour;
 
         vec3 metalFresnel = calculateGGXFresnel(NdotV, roughness, baseColour.rgb, 1.0);
-        vec3 specularMetal = calculateRadianceGGX(NdotV, R, roughness, scene_ubo.iblMipLevels, 1.0);
+        vec3 specularMetal = calculateRadianceGGX(R, roughness, scene_ubo.iblMipLevels, 1.0);
         vec3 metalBrdf = metalFresnel * specularMetal;
 
         vec3 dielectricFresnel = calculateGGXFresnel(NdotV, roughness, F0, specularWeight);
@@ -140,9 +160,34 @@ void main()
     // Apply emission to final colour.
     colour += emissive;
 
+    // Apply shadow mapping.
+    uint cascadeIdx = 0;
+    if (DRAW_SHADOWS)
+    {
+        cascadeIdx = getCascadeIndex(inPos);
+        vec4 shadowCoord = biasMat * cascades[cascadeIdx].vp * vec4(inPos, 1.0);
+        float shadow = filterPCF(shadowCoord / shadowCoord.w, cascadeIdx, shadowMap);
+        colour *= shadow;
+    }
+
     // Apply tonemapping (ACES only)
     colour = toneMap(colour);
 
-    // TODO: The final colour needs to take into consideration the base colour alpha channel.
     outFrag = vec4(colour, 1.0);
+
+    /*switch(cascadeIdx) 
+    {
+        case 0 : 
+            outFrag.rgb *= vec3(1.0f, 0.25f, 0.25f);
+            break;
+        case 1 : 
+            outFrag.rgb *= vec3(0.25f, 1.0f, 0.25f);
+            break;
+        case 2 : 
+            outFrag.rgb *= vec3(0.25f, 0.25f, 1.0f);
+            break;
+        case 3 : 
+            outFrag.rgb *= vec3(1.0f, 1.0f, 0.25f);
+            break;
+	}*/
 }

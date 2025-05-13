@@ -29,6 +29,7 @@
 #include "shader.h"
 #include "texture.h"
 
+#include <string.h>
 #include <utility/arena.h>
 #include <utility/hash.h>
 
@@ -251,10 +252,15 @@ void vkapi_pline_cache_bind_depth_compare_op(vkapi_pipeline_cache_t* c, VkCompar
     c->graphics_pline_requires.raster_state.depth_compare_op = op;
 }
 
+void vkapi_pline_cache_bind_depth_clamp(vkapi_pipeline_cache_t* c, bool state)
+{
+    assert(c);
+    c->graphics_pline_requires.raster_state.depth_clamp_enable = state;
+}
+
 void vkapi_pline_cache_bind_colour_attach_count(vkapi_pipeline_cache_t* c, uint32_t count)
 {
     assert(c);
-    assert(count > 0);
     c->rpass_state.colour_attach_count = count;
 }
 
@@ -285,6 +291,8 @@ void vkapi_pline_cache_bind_spec_constants(vkapi_pipeline_cache_t* c, shader_pro
                 sizeof(VkSpecializationMapEntry) * b->spec_const_params[i].entry_count);
             c->graphics_pline_requires.spec_map_entry_count[i] =
                 b->spec_const_params[i].entry_count;
+            c->graphics_pline_requires.spec_data_hash[i] =
+                murmur2_hash(b->spec_const_params[i].data, b->spec_const_params[i].data_size, 0);
         }
     }
 }

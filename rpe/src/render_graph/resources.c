@@ -27,6 +27,7 @@
 #include "render_pass_node.h"
 #include "resource_node.h"
 
+#include <backend/objects.h>
 #include <utility/string.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/resource_cache.h>
@@ -159,16 +160,23 @@ void rg_resource_bake(rg_resource_t* r, vkapi_driver_t* driver)
                 .anisotropy = 1.0f};
 
             rg_texture_resource_t* r_tex = (rg_texture_resource_t*)r;
+
+            assert(r_tex->desc.format != VK_FORMAT_UNDEFINED);
+            assert(r_tex->desc.layers > 0);
+            assert(r_tex->desc.width > 0);
+            assert(r_tex->desc.height > 0);
+
             r_tex->handle = vkapi_res_cache_create_tex2d(
                 driver->res_cache,
                 driver->context,
+                driver->vma_allocator,
                 driver->sampler_cache,
                 r_tex->desc.format,
                 r_tex->desc.width,
                 r_tex->desc.height,
                 r_tex->desc.mip_levels,
-                1,
-                1,
+                r_tex->desc.layers,
+                r_tex->desc.layers > 1 ? VKAPI_TEXTURE_2D_ARRAY : VKAPI_TEXTURE_2D,
                 r_tex->image_usage | VK_IMAGE_USAGE_SAMPLED_BIT,
                 &s_params);
             break;
@@ -189,6 +197,7 @@ void rg_resource_destroy(rg_resource_t* r, vkapi_driver_t* driver)
         case RG_RESOURCE_TYPE_TEXTURE: {
             rg_texture_resource_t* r_tex = (rg_texture_resource_t*)r;
             vkapi_res_cache_delete_tex2d(driver->res_cache, r_tex->handle);
+            break;
         }
         case RG_RESOURCE_TYPE_IMPORTED:
         case RG_RESOURCE_TYPE_IMPORTED_RENDER_TARGET:

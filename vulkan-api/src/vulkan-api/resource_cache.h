@@ -74,19 +74,21 @@ vkapi_res_cache_t* vkapi_res_cache_init(vkapi_driver_t* driver, arena_t* arena);
 texture_handle_t vkapi_res_cache_create_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
+    VmaAllocator vma,
     vkapi_sampler_cache_t* sampler_cache,
     VkFormat format,
     uint32_t width,
     uint32_t height,
     uint32_t mip_levels,
-    uint32_t face_count,
     uint32_t array_count,
+    enum TextureType type,
     VkImageUsageFlags usage_flags,
     sampler_params_t* sampler_params);
 
 texture_handle_t vkapi_res_push_reserved_tex2d(
     vkapi_res_cache_t* cache,
     vkapi_context_t* context,
+    VmaAllocator vma,
     uint32_t width,
     uint32_t height,
     VkFormat format,

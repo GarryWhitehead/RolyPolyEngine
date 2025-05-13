@@ -101,7 +101,7 @@ VkFormat vkapi_driver_get_supported_depth_format(vkapi_driver_t* driver);
 
 vkapi_rt_handle_t vkapi_driver_create_rt(
     vkapi_driver_t* driver,
-    bool multiView,
+    uint32_t multi_view_count,
     math_vec4f clear_col,
     vkapi_attach_info_t* colours,
     vkapi_attach_info_t depth,
@@ -149,6 +149,9 @@ void vkapi_driver_map_gpu_vertex(
 // other means before calling this function.
 void vkapi_driver_set_push_constant(
     vkapi_driver_t* driver, shader_prog_bundle_t* bundle, void* data, enum ShaderStage stage);
+
+void vkapi_driver_set_scissor(vkapi_driver_t* driver, VkRect2D scissor);
+void vkapi_driver_set_viewport(vkapi_driver_t* driver, VkViewport vp);
 
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset);
 

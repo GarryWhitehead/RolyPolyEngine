@@ -193,6 +193,7 @@ void vkapi_swapchain_prepare_views(
         swapchain->contexts[i].handle = vkapi_res_push_reserved_tex2d(
             driver->res_cache,
             driver->context,
+            driver->vma_allocator,
             swapchain->extent.width,
             swapchain->extent.height,
             swapchain->surface_format.format,

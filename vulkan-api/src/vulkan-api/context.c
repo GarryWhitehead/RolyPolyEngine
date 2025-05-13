@@ -167,8 +167,10 @@ void vkapi_context_shutdown(vkapi_context_t* context, VkSurfaceKHR surface)
 
 bool vkapi_find_ext_props(const char* name, const VkExtensionProperties* props, uint32_t count)
 {
+    assert(name);
     for (uint32_t i = 0; i < count; ++i)
     {
+        assert(props[i].extensionName);
         if (strcmp(props[i].extensionName, name) == 0)
         {
             return true;
@@ -499,6 +501,10 @@ int vkapi_context_prepare_device(
         }
     }
 
+    VkPhysicalDeviceImageRobustnessFeatures image_robust = {0};
+    image_robust.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES;
+    image_robust.robustImageAccess = VK_TRUE;
+
     VkPhysicalDeviceVulkan12Features features12 = {0};
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features12.drawIndirectCount = VK_TRUE;
@@ -508,6 +514,7 @@ int vkapi_context_prepare_device(
     features12.descriptorBindingPartiallyBound = VK_TRUE;
     features12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
+    features12.pNext = &image_robust;
 
     // Enable required device features.
     VkPhysicalDeviceMultiviewFeatures mv_features = {0};
@@ -554,6 +561,10 @@ int vkapi_context_prepare_device(
     if (dev_features.multiDrawIndirect)
     {
         req_features2.features.multiDrawIndirect = VK_TRUE;
+    }
+    if (dev_features.depthClamp)
+    {
+        req_features2.features.depthClamp = VK_TRUE;
     }
 
     const char* req_extensions[10];

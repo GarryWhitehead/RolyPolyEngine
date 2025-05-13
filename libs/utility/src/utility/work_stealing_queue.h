@@ -25,6 +25,8 @@
 #include <stdatomic.h>
 #include <stdint.h>
 
+#define WORK_STEALING_QUEUE_MAX_JOB_COUNT 1024
+
 // Forward declarations.
 typedef struct Arena arena_t;
 
@@ -33,40 +35,15 @@ typedef struct WorkStealingDeque
     atomic_int top_idx;
     atomic_int bottom_idx;
     int idx_mask;
-    uint32_t type_size;
-    void* items;
-
+    int items[WORK_STEALING_QUEUE_MAX_JOB_COUNT];
 } work_stealing_queue_t;
 
-#define WORK_STEALING_DEQUE_INIT(type, arena, count)                                               \
-    work_stealing_queue_init(arena, count, sizeof(type));
+work_stealing_queue_t work_stealing_queue_init(arena_t* arena, uint32_t queue_count);
 
-#ifdef __linux__
-#define WORK_STEALING_QUEUE_PUSH(queue, item)                                                      \
-    ({                                                                                             \
-        __auto_type _item = item;                                                                  \
-        assert(sizeof(*_item) == (queue)->type_size);                                              \
-        work_stealing_queue_push(queue, _item);                                                    \
-    })
-#else
-/*                                                                                             \
-#define WORK_STEALING_QUEUE_PUSH(queue, item)                                                      \
-    {                                                                                             \
-        auto _item = item;                                                                  \
-        assert(sizeof(*_item) == (queue)->type_size);                                              \
-        work_stealing_queue_push(queue, _item);                                                    \
-    }*/
-#define WORK_STEALING_QUEUE_PUSH(queue, item) work_stealing_queue_push(queue, item);
+void work_stealing_queue_push(work_stealing_queue_t* queue, int item);
 
-#endif
+int work_stealing_queue_pop(work_stealing_queue_t* queue);
 
-work_stealing_queue_t
-work_stealing_queue_init(arena_t* arena, uint32_t queue_count, uint32_t type_size);
-
-void work_stealing_queue_push(work_stealing_queue_t* queue, void* item);
-
-void* work_stealing_queue_pop(work_stealing_queue_t* queue);
-
-void* work_stealing_queue_steal(work_stealing_queue_t* queue);
+int work_stealing_queue_steal(work_stealing_queue_t* queue);
 
 #endif

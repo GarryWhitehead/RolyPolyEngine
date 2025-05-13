@@ -23,6 +23,7 @@
 #ifndef __RPE_COMMANDS_H__
 #define __RPE_COMMANDS_H__
 
+#include "managers/renderable_manager.h"
 #include "render_queue.h"
 
 #include <backend/enums.h>
@@ -101,6 +102,16 @@ struct PipelineBindCommand
     shader_prog_bundle_t* bundle;
 };
 
+struct ScissorCommand
+{
+    rpe_rect2d_t scissor;
+};
+
+struct ViewportCommand
+{
+    rpe_viewport_t vp;
+};
+
 rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena);
 
 rpe_cmd_packet_t* rpe_command_bucket_add_command(
@@ -133,5 +144,7 @@ void rpe_cmd_dispatch_push_constant(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_map_buffer(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_cond_render(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_pline_bind(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_scissor_cmd(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_viewport_cmd(vkapi_driver_t* driver, void* data);
 
 #endif

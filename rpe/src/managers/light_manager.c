@@ -26,7 +26,9 @@
 #include "engine.h"
 #include "rpe/light_manager.h"
 #include "scene.h"
+#include "shadow_manager.h"
 
+#include <string.h>
 #include <utility/arena.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/sampler_cache.h>
@@ -35,6 +37,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
 {
     rpe_light_manager_t* lm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_light_manager_t);
     vkapi_driver_t* driver = engine->driver;
+    MAKE_DYN_ARRAY(struct LightInstance, arena, 50, &lm->lights);
 
     lm->ssbo_vk_buffer_handle = vkapi_res_cache_create_ssbo(
         driver->res_cache,
@@ -75,15 +78,21 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
         &lm->light_consts,
         RPE_BACKEND_SHADER_STAGE_FRAGMENT);
 
-    // Binding for the camera UBO
-    shader_bundle_update_ubo_desc(
-        lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, engine->camera_ubo);
-
+    lm->dir_light_obj.id = UINT32_MAX;
     lm->engine = engine;
     lm->comp_manager = rpe_comp_manager_init(arena);
     lm->program_bundle->raster_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
-    lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
+    lm->program_bundle->raster_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     return lm;
+}
+
+void rpe_light_manager_set_shadow_ssbo(rpe_light_manager_t* lm, buffer_handle_t cascade_ubo)
+{
+    shader_bundle_update_ssbo_desc(
+        lm->program_bundle,
+        RPE_LIGHT_MANAGER_SHADOW_CASCADE_SSBO_BINDING,
+        cascade_ubo,
+        RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
 }
 
 void rpe_light_manager_calculate_spot_cone(
@@ -158,7 +167,6 @@ void set_sun_halo_falloff(rpe_light_manager_t* lm, rpe_light_instance_t* light, 
 }
 
 /** Public entry function **/
-
 void rpe_light_manager_create_light(
     rpe_light_manager_t* lm, rpe_light_create_info_t* ci, rpe_object_t obj, enum LightType type)
 {
@@ -198,7 +206,14 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     assert(lm);
     assert(scene);
 
+    rpe_shadow_manager_t* sm = lm->engine->shadow_manager;
+
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
+    lm->light_consts.csm_split_count = sm->settings.cascade_count;
+
+    // Binding for the camera UBO
+    shader_bundle_update_ubo_desc(
+        lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, scene->camera_ubo);
 
     // Set the scene UBO each update as the current scene may have changed (could instead just
     // update on a call to set_current_scene?)
@@ -208,7 +223,7 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     for (size_t i = 0; i < lm->lights.size; ++i)
     {
         struct LightInstance* light = DYN_ARRAY_GET_PTR(struct LightInstance, &lm->lights, i);
-        math_mat4f projection = math_mat4f_projection(light->fov, 1.0f, camera->n, camera->z);
+        math_mat4f projection = math_mat4f_perspective(light->fov, 1.0f, camera->n, camera->z);
         light->mvp =
             math_mat4f_mul(projection, math_mat4f_lookat(light->target, light->position, up));
     }
@@ -220,7 +235,6 @@ void rpe_light_manager_update_ssbo(
     assert(lm);
     assert(count < RPE_LIGHTING_SAMPLER_MAX_LIGHT_COUNT);
 
-    // Clear the buffer, so we don't get any invalid values.
     memset(
         (void*)lm->ssbo_buffers,
         0,

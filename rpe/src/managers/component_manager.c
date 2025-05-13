@@ -45,11 +45,13 @@ uint64_t rpe_comp_manager_add_obj(rpe_component_manager_t* m, rpe_object_t obj)
     if (m->free_slots.size && m->free_slots.size > RPE_OBJ_MANAGER_MIN_FREE_IDS)
     {
         ret_idx = DYN_ARRAY_POP_BACK(uint64_t, &m->free_slots);
-        HASH_SET_INSERT(&m->objects, &obj.id, &ret_idx);
+        void* res = hash_set_insert(&m->objects, &obj.id, &ret_idx);
+        assert(res && "Object already exists in the map - you probably forgot to remove.");
     }
     else
     {
-        HASH_SET_INSERT(&m->objects, &obj.id, &m->index);
+        void* res = hash_set_insert(&m->objects, &obj.id, &m->index);
+        assert(res && "Object already exists in the map - you probably forgot to remove.");
         ret_idx = m->index++;
     }
     return ret_idx;
@@ -60,7 +62,7 @@ uint64_t rpe_comp_manager_get_obj_idx(rpe_component_manager_t* m, rpe_object_t o
     uint64_t* obj_idx = HASH_SET_GET(&m->objects, &obj.id);
     if (!obj_idx)
     {
-        return UINT64_MAX;
+        return RPE_INVALID_OBJECT;
     }
     return *obj_idx;
 }
@@ -81,8 +83,11 @@ bool rpe_comp_manager_remove(rpe_component_manager_t* m, rpe_object_t obj)
     {
         return false;
     }
-    DYN_ARRAY_APPEND(&m->free_slots, &obj_idx);
-    HASH_SET_ERASE(&m->objects, &obj.id);
-
+    DYN_ARRAY_APPEND(&m->free_slots, obj_idx);
+    void* res = hash_set_erase(&m->objects, &obj.id);
+    if (!res)
+    {
+        return false;
+    }
     return true;
 }

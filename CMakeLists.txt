@@ -33,9 +33,12 @@ endif()
 # global variables
 set(RPE_ROOT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(RPE_SHADER_DIRECTORY "${RPE_ROOT_DIRECTORY}/shaders")
+set(RPE_ASSETS_DIRECTORY "${RPE_ROOT_DIRECTORY}/assets")
 set(RPE_SHADER_SIPRV_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 set(RPE_CMAKE_INCLUDE_DIRECTORY "${RPE_ROOT_DIRECTORY}/cmake")
 set(RPE_TEST_DIRECTORY "${CMAKE_BINARY_DIR}/Tests")
+
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize-recover=address")
 
 # find vulkan (hopefully!)
 find_package(Vulkan REQUIRED)
@@ -52,8 +55,9 @@ find_package(stb REQUIRED)
 find_package(log.c REQUIRED)
 find_package(Ktx REQUIRED)
 find_package(volk REQUIRED)
+find_package(parg REQUIRED)
+find_package(nuklear REQUIRED)
 
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 

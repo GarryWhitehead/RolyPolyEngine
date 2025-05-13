@@ -30,6 +30,7 @@
 #include "resource_node.h"
 #include "resources.h"
 
+#include <string.h>
 #include <utility/hash.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
@@ -225,7 +226,7 @@ render_graph_t* rg_compile(render_graph_t* rg)
 
         if (!pass_node->imported)
         {
-            rg_render_pass_node_build(pass_node, rg);
+            rg_render_pass_node_build((rg_render_pass_node_t*)pass_node, rg);
         }
         ++node_idx;
     }
