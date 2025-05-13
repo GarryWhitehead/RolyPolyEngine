@@ -162,7 +162,8 @@ void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t
         RPE_SCENE_MAX_STATIC_MODEL_COUNT);
 }
 
-void rpe_shadow_manager_compute_csm_splits(rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera)
+void rpe_shadow_manager_compute_csm_splits(
+    rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera)
 {
     float clip_range = camera->z - camera->n;
     float min_z = camera->n;
@@ -192,7 +193,7 @@ void rpe_shadow_manager_update_projections(
 
     // ================ Update the cascade shadow maps =========================
     // Adapted from: https://alextardif.com/shadowmapping.html
- 
+
     float last_split = 0.0f;
     float clip_range = camera->z - camera->n;
 
@@ -219,7 +220,7 @@ void rpe_shadow_manager_update_projections(
             corners[j].y = f.y / f.w;
             corners[j].z = f.z / f.w;
         }
-           
+
         // Adjust frustum corners based on current split distance.
         for (int j = 0; j < 4; ++j)
         {
@@ -258,8 +259,7 @@ void rpe_shadow_manager_update_projections(
         light_lookat = math_mat4f_mul(scalar_mat, light_lookat);
         math_mat4f inv_lookat = math_mat4f_inverse(light_lookat);
 
-        math_vec4f t_center =
-            math_mat4f_mul_vec(light_lookat, math_vec4f_init_vec3(center, 1.0f));
+        math_vec4f t_center = math_mat4f_mul_vec(light_lookat, math_vec4f_init_vec3(center, 1.0f));
 
         // Clamp to texel increment.
         t_center.x = floorf(t_center.x);
@@ -278,9 +278,10 @@ void rpe_shadow_manager_update_projections(
         math_mat4f light_view = math_mat4f_lookat(center, eye, up);
         math_mat4f light_ortho =
             math_mat4f_ortho(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
-       
+
         scene->shadow_map.cascades[i].vp = math_mat4f_mul(light_ortho, light_view);
-        scene->shadow_map.cascades[i].split_depth = (camera->n + scene->cascade_offsets[i] * clip_range) * -1.0f;
+        scene->shadow_map.cascades[i].split_depth =
+            (camera->n + scene->cascade_offsets[i] * clip_range) * -1.0f;
 
         last_split = scene->cascade_offsets[i];
     }
@@ -296,7 +297,8 @@ void rpe_shadow_manager_update_projections(
 
 // Public functions
 
-void rpe_shadow_manager_update(rpe_shadow_manager_t* sm, rpe_scene_t* scene, struct ShadowSettings* settings)
+void rpe_shadow_manager_update(
+    rpe_shadow_manager_t* sm, rpe_scene_t* scene, struct ShadowSettings* settings)
 {
     assert(sm);
     assert(scene);

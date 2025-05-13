@@ -21,13 +21,20 @@
  */
 
 #include "app.h"
-#include "nk_helper.h"
+
 #include "camera_view.h"
+#include "nk_helper.h"
 
 #include <rpe/renderer.h>
 #include <utility/sleep.h>
 
-int rpe_app_init(const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app, rpe_settings_t* settings, bool show_ui)
+int rpe_app_init(
+    const char* win_title,
+    uint32_t win_width,
+    uint32_t win_height,
+    rpe_app_t* new_app,
+    rpe_settings_t* settings,
+    bool show_ui)
 {
     new_app->should_close = false;
     new_app->camera_near = 0.1f;
@@ -36,14 +43,15 @@ int rpe_app_init(const char* win_title, uint32_t win_width, uint32_t win_height,
 
     // Create a small arena for the application.
     int arena_err = arena_new(RPE_APP_ARENA_SIZE, &new_app->arena);
-    arena_err = arena_err == ARENA_SUCCESS ? arena_new(RPE_APP_ARENA_SIZE, &new_app->scratch_arena) : arena_err;
+    arena_err = arena_err == ARENA_SUCCESS ? arena_new(RPE_APP_ARENA_SIZE, &new_app->scratch_arena)
+                                           : arena_err;
     if (arena_err != ARENA_SUCCESS)
     {
         return 1;
     }
 
-    int err =
-        app_window_init(new_app, win_title, win_width, win_height, &new_app->window, settings, show_ui);
+    int err = app_window_init(
+        new_app, win_title, win_width, win_height, &new_app->window, settings, show_ui);
 
     return err;
 }
@@ -116,6 +124,5 @@ void rpe_app_run(
         }
 
         rpe_renderer_end_frame(renderer);
-
     }
 }

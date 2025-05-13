@@ -86,7 +86,7 @@ rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena
     return lm;
 }
 
-void rpe_light_manager_set_shadow_ssbo(rpe_light_manager_t* lm , buffer_handle_t cascade_ubo)
+void rpe_light_manager_set_shadow_ssbo(rpe_light_manager_t* lm, buffer_handle_t cascade_ubo)
 {
     shader_bundle_update_ssbo_desc(
         lm->program_bundle,
@@ -211,7 +211,7 @@ void rpe_light_manager_update(rpe_light_manager_t* lm, rpe_scene_t* scene, rpe_c
     lm->light_consts.has_ibl = scene->curr_ibl ? true : false;
     lm->light_consts.csm_split_count = sm->settings.cascade_count;
 
-     // Binding for the camera UBO
+    // Binding for the camera UBO
     shader_bundle_update_ubo_desc(
         lm->program_bundle, RPE_LIGHT_MANAGER_CAMERA_UBO_BINDING, scene->camera_ubo);
 

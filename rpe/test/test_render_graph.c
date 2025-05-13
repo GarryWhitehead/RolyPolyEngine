@@ -6,11 +6,10 @@
 #include <render_graph/render_graph.h>
 #include <render_graph/render_pass_node.h>
 #include <render_graph/rendergraph_resource.h>
+#include <string.h>
 #include <unity_fixture.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
-
-#include <string.h>
 
 TEST_GROUP(RenderGraphGroup);
 
@@ -195,7 +194,8 @@ void setup_gbuffer_test(render_graph_t* rg, rg_pass_node_t* node, void* data, vo
 {
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     TEST_ASSERT_TRUE(d);
-    rg_texture_desc_t t_desc = {.width = 100, .height = 100, .mip_levels = 1, .layers = 1, .depth = 1};
+    rg_texture_desc_t t_desc = {
+        .width = 100, .height = 100, .mip_levels = 1, .layers = 1, .depth = 1};
 
     t_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
     d->colour = rg_add_resource(
@@ -299,8 +299,8 @@ TEST(RenderGraphGroup, RenderGraph_TestsGBuffer)
 
     render_graph_t* rg = rg_init(arena);
     rpe_engine_t* eng = NULL;
-    rg_pass_t* p =
-        rg_add_pass(rg, "Pass1", setup_gbuffer_test, execute_gbuffer_test, sizeof(struct DataGBuffer), NULL);
+    rg_pass_t* p = rg_add_pass(
+        rg, "Pass1", setup_gbuffer_test, execute_gbuffer_test, sizeof(struct DataGBuffer), NULL);
     TEST_ASSERT_TRUE(p);
     rg_compile(rg);
     TEST_ASSERT_FALSE(rg_node_is_culled((rg_node_t*)p->node));

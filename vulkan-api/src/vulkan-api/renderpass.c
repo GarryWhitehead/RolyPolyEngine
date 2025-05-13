@@ -26,8 +26,8 @@
 #include "driver.h"
 #include "utility.h"
 
-#include <utility/arena.h>
 #include <string.h>
+#include <utility/arena.h>
 
 vkapi_render_target_t vkapi_render_target_init()
 {

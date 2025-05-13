@@ -23,11 +23,10 @@
 #ifndef __GLTF_MODEL_H__
 #define __GLTF_MODEL_H__
 
-#include <utility/maths.h>
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <utility/maths.h>
 
 typedef struct GltfAsset gltf_asset_t;
 typedef struct Engine rpe_engine_t;
@@ -38,8 +37,8 @@ typedef struct Scene rpe_scene_t;
 typedef struct Arena arena_t;
 typedef struct ModelTransform rpe_model_transform_t;
 
-gltf_asset_t*
-gltf_model_parse_data(uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path, arena_t* arena);
+gltf_asset_t* gltf_model_parse_data(
+    uint8_t* gltf_data, size_t data_size, rpe_engine_t* engine, const char* path, arena_t* arena);
 
 // Create a specified number of model instances - the model data must have been parsed, and the
 // assets' data struct populated before calling this function.

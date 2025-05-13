@@ -37,6 +37,7 @@ struct Job;
 bool gltf_ktx_loader_decode_image(
     void* data, size_t sz, rpe_mapped_texture_t* tex, image_free_func* free_func);
 
-void gltf_ktx_loader_push_job(rpe_engine_t* engine, struct DecodeEntry* job_entry, struct Job* parent_job);
+void gltf_ktx_loader_push_job(
+    rpe_engine_t* engine, struct DecodeEntry* job_entry, struct Job* parent_job);
 
 #endif

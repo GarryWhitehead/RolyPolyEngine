@@ -23,8 +23,8 @@
 #ifndef __RPE_COMMANDS_H__
 #define __RPE_COMMANDS_H__
 
-#include "render_queue.h"
 #include "managers/renderable_manager.h"
+#include "render_queue.h"
 
 #include <backend/enums.h>
 #include <stddef.h>

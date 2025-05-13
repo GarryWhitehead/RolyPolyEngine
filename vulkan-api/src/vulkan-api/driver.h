@@ -176,8 +176,7 @@ void vkapi_driver_dispatch_compute(
     uint32_t y_work_count,
     uint32_t z_work_count);
 
-void vkapi_driver_draw_quad(
-    vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
+void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
 
 void vkapi_driver_clear_gpu_buffer(
     vkapi_driver_t* driver, vkapi_cmdbuffer_t* cmd_buffer, buffer_handle_t handle);

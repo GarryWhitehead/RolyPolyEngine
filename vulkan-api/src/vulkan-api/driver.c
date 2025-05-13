@@ -532,7 +532,8 @@ void vkapi_driver_bind_gfx_pipeline(
     vkapi_pline_cache_bind_depth_test_enable(driver->pline_cache, bundle->ds_state.test_enable);
     vkapi_pline_cache_bind_depth_write_enable(driver->pline_cache, bundle->ds_state.write_enable);
     vkapi_pline_cache_bind_depth_compare_op(driver->pline_cache, bundle->ds_state.compare_op);
-    vkapi_pline_cache_bind_depth_clamp(driver->pline_cache, bundle->raster_state.depth_clamp_enable);
+    vkapi_pline_cache_bind_depth_clamp(
+        driver->pline_cache, bundle->raster_state.depth_clamp_enable);
 
     // TODO: Need to support differences in front/back stencil
     struct DepthStencilBlock ds_state = {0};

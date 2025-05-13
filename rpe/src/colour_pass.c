@@ -37,7 +37,11 @@ void setup_gbuffer(render_graph_t* rg, rg_pass_node_t* node, void* data, void* l
     struct GBufferLocalData* local_d = (struct GBufferLocalData*)local_data;
     struct DataGBuffer* d = (struct DataGBuffer*)data;
     rg_texture_desc_t t_desc = {
-        .width = local_d->width, .height = local_d->height, .mip_levels = 1, .depth = 1, .layers = 1};
+        .width = local_d->width,
+        .height = local_d->height,
+        .mip_levels = 1,
+        .depth = 1,
+        .layers = 1};
 
     t_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
     d->colour = rg_add_resource(
@@ -131,10 +135,7 @@ void execute_gbuffer(
         scene->indirect_draw_handle,
         VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
     vkapi_driver_acquire_buffer_barrier(
-        driver,
-        cmd_buffer,
-        scene->draw_count_handle,
-        VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
+        driver, cmd_buffer, scene->draw_count_handle, VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
 
     vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
 
@@ -154,14 +155,11 @@ void execute_gbuffer(
         scene->indirect_draw_handle,
         VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
     vkapi_driver_release_buffer_barrier(
-        driver,
-        cmd_buffer,
-        scene->draw_count_handle,
-        VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
+        driver, cmd_buffer, scene->draw_count_handle, VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
 }
 
-rg_handle_t
-rpe_colour_pass_render(render_graph_t* rg, rpe_scene_t* scene, uint32_t dimensions, VkFormat depth_format)
+rg_handle_t rpe_colour_pass_render(
+    render_graph_t* rg, rpe_scene_t* scene, uint32_t dimensions, VkFormat depth_format)
 {
     struct GBufferLocalData local_d = {
         .width = dimensions, .height = dimensions, .depth_format = depth_format, .scene = scene};

@@ -24,6 +24,7 @@
 #define __GLTF_ASSET_H__
 
 #include "material_cache.h"
+
 #include <cgltf.h>
 #include <rpe/aabox.h>
 #include <rpe/material.h>

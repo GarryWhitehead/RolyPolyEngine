@@ -34,7 +34,8 @@ gltf_material_cache_t gltf_material_cache_init(cgltf_data* data)
     return cache;
 }
 
-gltf_image_handle_t gltf_material_cache_get_entry(gltf_material_cache_t* cache, cgltf_texture* texture)
+gltf_image_handle_t
+gltf_material_cache_get_entry(gltf_material_cache_t* cache, cgltf_texture* texture)
 {
     assert(cache);
     assert(texture);
@@ -53,7 +54,8 @@ gltf_image_handle_t gltf_material_cache_get_entry(gltf_material_cache_t* cache, 
     return h;
 }
 
-gltf_image_handle_t gltf_material_cache_push_pending(gltf_material_cache_t* cache, cgltf_texture* texture)
+gltf_image_handle_t
+gltf_material_cache_push_pending(gltf_material_cache_t* cache, cgltf_texture* texture)
 {
     assert(cache);
     assert(texture);

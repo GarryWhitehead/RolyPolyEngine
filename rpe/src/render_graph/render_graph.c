@@ -30,11 +30,10 @@
 #include "resource_node.h"
 #include "resources.h"
 
+#include <string.h>
 #include <utility/hash.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
-
-#include <string.h>
 
 render_graph_t* rg_init(arena_t* arena)
 {

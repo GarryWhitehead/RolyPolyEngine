@@ -25,9 +25,10 @@
 
 #include "gltf/gltf_asset.h"
 #include "material_cache.h"
+
 #include <utility/arena.h>
-#include <utility/string.h>
 #include <utility/job_queue.h>
+#include <utility/string.h>
 
 typedef struct GltfAsset gltf_asset_t;
 

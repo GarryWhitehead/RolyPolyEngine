@@ -81,5 +81,4 @@ void rpe_shadow_manager_compute_csm_splits(
 void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene);
 
 
-
 #endif

@@ -52,9 +52,9 @@ int msleep(long msec)
 #elif WIN32
 #include <Windows.h>
 
-int msleep(long msec) 
-{ 
-    Sleep(msec); 
+int msleep(long msec)
+{
+    Sleep(msec);
     return 0;
 }
 

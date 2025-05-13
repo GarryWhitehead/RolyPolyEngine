@@ -1,9 +1,8 @@
 #include "vk_setup.h"
 
 #include <commands.h>
-#include <unity_fixture.h>
-
 #include <string.h>
+#include <unity_fixture.h>
 
 int bucket_test_val1 = 0;
 

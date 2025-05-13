@@ -387,7 +387,7 @@ texture_handle_t rpe_material_map_texture(
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         params);
     assert(vkapi_tex_handle_is_valid(h));
-    
+
     vkapi_driver_map_gpu_texture(
         engine->driver, h, tex->image_data, tex->image_data_size, tex->offsets, generate_mipmaps);
 

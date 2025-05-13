@@ -25,19 +25,18 @@
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
+#include <parg.h>
 #include <rpe/light_manager.h>
 #include <rpe/material.h>
 #include <rpe/object_manager.h>
 #include <rpe/renderable_manager.h>
-#include <rpe/shadow_manager.h>
 #include <rpe/settings.h>
+#include <rpe/shadow_manager.h>
 #include <rpe/skybox.h>
 #include <rpe/transform_manager.h>
-#include <utility/filesystem.h>
-
-#include <parg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <utility/filesystem.h>
 
 
 #define MODEL_TREE_COUNT 10
@@ -56,14 +55,12 @@ void print_usage()
 
 void create_ground_plane(rpe_engine_t* engine, rpe_scene_t* scene)
 {
-    uint32_t indices[] = {
-        0, 1, 2, 2, 3, 0
-    };
+    uint32_t indices[] = {0, 1, 2, 2, 3, 0};
 
     const math_vec3f vertices[4] = {
         {-20.0f, 0.0f, -20.0f},
-        {-20.0f, 0.0f,  20.0f },
-        {20.0f, 0.0f,  20.0f},
+        {-20.0f, 0.0f, 20.0f},
+        {20.0f, 0.0f, 20.0f},
         {20.0f, 0.0f, -20.0f},
     };
 
@@ -259,8 +256,7 @@ int main(int argc, char** argv)
         {3.5f, 0.0f, -6.8f},
         {7.5f, 0.0f, -8.0f},
         {9.0f, 0.0f, 8.0f},
-        {-5.0f, 0.0f, -5.0f}
-    };
+        {-5.0f, 0.0f, -5.0f}};
 
     char full_path[4096] = {0};
     for (int i = 0; i < MODEL_COUNT; ++i)

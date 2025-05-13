@@ -59,7 +59,8 @@ void rpe_renderer_render_single_indexed(
     rpe_viewport_t* vp,
     rpe_rect2d_t* scissor);
 
-void rpe_renderer_begin_renderpass(rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count);
+void rpe_renderer_begin_renderpass(
+    rpe_renderer_t* rdr, rpe_render_target_t* rt, uint32_t multi_view_count);
 
 void rpe_render_end_renderpass(rpe_renderer_t* rdr);
 

@@ -24,11 +24,11 @@
 #define __UTILITY_JOB_QUEUE_H__
 
 #define _GNU_SOURCE
+#include "compiler.h"
 #include "hash_set.h"
 #include "random.h"
 #include "thread.h"
 #include "work_stealing_queue.h"
-#include "compiler.h"
 
 #include <stdatomic.h>
 #include <stdbool.h>

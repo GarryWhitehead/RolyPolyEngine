@@ -63,7 +63,8 @@ enum MeshAttributeFlags
 
 // Note: On linux and Windows we get an extra 8bytes of packing, so disable otherwise
 // messes up attribute strides on the shader.
-typedef struct Vertex {
+typedef struct Vertex
+{
     float position[3];
     float normal[3];
     float uv0[2];
@@ -154,7 +155,7 @@ void rpe_rend_manager_add(
     rpe_object_t rend_obj,
     rpe_object_t transform_obj);
 
-bool rpe_rend_manager_remove(rpe_rend_manager_t*rm, rpe_object_t obj);
+bool rpe_rend_manager_remove(rpe_rend_manager_t* rm, rpe_object_t obj);
 
 /**
  Copy a renderable object from src to dst. Optional override of transform associated with this

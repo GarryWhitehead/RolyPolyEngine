@@ -21,11 +21,12 @@
  */
 
 #include "stb_loader.h"
+
 #include "resource_loader.h"
 
 #include <rpe/engine.h>
-#include <utility/string.h>
 #include <utility/job_queue.h>
+#include <utility/string.h>
 
 #include <stb_image.c>
 
@@ -50,7 +51,7 @@ bool gltf_stb_loader_decode_image(
         log_error("Unable to parse image: %s", stbi_failure_reason());
         return false;
     }
-   
+
     tex->image_data = image_buffer;
     tex->image_data_size = width * height * 4;
     tex->width = width;
@@ -66,10 +67,12 @@ bool gltf_stb_loader_decode_image(
 void stb_job_runner(void* data)
 {
     struct DecodeEntry* entry = (struct DecodeEntry*)data;
-    gltf_stb_loader_decode_image(entry->image_data, entry->image_sz, entry->mapped_texture, entry->free_func);
+    gltf_stb_loader_decode_image(
+        entry->image_data, entry->image_sz, entry->mapped_texture, entry->free_func);
 }
 
-void gltf_stb_loader_push_job(rpe_engine_t* engine, struct DecodeEntry* job_entry, struct Job* parent_job)
+void gltf_stb_loader_push_job(
+    rpe_engine_t* engine, struct DecodeEntry* job_entry, struct Job* parent_job)
 {
     assert(engine);
     assert(job_entry);

@@ -87,7 +87,8 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
         arena->offset,
         available);
 #endif
-    return flags & ARENA_ZERO_MEMORY ? memset((void*)aligned_ptr, 0, count * type_size) : (void*)aligned_ptr;
+    return flags & ARENA_ZERO_MEMORY ? memset((void*)aligned_ptr, 0, count * type_size)
+                                     : (void*)aligned_ptr;
 }
 
 uint64_t arena_current_size(arena_t* arena) { return (uint64_t)arena->offset; }

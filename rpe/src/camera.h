@@ -29,6 +29,11 @@
 #include <utility/maths.h>
 #include <vulkan-api/resource_cache.h>
 
+#ifdef WIN32
+#undef near
+#undef far
+#endif
+
 typedef struct Frustum rpe_frustum_t;
 typedef struct Engine rpe_engine_t;
 

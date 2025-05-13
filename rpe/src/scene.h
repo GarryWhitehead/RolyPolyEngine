@@ -26,6 +26,7 @@
 #include "rpe/aabox.h"
 #include "rpe/scene.h"
 #include "shadow_manager.h"
+
 #include <stdbool.h>
 #include <utility/arena.h>
 #include <utility/maths.h>

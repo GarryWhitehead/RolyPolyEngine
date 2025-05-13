@@ -28,11 +28,11 @@
 #include "managers/renderable_manager.h"
 #include "managers/transform_manager.h"
 #include "renderer.h"
+#include "rpe/shadow_manager.h"
 #include "scene.h"
 #include "shadow_manager.h"
 #include "skybox.h"
 #include "vertex_buffer.h"
-#include "rpe/shadow_manager.h"
 
 #include <assert.h>
 #include <log.h>
@@ -312,8 +312,8 @@ void rpe_engine_update_settings(rpe_engine_t* engine, rpe_settings_t* settings)
     for (size_t i = 0; i < engine->scenes.size; ++i)
     {
         rpe_scene_t* scene = DYN_ARRAY_GET(rpe_scene_t*, &engine->scenes, i);
-        scene->shadow_status =
-            scene->shadow_status == RPE_SCENE_SHADOW_STATUS_NEVER ? scene->shadow_status
+        scene->shadow_status = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_NEVER
+            ? scene->shadow_status
             : settings->draw_shadows ? RPE_SCENE_SHADOW_STATUS_ENABLED
                                      : RPE_SCENE_SHADOW_STATUS_DISABLED;
     }

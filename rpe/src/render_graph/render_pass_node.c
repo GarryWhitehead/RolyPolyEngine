@@ -29,9 +29,8 @@
 #include "resources.h"
 #include "vulkan-api/driver.h"
 
-#include <utility/maths.h>
-
 #include <string.h>
+#include <utility/maths.h>
 
 rg_pass_info_t rg_pass_info_init(const char* name, arena_t* arena)
 {
@@ -159,7 +158,12 @@ void rg_render_pass_info_bake(render_graph_t* rg, rg_pass_info_t* info, vkapi_dr
     }
 
     info->desc.rt_handle = vkapi_driver_create_rt(
-        driver, info->desc.multi_view_count, info->desc.clear_col, col_info, depthStencilInfo[0], depthStencilInfo[1]);
+        driver,
+        info->desc.multi_view_count,
+        info->desc.clear_col,
+        col_info,
+        depthStencilInfo[0],
+        depthStencilInfo[1]);
 }
 
 void rg_pass_node_add_to_bake_list(rg_pass_node_t* node, rg_resource_t* r)

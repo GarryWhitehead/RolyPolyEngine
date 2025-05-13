@@ -148,7 +148,17 @@ texture_handle_t ibl_eqirect_to_cubemap(
         .min_depth = 0.0f,
         .max_depth = 1.0f};
     rpe_renderer_render_single_indexed(
-        ibl->renderer, &rt, bundle, ibl->cubemap_vertices, ibl->cubemap_indices, 36, NULL, 0, 6, &vp, NULL);
+        ibl->renderer,
+        &rt,
+        bundle,
+        ibl->cubemap_vertices,
+        ibl->cubemap_indices,
+        36,
+        NULL,
+        0,
+        6,
+        &vp,
+        NULL);
 
     uint32_t mip_levels = rpe_material_max_mipmaps(
         RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS, RPE_IBL_EQIRECT_CUBEMAP_DIMENSIONS);
@@ -254,7 +264,8 @@ ibl_create_irradiance_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t
         NULL,
         0,
         6,
-        &vp, NULL);
+        &vp,
+        NULL);
     vkapi_driver_destroy_rt(driver, &rt.handle);
 
     return target_handle;
@@ -315,10 +326,7 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
         rt.attachments[0].mipLevel = level;
 
         rpe_viewport_t vp = {
-            .rect.width = dim,
-            .rect.height = dim,
-            .min_depth = 0.0f,
-            .max_depth = 1.0f};
+            .rect.width = dim, .rect.height = dim, .min_depth = 0.0f, .max_depth = 1.0f};
         float roughness = (float)level / (float)(max_mip_levels - 1);
         struct PushBlockEntry entry = {
             .data = &roughness, .stage = RPE_BACKEND_SHADER_STAGE_FRAGMENT};
@@ -333,7 +341,8 @@ ibl_create_specular_env_map(ibl_t* ibl, rpe_engine_t* engine, texture_handle_t c
             &entry,
             1,
             6,
-            &vp, NULL);
+            &vp,
+            NULL);
         vkapi_driver_destroy_rt(driver, &rt.handle);
 
         dim >>= 1;

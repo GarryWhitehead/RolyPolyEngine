@@ -22,11 +22,11 @@
 
 #include "texture.h"
 
+#include "backend/objects.h"
 #include "commands.h"
 #include "driver.h"
 #include "sampler_cache.h"
 #include "utility.h"
-#include "backend/objects.h"
 
 #include <assert.h>
 #include <string.h>
@@ -229,7 +229,8 @@ void vkapi_texture_destroy(vkapi_context_t* context, VmaAllocator vma, vkapi_tex
     vkDestroyImage(context->device, texture->image, VK_NULL_HANDLE);
 }
 
-void vkapi_texture_create_image(VmaAllocator vma, vkapi_texture_t* texture, VkImageUsageFlags usage_flags)
+void vkapi_texture_create_image(
+    VmaAllocator vma, vkapi_texture_t* texture, VkImageUsageFlags usage_flags)
 {
     assert(texture->info.format != VK_FORMAT_UNDEFINED);
 
@@ -248,7 +249,8 @@ void vkapi_texture_create_image(VmaAllocator vma, vkapi_texture_t* texture, VkIm
     image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    if (texture->info.type == VKAPI_TEXTURE_2D_CUBE || texture->info.type == VKAPI_TEXTURE_2D_CUBE_ARRAY)
+    if (texture->info.type == VKAPI_TEXTURE_2D_CUBE ||
+        texture->info.type == VKAPI_TEXTURE_2D_CUBE_ARRAY)
     {
         image_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
     }
@@ -258,7 +260,8 @@ void vkapi_texture_create_image(VmaAllocator vma, vkapi_texture_t* texture, VkIm
     alloc_ci.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     alloc_ci.priority = 1.0f;
 
-    VMA_CHECK_RESULT(vmaCreateImage(vma, &image_info, &alloc_ci, &texture->image, &texture->vma_alloc, NULL))
+    VMA_CHECK_RESULT(
+        vmaCreateImage(vma, &image_info, &alloc_ci, &texture->image, &texture->vma_alloc, NULL))
 }
 
 VkImageView vkapi_texture_create_image_view(
@@ -276,7 +279,8 @@ VkImageView vkapi_texture_create_image_view(
     create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
     create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.subresourceRange.layerCount = compute_array_layers(texture->info.type, texture->info.array_count);
+    create_info.subresourceRange.layerCount =
+        compute_array_layers(texture->info.type, texture->info.array_count);
     create_info.subresourceRange.baseMipLevel = mip_level;
     create_info.subresourceRange.baseArrayLayer = 0;
     create_info.subresourceRange.levelCount = mip_count;
@@ -379,8 +383,8 @@ void vkapi_texture_map(
 
         if (!offsets)
         {
-            offsets = ARENA_MAKE_ARRAY(
-                scratch_arena, size_t, array_count * texture->info.mip_levels, 0);
+            offsets =
+                ARENA_MAKE_ARRAY(scratch_arena, size_t, array_count * texture->info.mip_levels, 0);
             uint32_t offset = 0;
             for (uint32_t face = 0; face < array_count; face++)
             {
@@ -589,7 +593,8 @@ void vkapi_texture_image_transition(
     VkImageSubresourceRange subresourceRange = {0};
     subresourceRange.aspectMask = mask;
     subresourceRange.levelCount = 0;
-    subresourceRange.layerCount = compute_array_layers(texture->info.type, texture->info.array_count);
+    subresourceRange.layerCount =
+        compute_array_layers(texture->info.type, texture->info.array_count);
     subresourceRange.baseMipLevel = texture->info.mip_levels;
     subresourceRange.baseArrayLayer = 0;
     subresourceRange.baseMipLevel = baseMipMapLevel;
@@ -615,7 +620,8 @@ void vkapi_texture_image_multi_transition(
     {
         subresourceRanges[i].aspectMask = mask;
         subresourceRanges[i].levelCount = 0;
-        subresourceRanges[i].layerCount = compute_array_layers(texture->info.type, texture->info.array_count);
+        subresourceRanges[i].layerCount =
+            compute_array_layers(texture->info.type, texture->info.array_count);
         subresourceRanges[i].baseMipLevel = texture->info.mip_levels;
         subresourceRanges[i].baseArrayLayer = 0;
         subresourceRanges[i].baseMipLevel = i;

@@ -289,7 +289,7 @@ void* _thread_loop(void* arg)
     thread_info_t* info = (thread_info_t*)arg;
     uint32_t id = _get_thread_id();
     mutex_lock(&info->job_queue->thread_map_mutex);
-    (&info->job_queue->thread_map, &id, &info);  // NOLINT
+    (&info->job_queue->thread_map, &id, &info); // NOLINT
     mutex_unlock(&info->job_queue->thread_map_mutex);
 
     do
@@ -324,7 +324,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads)
     jq->thread_map = HASH_SET_CREATE(uint32_t, thread_info_t*, arena);
     jq->arena = arena;
 
-    //static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
+    // static_assert(atomic_is_lock_free(&jq->exit_thread), "Bool isn't lockless.");
 
     if (!num_threads)
     {
@@ -479,6 +479,6 @@ void job_queue_adopt_thread(job_queue_t* jq)
     adopted_info->rand_gen = xoro_rand_init(_get_thread_id(), 0x1234);
 
     mutex_lock(&jq->thread_map_mutex);
-    HASH_SET_INSERT(&jq->thread_map, &id, &adopted_info);   // NOLINT
+    HASH_SET_INSERT(&jq->thread_map, &id, &adopted_info); // NOLINT
     mutex_unlock(&jq->thread_map_mutex);
 }

@@ -22,8 +22,8 @@
 
 #include "program_manager.h"
 
-#include "backend/enums.h"
 #include "backend/convert_to_vk.h"
+#include "backend/enums.h"
 #include "driver.h"
 #include "pipeline_cache.h"
 #include "shader.h"
@@ -139,7 +139,8 @@ void shader_bundle_set_cull_mode(shader_prog_bundle_t* bundle, enum CullMode mod
     bundle->raster_state.cull_mode = cull_mode_to_vk(mode);
 }
 
-void shader_bundle_set_depth_read_write_state(shader_prog_bundle_t* bundle, bool test_state, bool write_state, enum CompareOp depth_op)
+void shader_bundle_set_depth_read_write_state(
+    shader_prog_bundle_t* bundle, bool test_state, bool write_state, enum CompareOp depth_op)
 {
     assert(bundle);
     bundle->ds_state.test_enable = test_state;

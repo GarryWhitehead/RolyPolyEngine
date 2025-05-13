@@ -21,14 +21,15 @@
  */
 
 #include "renderer.h"
-#include "rpe/scene.h"
+
 #include "colour_pass.h"
 #include "engine.h"
 #include "light_pass.h"
+#include "managers/renderable_manager.h"
 #include "material.h"
 #include "render_graph/render_graph.h"
 #include "render_graph/render_graph_handle.h"
-#include "managers/renderable_manager.h"
+#include "rpe/scene.h"
 #ifndef NDEBUG
 #include "render_graph/graphviz.h"
 #endif
@@ -39,12 +40,11 @@
 
 #include <backend/convert_to_vk.h>
 #include <backend/objects.h>
+#include <string.h>
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
 #include <vulkan-api/sampler_cache.h>
-
-#include <string.h>
 
 rpe_render_target_t rpe_render_target_init()
 {
@@ -297,7 +297,8 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
     rpe_settings_t settings = engine->settings;
-    bool draw_shadows = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
+    bool draw_shadows =
+        scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
 
     rg_clear(rdr->rg);
 
@@ -349,12 +350,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     if (!scene->skip_lighting_pass)
     {
         input_handle = rpe_light_pass_render(
-            engine->light_manager,
-            rdr->rg,
-            scene,
-            desc.width,
-            desc.height,
-            depth_format);
+            engine->light_manager, rdr->rg, scene, desc.width, desc.height, depth_format);
     }
 
     // TODO: move to post-processing when added.
@@ -368,15 +364,15 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     rg_add_present_pass(rdr->rg, bb_handle);
     rg_compile(rdr->rg);
 
-//#ifndef NDEBUG
- //   string_t graphviz_str =
- //       rg_dep_graph_export_graph_viz(rg_get_dep_graph(rdr->rg), &engine->scratch_arena);
- //   FILE* fp = fopen("/home/kudan/Documents/render_graph.svg", "wb");
- //   assert(fp);
- //   fwrite(graphviz_str.data, sizeof(uint8_t), graphviz_str.len, fp);
- //   fclose(fp);
- //   arena_reset(&engine->scratch_arena);
-//#endif
+    //#ifndef NDEBUG
+    //   string_t graphviz_str =
+    //       rg_dep_graph_export_graph_viz(rg_get_dep_graph(rdr->rg), &engine->scratch_arena);
+    //   FILE* fp = fopen("/home/kudan/Documents/render_graph.svg", "wb");
+    //   assert(fp);
+    //   fwrite(graphviz_str.data, sizeof(uint8_t), graphviz_str.len, fp);
+    //   fclose(fp);
+    //   arena_reset(&engine->scratch_arena);
+    //#endif
 
     rg_execute(rdr->rg, rdr->engine->driver, engine);
 }

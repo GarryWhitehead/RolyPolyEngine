@@ -148,7 +148,7 @@ void rpe_rend_manager_add(
     ADD_OBJECT_TO_MANAGER(&m->renderables, idx, renderable);
 }
 
-bool rpe_rend_manager_remove(rpe_rend_manager_t*rm, rpe_object_t obj)
+bool rpe_rend_manager_remove(rpe_rend_manager_t* rm, rpe_object_t obj)
 {
     assert(rm);
     assert(obj.id != RPE_INVALID_OBJECT);
@@ -181,7 +181,7 @@ rpe_valloc_handle rpe_rend_manager_alloc_vertex_buffer(rpe_rend_manager_t* m, ui
 {
     rpe_vertex_alloc_info_t v_info =
         rpe_vertex_buffer_alloc_vertex_buffer(m->engine->vbuffer, vertex_size);
-    rpe_valloc_handle h = {.id = m->vertex_allocations.size };
+    rpe_valloc_handle h = {.id = m->vertex_allocations.size};
     DYN_ARRAY_APPEND(&m->vertex_allocations, &v_info);
     return h;
 }
@@ -190,7 +190,7 @@ rpe_valloc_handle rpe_rend_manager_alloc_index_buffer(rpe_rend_manager_t* m, uin
 {
     rpe_vertex_alloc_info_t i_info =
         rpe_vertex_buffer_alloc_index_buffer(m->engine->vbuffer, index_size);
-    rpe_valloc_handle h = {.id = m->vertex_allocations.size };
+    rpe_valloc_handle h = {.id = m->vertex_allocations.size};
     DYN_ARRAY_APPEND(&m->vertex_allocations, &i_info);
     return h;
 }

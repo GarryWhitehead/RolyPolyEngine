@@ -52,7 +52,7 @@ struct GBufferLocalData
     rpe_scene_t* scene;
 };
 
-rg_handle_t
-rpe_colour_pass_render(render_graph_t* rg, rpe_scene_t* scene, uint32_t dimensions, VkFormat depth_format);
+rg_handle_t rpe_colour_pass_render(
+    render_graph_t* rg, rpe_scene_t* scene, uint32_t dimensions, VkFormat depth_format);
 
 #endif

@@ -42,9 +42,9 @@
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define MAX(a, b) a > b ? a : b
@@ -59,7 +59,7 @@
         __x > __high ? __high : (__x < __low ? __low : __x);                                       \
     })
 #elif WIN32
-#define CLAMP(x, low, high) (x > high ? high : (x < low ? low : x))   
+#define CLAMP(x, low, high) (x > high ? high : (x < low ? low : x))
 #endif
 
 #ifndef M_PI
@@ -805,7 +805,7 @@ static inline math_vec4f math_mat4f_mul_vec(math_mat4f m, math_vec4f v)
 
 static inline math_mat4f math_mat4f_inverse(math_mat4f m)
 {
-    //math_mat4f m = math_mat4f_identity();
+    // math_mat4f m = math_mat4f_identity();
 #if 0
     for (uint32_t i = 0; i < 4; ++i)
     {
@@ -861,7 +861,7 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f m)
         }
     }
 #endif
-    
+
     float Coef00 = m.data[2][2] * m.data[3][3] - m.data[3][2] * m.data[2][3];
     float Coef02 = m.data[1][2] * m.data[3][3] - m.data[3][2] * m.data[1][3];
     float Coef03 = m.data[1][2] * m.data[2][3] - m.data[2][2] * m.data[1][3];
@@ -898,24 +898,25 @@ static inline math_mat4f math_mat4f_inverse(math_mat4f m)
     math_vec4f Vec2 = math_vec4f_init(m.data[1][2], m.data[0][2], m.data[0][2], m.data[0][2]);
     math_vec4f Vec3 = math_vec4f_init(m.data[1][3], m.data[0][3], m.data[0][3], m.data[0][3]);
 
-    math_vec4f Inv0 = math_vec4f_sub(math_vec4f_mul(Vec1, Fac0), math_vec4f_mul(Vec2, Fac1)); 
+    math_vec4f Inv0 = math_vec4f_sub(math_vec4f_mul(Vec1, Fac0), math_vec4f_mul(Vec2, Fac1));
     Inv0 = math_vec4f_add(Inv0, math_vec4f_mul(Vec3, Fac2));
-    math_vec4f Inv1 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac0), math_vec4f_mul(Vec2, Fac3)); 
+    math_vec4f Inv1 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac0), math_vec4f_mul(Vec2, Fac3));
     Inv1 = math_vec4f_add(Inv1, math_vec4f_mul(Vec3, Fac4));
-    math_vec4f Inv2 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac1), math_vec4f_mul(Vec1, Fac3)); 
+    math_vec4f Inv2 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac1), math_vec4f_mul(Vec1, Fac3));
     Inv2 = math_vec4f_add(Inv2, math_vec4f_mul(Vec3, Fac5));
-    math_vec4f Inv3 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac2), math_vec4f_mul(Vec1, Fac4)); 
+    math_vec4f Inv3 = math_vec4f_sub(math_vec4f_mul(Vec0, Fac2), math_vec4f_mul(Vec1, Fac4));
     Inv3 = math_vec4f_add(Inv3, math_vec4f_mul(Vec2, Fac5));
 
     math_vec4f SignA = math_vec4f_init(+1.0f, -1.0f, +1.0f, -1.0f);
     math_vec4f SignB = math_vec4f_init(-1.0f, +1.0f, -1.0f, +1.0f);
     math_mat4f Inverse;
     Inverse.cols[0] = math_vec4f_mul(Inv0, SignA);
-    Inverse.cols[1] = math_vec4f_mul(Inv1, SignB); 
-    Inverse.cols[2] = math_vec4f_mul(Inv2, SignA); 
+    Inverse.cols[1] = math_vec4f_mul(Inv1, SignB);
+    Inverse.cols[2] = math_vec4f_mul(Inv2, SignA);
     Inverse.cols[3] = math_vec4f_mul(Inv3, SignB);
 
-    math_vec4f Row0 = math_vec4f_init(Inverse.data[0][0], Inverse.data[1][0], Inverse.data[2][0], Inverse.data[3][0]);
+    math_vec4f Row0 = math_vec4f_init(
+        Inverse.data[0][0], Inverse.data[1][0], Inverse.data[2][0], Inverse.data[3][0]);
 
     math_vec4f Dot0 = math_vec4f_mul(m.cols[0], Row0);
     float Dot1 = (Dot0.x + Dot0.y) + (Dot0.z + Dot0.w);
@@ -1011,7 +1012,7 @@ math_mat4f_frustum(float left, float right, float bottom, float top, float near,
 
 static inline math_mat4f
 math_mat4f_perspective(float fov_y, float aspect_ratio, float near_z, float far_z)
-{   
+{
     float tanHalfFovy = tanf((fov_y * (float)M_PI / 360.0f) / 2.0f);
 
     math_mat4f m = {0};
@@ -1070,7 +1071,7 @@ static inline void math_mat4f_print(math_mat4f m)
 {
     for (int j = 0; j < 4; ++j)
     {
-        for(int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i)
         {
             printf("%f, ", m.data[i][j]);
         }

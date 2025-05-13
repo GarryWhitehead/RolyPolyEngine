@@ -25,17 +25,16 @@
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
+#include <parg.h>
 #include <rpe/ibl.h>
+#include <rpe/light_manager.h>
 #include <rpe/material.h>
-#include <rpe/renderable_manager.h>
 #include <rpe/object_manager.h>
+#include <rpe/renderable_manager.h>
 #include <rpe/settings.h>
 #include <rpe/skybox.h>
-#include <rpe/light_manager.h>
-#include <utility/filesystem.h>
-
-#include <parg.h>
 #include <stdlib.h>
+#include <utility/filesystem.h>
 
 void print_usage()
 {
@@ -45,7 +44,8 @@ void print_usage()
     printf("--cubemap \t HDR cube-map for IBL in ktx format.\n");
     printf("--win-width\t Window width in pixels\n");
     printf("--win-height\t Window height in pixels\n");
-    printf("--disable-skybox\t Disables the rendering of the skybox when a IBL cubemap is specified.\n");
+    printf("--disable-skybox\t Disables the rendering of the skybox when a IBL cubemap is "
+           "specified.\n");
 }
 
 int main(int argc, char** argv)
@@ -105,9 +105,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    rpe_settings_t settings = {
-        .gbuffer_dims = 2048,
-        .draw_shadows = false};
+    rpe_settings_t settings = {.gbuffer_dims = 2048, .draw_shadows = false};
 
     rpe_app_t app;
     int error = rpe_app_init("GLTF Viewer", win_width, win_height, &app, &settings, false);
@@ -175,7 +173,8 @@ int main(int argc, char** argv)
     uint8_t* buffer = malloc(file_sz);
     fread(buffer, sizeof(uint8_t), file_sz, fp);
 
-    gltf_asset_t* asset = gltf_model_parse_data(buffer, file_sz, app.engine, gltf_model_path, &app.scratch_arena);
+    gltf_asset_t* asset =
+        gltf_model_parse_data(buffer, file_sz, app.engine, gltf_model_path, &app.scratch_arena);
     if (!asset)
     {
         exit(1);

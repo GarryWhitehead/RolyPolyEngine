@@ -28,12 +28,12 @@
 #define RPE_ENGINE_FRAME_ARENA_SIZE 1 << 30
 
 #include "rpe/settings.h"
-#include <utility/arena.h>
-#include <vulkan-api/program_manager.h>
-#include <vulkan-api/swapchain.h>
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <utility/arena.h>
+#include <vulkan-api/program_manager.h>
+#include <vulkan-api/swapchain.h>
 
 typedef struct VkApiDriver vkapi_driver_t;
 typedef struct RenderableManager rpe_rend_manager_t;

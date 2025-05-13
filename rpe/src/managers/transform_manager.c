@@ -102,7 +102,7 @@ void rpe_transform_manager_add_node(
         parent_node->first_child = child_obj;
     }
 
-     // Request a slot for this object.
+    // Request a slot for this object.
     uint64_t idx = rpe_comp_manager_add_obj(m->comp_manager, *child_obj);
     ADD_OBJECT_TO_MANAGER(&m->nodes, idx, &child_node);
 
@@ -242,7 +242,7 @@ rpe_object_t rpe_transform_manager_copy(
 
     copy_child_nodes(
         tm, om, parent_node->first_child, new_parent_obj_ptr, new_parent_node_ptr, objects);
-       
+
     tm->is_dirty = true;
     return new_parent_obj;
 }

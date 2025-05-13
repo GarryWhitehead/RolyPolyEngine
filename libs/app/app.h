@@ -23,8 +23,8 @@
 #ifndef __APP_APP_H__
 #define __APP_APP_H__
 
-#include "window.h"
 #include "nk_helper.h"
+#include "window.h"
 
 #include <rpe/engine.h>
 #include <rpe/scene.h>
@@ -46,7 +46,7 @@ typedef struct Application
     arena_t scratch_arena;
 
     bool should_close;
-    
+
     double prev_time;
 
     // camera paramters
@@ -68,7 +68,12 @@ typedef struct Application
  @returns an error code.
  */
 int rpe_app_init(
-    const char* win_title, uint32_t win_width, uint32_t win_height, rpe_app_t* new_app, rpe_settings_t* settings, bool show_ui);
+    const char* win_title,
+    uint32_t win_width,
+    uint32_t win_height,
+    rpe_app_t* new_app,
+    rpe_settings_t* settings,
+    bool show_ui);
 
 /**
  Destroy all resource associated with this app - this will terminate all Vulkan and RPE resources.

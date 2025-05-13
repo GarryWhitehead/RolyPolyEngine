@@ -151,7 +151,8 @@ sampler_params_t gltf_resource_loader_create_sampler(gltf_asset_t* asset, cgltf_
     return out;
 }
 
-bool decode_image(gltf_resource_loader_t* rl, gltf_asset_t* asset, struct DecodeEntry* entry, struct Job* parent)
+bool decode_image(
+    gltf_resource_loader_t* rl, gltf_asset_t* asset, struct DecodeEntry* entry, struct Job* parent)
 {
     bool res = false;
     if (strcmp("image/png", entry->mime_type.data) == 0 ||
@@ -187,9 +188,8 @@ gltf_image_handle_t get_texture(
         return out_handle;
     }
 
-    string_t mime_type = texture->image->mime_type
-        ? string_init(texture->image->mime_type, arena)
-        : string_init("", arena);
+    string_t mime_type = texture->image->mime_type ? string_init(texture->image->mime_type, arena)
+                                                   : string_init("", arena);
     size_t uri_data_bytes_count;
     uint8_t* uri_data_bytes = texture->image->uri
         ? parse_data_uri(texture->image->uri, &mime_type, &uri_data_bytes_count, arena)
@@ -216,8 +216,7 @@ gltf_image_handle_t get_texture(
         char null_sep[2] = {sep, '\0'};
         // Not cached, so try and load from disk.
         string_t path = fs_remove_filename(&asset->gltf_path, arena);
-        string_t full_path =
-            string_append3(&path, null_sep, texture->image->uri, arena);
+        string_t full_path = string_append3(&path, null_sep, texture->image->uri, arena);
         FILE* fp = fopen(full_path.data, "rb");
         if (!fp)
         {

@@ -38,8 +38,7 @@ typedef struct WorkStealingDeque
     int items[WORK_STEALING_QUEUE_MAX_JOB_COUNT];
 } work_stealing_queue_t;
 
-work_stealing_queue_t
-work_stealing_queue_init(arena_t* arena, uint32_t queue_count);
+work_stealing_queue_t work_stealing_queue_init(arena_t* arena, uint32_t queue_count);
 
 void work_stealing_queue_push(work_stealing_queue_t* queue, int item);
 

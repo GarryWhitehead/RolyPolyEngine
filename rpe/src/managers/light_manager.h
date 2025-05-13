@@ -26,11 +26,11 @@
 #include "component_manager.h"
 #include "rpe/light_manager.h"
 #include "rpe/scene.h"
+
+#include <stdint.h>
 #include <utility/maths.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/resource_cache.h>
-
-#include <stdint.h>
 
 typedef struct Engine rpe_engine_t;
 typedef struct Scene rpe_scene_t;

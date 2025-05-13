@@ -42,7 +42,8 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
     vkapi_driver_t* driver = engine->driver;
 
     rpe_scene_t* i = ARENA_MAKE_ZERO_STRUCT(arena, rpe_scene_t);
-    i->shadow_status = engine->settings.draw_shadows ? RPE_SCENE_SHADOW_STATUS_ENABLED : RPE_SCENE_SHADOW_STATUS_DISABLED;
+    i->shadow_status = engine->settings.draw_shadows ? RPE_SCENE_SHADOW_STATUS_ENABLED
+                                                     : RPE_SCENE_SHADOW_STATUS_DISABLED;
     i->draw_data = ARENA_MAKE_ARRAY(arena, struct DrawData, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
     MAKE_DYN_ARRAY(rpe_object_t, arena, 100, &i->objects);
 
@@ -143,7 +144,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
 
     vkapi_driver_t* driver = engine->driver;
     struct Settings settings = engine->settings;
-    bool draw_shadows = scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
+    bool draw_shadows =
+        scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
 
     rpe_render_queue_clear(scene->render_queue);
 

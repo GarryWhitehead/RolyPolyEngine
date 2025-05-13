@@ -48,7 +48,8 @@ void rpe_render_queue_submit_all(rpe_render_queue_t* q, vkapi_driver_t* driver)
     rpe_command_bucket_submit(q->post_process_bucket, driver);
 }
 
-void rpe_render_queue_submit_one(rpe_render_queue_t* q, vkapi_driver_t* driver, enum QueueBucketType type)
+void rpe_render_queue_submit_one(
+    rpe_render_queue_t* q, vkapi_driver_t* driver, enum QueueBucketType type)
 {
     assert(q);
     switch (type)

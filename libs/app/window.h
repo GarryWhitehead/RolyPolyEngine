@@ -25,9 +25,9 @@
 
 #include "camera.h"
 #include "camera_view.h"
-#include <rpe/settings.h>
 
 #include <GLFW/glfw3.h>
+#include <rpe/settings.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <volk.h>
@@ -76,7 +76,13 @@ typedef struct AppWindow
  @returns a error code determining how successful the initialisation was.
  */
 int app_window_init(
-    rpe_app_t* app, const char* title, uint32_t width, uint32_t height, app_window_t* new_win, rpe_settings_t* settings, bool show_ui);
+    rpe_app_t* app,
+    const char* title,
+    uint32_t width,
+    uint32_t height,
+    app_window_t* new_win,
+    rpe_settings_t* settings,
+    bool show_ui);
 
 /**
  Shutdown the resources for this window instance.

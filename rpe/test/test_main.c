@@ -34,13 +34,13 @@ TEST_GROUP_RUNNER(EngineGroup)
 
 static void run_all_tests(void)
 {
-    RUN_TEST_GROUP(RenderGraphGroup)
     RUN_TEST_GROUP(CommandsGroup)
 #if RPE_BUILD_GPU_TESTS
+    RUN_TEST_GROUP(RenderGraphGroup)
     RUN_TEST_GROUP(VisibilityGroup)
     RUN_TEST_GROUP(ComputeGroup)
-#endif
     RUN_TEST_GROUP(EngineGroup)
+#endif
 }
 // clang-format on
 

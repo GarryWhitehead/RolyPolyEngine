@@ -6,10 +6,9 @@
 #include <managers/renderable_manager.h>
 #include <rpe/aabox.h>
 #include <scene.h>
+#include <string.h>
 #include <unity_fixture.h>
 #include <utility/maths.h>
-
-#include <string.h>
 
 TEST_GROUP(VisibilityGroup);
 

@@ -29,10 +29,9 @@
 #include "shader.h"
 #include "texture.h"
 
+#include <string.h>
 #include <utility/arena.h>
 #include <utility/hash.h>
-
-#include <string.h>
 
 graphics_pl_key_t vkapi_graphics_pline_key_init()
 {
