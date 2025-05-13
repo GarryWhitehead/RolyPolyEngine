@@ -124,7 +124,7 @@ add_dependencies(RPE Shaders)
 target_compile_definitions(
     RPE
     PRIVATE
-    RPE_SHADER_DIRECTORY="$RPE_SHADER_DIRECTORY}"
+    RPE_SHADER_DIRECTORY="${RPE_SHADER_DIRECTORY}"
     RPE_VERBOSE_OUTPUT=${VERBOSE_OUTPUT}
     "$<$<PLATFORM_ID:Windows>:_USE_MATH_DEFINES;NOMINMAX;_CRT_SECURE_NO_WARNINGS>"  
 )
@@ -154,6 +154,14 @@ if (BUILD_TESTS)
     target_link_libraries(RpeTest PRIVATE unity::unity RPE VulkanApi)
     set_target_properties(RpeTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_TEST_DIRECTORY})
     rpe_add_compiler_flags(TARGET RpeTest)
+
+    if (BUILD_GPU_TESTS)
+        target_compile_definitions(
+            RpeTest
+            PUBLIC
+            RPE_BUILD_GPU_TESTS=1
+        )
+    endif()
 
     add_test(
             NAME RpeTest

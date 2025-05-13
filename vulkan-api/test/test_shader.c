@@ -107,3 +107,4 @@ TEST(ShaderGroup, Shader_CompilerTests)
 
     vkapi_driver_shutdown(driver, VK_NULL_HANDLE);
 }
+

@@ -133,7 +133,7 @@ if (WIN32)
     )
 endif()
 
-if (BUILD_TESTS)
+if (BUILD_TESTS AND BUILD_GPU_TESTS)
 
     set (test_srcs
         test/test_main.c
