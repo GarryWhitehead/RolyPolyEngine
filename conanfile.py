@@ -20,6 +20,7 @@ class VkSceneEditor3dPackage(ConanFile):
         "with_validation_layers": [True, False],
         "build_tests" : [True, False],
         "build_gpu_tests": [True, False],
+        "build_benchmark": [True, False],
         "verbose": [True, False]
     }
     default_options = {
@@ -29,6 +30,7 @@ class VkSceneEditor3dPackage(ConanFile):
         "build_tests": True,
         # Intended for use of the CI where Vulkan is not present on the remote servers.
         "build_gpu_tests": True,
+        "build_benchmark": True,
         "verbose": False,
         }
 
@@ -75,6 +77,7 @@ class VkSceneEditor3dPackage(ConanFile):
         tc.variables["VERBOSE_OUTPUT"] = self.options.verbose
         tc.variables["BUILD_TESTS"] = self.options.build_tests
         tc.variables["BUILD_GPU_TESTS"] = self.options.build_gpu_tests
+        tc.variables["BUILD_BENCHMARKS"] = self.options.build_benchmark
         tc.generate()
 
     def build(self):

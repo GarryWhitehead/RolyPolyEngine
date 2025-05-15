@@ -32,10 +32,11 @@
 #include <utility/arena.h>
 
 rpe_shadow_manager_t*
-rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings, arena_t* arena)
+rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings)
 {
     assert(settings.cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
 
+    arena_t* arena = &engine->perm_arena;
     rpe_shadow_manager_t* sm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_shadow_manager_t);
     sm->settings = settings;
 

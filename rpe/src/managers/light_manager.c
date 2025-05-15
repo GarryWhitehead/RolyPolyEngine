@@ -33,8 +33,11 @@
 #include <vulkan-api/driver.h>
 #include <vulkan-api/sampler_cache.h>
 
-rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena)
+rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine)
 {
+    assert(engine);
+    arena_t* arena = &engine->perm_arena;
+
     rpe_light_manager_t* lm = ARENA_MAKE_ZERO_STRUCT(arena, rpe_light_manager_t);
     vkapi_driver_t* driver = engine->driver;
     MAKE_DYN_ARRAY(struct LightInstance, arena, 50, &lm->lights);

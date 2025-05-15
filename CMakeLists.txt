@@ -8,7 +8,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # set c standard versions to use throughout project
 set(CMAKE_C_STANDARD                17)
 set(CMAKE_C_STANDARD_REQUIRED       ON)
-set(CMAKE_C_EXTENSIONS              OFF)
+set(CMAKE_C_EXTENSIONS              ON)
 
 # configuration or build type setup
 set(configuration_types Debug Release RelWithDebInfo MinSizeRel CACHE STRING "Available configuration types." FORCE)
@@ -37,6 +37,7 @@ set(RPE_ASSETS_DIRECTORY "${RPE_ROOT_DIRECTORY}/assets")
 set(RPE_SHADER_SIPRV_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 set(RPE_CMAKE_INCLUDE_DIRECTORY "${RPE_ROOT_DIRECTORY}/cmake")
 set(RPE_TEST_DIRECTORY "${CMAKE_BINARY_DIR}/Tests")
+set(RPE_BENCHMARK_DIRECTORY "${CMAKE_BINARY_DIR}/Benchmarks")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize-recover=address")
 
