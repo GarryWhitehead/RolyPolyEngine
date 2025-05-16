@@ -47,7 +47,15 @@ int64_t get_time_ns()
     clock_gettime(cid, &ts);
     return (int64_t)ts.tv_sec * 1000 * 1000 * 1000 + ts.tv_nsec;
 #elif WIN32
-
+    LARGE_INTEGER l_counter;
+    LARGE_INTEGER l_freq;
+    QueryPerformanceCounter(&l_counter);
+    QueryPerformanceFrequency(&l_freq);
+    
+    // Prevents a 64-bit integer overflow - see: https://github.com/floooh/sokol/blob/189843bf4f86969ca4cc4b6d94e793a37c5128a7/sokol_time.h#L204
+    int64_t q = l_counter.QuadPart / l_freq.QuadPart;
+    int64_t r = l_counter.QuadPart % l_freq.QuadPart;
+    return q * 1000000000 + r * 1000000000 / l_freq.QuadPart;
 #endif
 }
 
@@ -265,12 +273,28 @@ void bm_run_benchmarks()
                 colours[RESET],
                 benchmark_ms.instances[failed_bms[i]]->name);
         }
+
+        // Tidy up.
+        free(failed_bms);
+        failed_count = 0;       
     }
 }
 
 void bm_init()
 {
+    // TODO: Add filtering and user defined confidence via cmd args.
     benchmark_ms.confidence = 2.5;
 }
 
-void bm_shutdown() {}
+void bm_shutdown() 
+{
+    for (size_t i = 0; i < benchmark_ms.instance_count; ++i)
+    {
+        bm_instance_t* instance = benchmark_ms.instances[i];
+        free(instance->name);
+        free(instance);
+        benchmark_ms.instances[i] = NULL;
+    }
+    benchmark_ms.instances = NULL;
+    benchmark_ms.instance_count = 0;
+}

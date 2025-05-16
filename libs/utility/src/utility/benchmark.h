@@ -31,7 +31,7 @@
 #include <time.h>
 #include <unistd.h>
 #elif WIN32
-
+#include <Windows.h>
 #endif
 
 #define BM_MAX_ARG_COUNT 3
@@ -106,17 +106,30 @@ bool bm_state_set_running(bm_run_state_t* rs);
 
 #define BM_INSTANCE_NAME(n) static bm_instance_t* BM_GENERATE_NAME(n)
 
-#define BM_INITIALISER(func) static void bm_runner_##func(void) __attribute__((constructor));
+#ifdef _MSC_VER
+// Adapted from: https://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc
+#pragma section(".CRT$XCU", read)
+#define BM_INITIALISER_2(func, p)                                                                        \
+    static void func(void);                                                                           \
+    __declspec(allocate(".CRT$XCU")) void (*func##_)(void) = func;                                       \
+    __pragma(comment(linker, "/include:" p #func "_")) static void func(void)
+#ifdef _WIN64
+#define BM_INITIALISER(func) BM_INITIALISER_2(func, "")
+#else
+#define BM_INITIALISER(func) BM_INITIALISER_2(func, "_")
+#endif
+#else
+#define BM_INITIALISER(func)                                                                       \
+    static void bm_runner_##func(void) __attribute__((constructor));                               \
+    static void bm_runner_##func()
+#endif
 
 #define BENCHMARK_ARG1(func, a0)                                                                   \
-    BM_INITIALISER(func)                                                                           \
-    static void bm_runner_##func() { bm_instance_register_arg1(func, #func, a0); }
+    BM_INITIALISER(bm_runner_##func) { bm_instance_register_arg1(func, #func, a0); }
 #define BENCHMARK_ARG2(func, a0, a1)                                                               \
-    BM_INITIALISER(func)                                                                           \
-    static void bm_runner_##func() { bm_instance_register_arg2(func, #func, a0, a1); }
+    BM_INITIALISER(bm_runner_##func) { bm_instance_register_arg2(func, #func, a0, a1); }
 #define BENCHMARK_ARG3(func, a0, a1, a2)                                                           \
-    BM_INITIALISER(func)                                                                           \
-    static void bm_runner_##func() { bm_instance_register_arg3(func, #func, a0, a1, a2); }
+    BM_INITIALISER(bm_runner_##func) { bm_instance_register_arg3(func, #func, a0, a1, a2); }
 
 #define BENCHMARK_MAIN()                                                                           \
     int main(int argc, char** argv)                                                                \
