@@ -65,8 +65,7 @@ typedef struct ShadowManager
 
 } rpe_shadow_manager_t;
 
-rpe_shadow_manager_t*
-rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings);
+rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings);
 
 void rpe_shadow_manager_update_projections(
     rpe_shadow_manager_t* m,

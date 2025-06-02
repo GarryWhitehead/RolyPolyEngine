@@ -1,15 +1,14 @@
-#include <utility/benchmark.h>
-
-#include <shadow_manager.h>
-#include <scene.h>
 #include <camera.h>
 #include <engine.h>
+#include <log.h>
 #include <managers/light_manager.h>
+#include <rpe/engine.h>
 #include <rpe/light_manager.h>
 #include <rpe/object_manager.h>
-#include <rpe/engine.h>
+#include <scene.h>
+#include <shadow_manager.h>
+#include <utility/benchmark.h>
 #include <vulkan-api/error_codes.h>
-#include <log.h>
 
 void BM_test_shadow_cascade_gen(bm_run_state_t* state)
 {
@@ -21,7 +20,7 @@ void BM_test_shadow_cascade_gen(bm_run_state_t* state)
     sm.settings.split_lambda = 0.9f;
 
     rpe_scene_t scene;
-    rpe_camera_t camera = {.n = 0.1f, .z = 100.0f };
+    rpe_camera_t camera = {.n = 0.1f, .z = 100.0f};
 
     while (bm_state_set_running(state))
     {
@@ -52,7 +51,7 @@ void BM_test_shadow_update_projection(bm_run_state_t* state)
     rpe_shadow_manager_t* sm = rpe_shadow_manager_init(engine, sm_settings);
 
     rpe_scene_t scene;
-    rpe_camera_t camera = {.n = 0.1f, .z = 100.0f };
+    rpe_camera_t camera = {.n = 0.1f, .z = 100.0f};
 
     rpe_light_manager_t* lm = rpe_light_manager_init(engine);
     rpe_light_create_info_t ci = {.position = {0.0f, -5.0f, 1.0f}};
