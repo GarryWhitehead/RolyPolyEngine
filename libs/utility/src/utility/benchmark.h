@@ -93,25 +93,12 @@ bool bm_state_set_running(bm_run_state_t* rs);
 #define BM_DONT_OPTIMISE(val) asm volatile("" : "+m,r"(val) : : "memory");
 #endif
 
-#ifdef __COUNTER__
-#define BM_UNIQUE_ID __COUNTER__
-#else
-#define BENCHMARK_PRIVATE_UNIQUE_ID __LINE__
-#endif
-
-#define BENCHMARK_PRIVATE_CONCAT2(a, b, c) a##b##c
-#define BENCHMARK_PRIVATE_CONCAT(a, b, c) BENCHMARK_PRIVATE_CONCAT2(a, b, c)
-
-#define BM_GENERATE_NAME(...) BENCHMARK_PRIVATE_CONCAT(benchmark_uniq_, BM_UNIQUE_ID, __VA_ARGS__)
-
-#define BM_INSTANCE_NAME(n) static bm_instance_t* BM_GENERATE_NAME(n)
-
 #ifdef _MSC_VER
 // Adapted from: https://stackoverflow.com/questions/1113409/attribute-constructor-equivalent-in-vc
 #pragma section(".CRT$XCU", read)
-#define BM_INITIALISER_2(func, p)                                                                        \
-    static void func(void);                                                                           \
-    __declspec(allocate(".CRT$XCU")) void (*func##_)(void) = func;                                       \
+#define BM_INITIALISER_2(func, p)                                                                  \
+    static void func(void);                                                                        \
+    __declspec(allocate(".CRT$XCU")) void (*func##_)(void) = func;                                 \
     __pragma(comment(linker, "/include:" p #func "_")) static void func(void)
 #ifdef _WIN64
 #define BM_INITIALISER(func) BM_INITIALISER_2(func, "")

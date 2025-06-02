@@ -51,8 +51,9 @@ int64_t get_time_ns()
     LARGE_INTEGER l_freq;
     QueryPerformanceCounter(&l_counter);
     QueryPerformanceFrequency(&l_freq);
-    
-    // Prevents a 64-bit integer overflow - see: https://github.com/floooh/sokol/blob/189843bf4f86969ca4cc4b6d94e793a37c5128a7/sokol_time.h#L204
+
+    // Prevents a 64-bit integer overflow - see:
+    // https://github.com/floooh/sokol/blob/189843bf4f86969ca4cc4b6d94e793a37c5128a7/sokol_time.h#L204
     int64_t q = l_counter.QuadPart / l_freq.QuadPart;
     int64_t r = l_counter.QuadPart % l_freq.QuadPart;
     return q * 1000000000 + r * 1000000000 / l_freq.QuadPart;
@@ -62,7 +63,8 @@ int64_t get_time_ns()
 void alloc_instance(bm_instance_t* i)
 {
     size_t idx = benchmark_ms.instance_count++;
-    benchmark_ms.instances = realloc(benchmark_ms.instances, sizeof(bm_instance_t) * benchmark_ms.instance_count);
+    benchmark_ms.instances =
+        realloc(benchmark_ms.instances, sizeof(bm_instance_t) * benchmark_ms.instance_count);
     benchmark_ms.instances[idx] = i;
 }
 
@@ -231,15 +233,15 @@ void bm_run_benchmarks()
 
     for (size_t idx = 0; idx < benchmark_ms.instance_count; ++idx)
     {
-        int64_t best_avg_ns = 0;
-        double best_dev = 0.0;
-        double best_conf = 101.0;
-
         bm_instance_t* instance = benchmark_ms.instances[idx];
 
         size_t run_count = instance->arg_count > 0 ? instance->arg_count : 1;
         for (size_t arg_idx = 0; arg_idx < run_count; ++arg_idx)
         {
+            int64_t best_avg_ns = 0;
+            double best_dev = 0.0;
+            double best_conf = 101.0;
+
             int64_t* arg = instance->arg_count > 0 ? &instance->args[arg_idx] : NULL;
             bool res = bm_run_instance(instance, &best_avg_ns, &best_conf, &best_dev, arg);
             bm_report_results(instance, res, best_avg_ns, best_conf);
@@ -261,10 +263,7 @@ void bm_run_benchmarks()
     if (failed_count > 0)
     {
         printf(
-            "%s[    FAILED    ]%s %zu benchmarks.\n",
-            colours[RED],
-            colours[RESET],
-            failed_count);
+            "%s[    FAILED    ]%s %zu benchmarks.\n", colours[RED], colours[RESET], failed_count);
         for (size_t i = 0; i < failed_count; ++i)
         {
             printf(
@@ -276,7 +275,7 @@ void bm_run_benchmarks()
 
         // Tidy up.
         free(failed_bms);
-        failed_count = 0;       
+        failed_count = 0;
     }
 }
 
@@ -286,7 +285,7 @@ void bm_init()
     benchmark_ms.confidence = 2.5;
 }
 
-void bm_shutdown() 
+void bm_shutdown()
 {
     for (size_t i = 0; i < benchmark_ms.instance_count; ++i)
     {
