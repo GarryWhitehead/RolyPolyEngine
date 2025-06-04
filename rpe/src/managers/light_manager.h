@@ -120,7 +120,7 @@ typedef struct LightManager
 
 } rpe_light_manager_t;
 
-rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine, arena_t* arena);
+rpe_light_manager_t* rpe_light_manager_init(rpe_engine_t* engine);
 
 rpe_light_instance_t*
 rpe_light_manager_get_light_instance(rpe_light_manager_t* lm, rpe_object_t obj);
