@@ -171,7 +171,7 @@ if (BUILD_TESTS)
 
 endif()
 
-if (BUILD_BENCHMARKS)
+if (BUILD_BENCHMARKS AND BUILD_GPU_TESTS)
 
     set (benchmark_srcs
         benchmark/test_shadow.c
@@ -181,14 +181,6 @@ if (BUILD_BENCHMARKS)
     target_link_libraries(RpeBenchmark PRIVATE UtilityLib RPE VulkanApi)
     set_target_properties(RpeBenchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RPE_BENCHMARK_DIRECTORY})
     rpe_add_compiler_flags(TARGET RpeBenchmark)
-
-    if (BUILD_GPU_TESTS)
-        target_compile_definitions(
-            RpeBenchmark
-            PUBLIC
-            RPE_BUILD_GPU_TESTS=1
-        )
-    endif()
 
     add_test(
             NAME RpeBenchmark
