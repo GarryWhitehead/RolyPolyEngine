@@ -340,9 +340,13 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
 
     input_handle = rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
 
-    // Render the shadow maps - cascade and point/spot maps.
+    // Render the shadow maps - cascade and point/spot maps (once added).
     if (draw_shadows)
     {
+        // Check the csm projections have complete, and upload.
+        rpe_shadow_manager_sync_update(engine->shadow_manager, engine);
+        rpe_shadow_manager_upload_projections(engine->shadow_manager, engine, scene);
+        // And issue the shadow rendering commands.
         rpe_shadow_pass_render(
             engine->shadow_manager, rdr->rg, scene, settings.shadow.cascade_dims, depth_format);
     }

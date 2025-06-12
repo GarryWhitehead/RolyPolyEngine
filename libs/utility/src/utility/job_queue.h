@@ -41,7 +41,7 @@
 // Forward declarations.
 typedef struct JobQueue job_queue_t;
 
-typedef void (*job_func_t)(void* args);
+typedef void (*job_func_t)(void*);
 
 /**
  Information on each job created.
@@ -59,6 +59,7 @@ typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) Job
     /// A index into the job cache which points to the parent of this job. Used for linking jobs to
     /// each other, so multiple jobs can be executed via one job.
     atomic_uint_fast16_t parent;
+    uint32_t idx;
 } job_t;
 
 /**
@@ -81,7 +82,8 @@ typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) ThreadInfo
 typedef struct JobQueue
 {
     /// An array of jobs which are assigned when creating a job.
-    arena_dyn_array_t job_cache;
+    job_t* job_cache;
+    atomic_int job_count;
     /// Main thread state cache array.
     thread_info_t thread_states[JOB_QUEUE_MAX_THREAD_COUNT];
     /// The number of threads this job queue is running. Doesn't include adopted threads.
@@ -160,5 +162,7 @@ void job_queue_wait_and_release(job_queue_t* jq, job_t* job);
  @param jq A pointer to the job queue.
  */
 void job_queue_adopt_thread(job_queue_t* jq);
+
+uint32_t job_get_tid(job_t* job);
 
 #endif

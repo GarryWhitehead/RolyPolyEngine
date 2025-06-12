@@ -84,6 +84,10 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
         return NULL;
     }
 
+    // Start the job queue now, some managers may have a dependency on this.
+    instance->job_queue = job_queue_init(&instance->perm_arena, 10);
+    job_queue_adopt_thread(instance->job_queue);
+
     instance->obj_manager = rpe_obj_manager_init(&instance->perm_arena);
     instance->transform_manager = rpe_transform_manager_init(instance, &instance->perm_arena);
     instance->rend_manager = rpe_rend_manager_init(instance, &instance->perm_arena);
@@ -153,10 +157,6 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         1);
-
-    // Start the job queue.
-    instance->job_queue = job_queue_init(&instance->perm_arena, 10);
-    job_queue_adopt_thread(instance->job_queue);
 
     return instance;
 }

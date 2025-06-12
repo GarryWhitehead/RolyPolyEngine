@@ -24,6 +24,7 @@
 #define __UTILITY_ARENA_H__
 
 #include "compiler.h"
+#include "thread.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -73,6 +74,8 @@ typedef struct Arena
     uint8_t* begin;
     uint8_t* end;
     ptrdiff_t offset;
+    // For thread-safe functions.
+    mutex_t mutex;
 #ifdef ENABLE_DEBUG_ARENA
     /// Used for identifying the arena when debugging.
     const char* id;
@@ -106,6 +109,8 @@ typedef struct Arena
  */
 #define ARENA_MAKE_STRUCT(arena, type, flags)                                                      \
     (type*)arena_alloc(arena, sizeof(type), _Alignof(type), 1, flags)
+#define ARENA_MAKE_STRUCT_WITH_LOCK(arena, type, flags)                                            \
+    (type*)arena_alloc_with_lock(arena, sizeof(type), _Alignof(type), 1, flags)
 
 /**
  Create a single (zeroed) allocation in an arena. Useful when wishing to allocate space for structs.
@@ -114,6 +119,8 @@ typedef struct Arena
  */
 #define ARENA_MAKE_ZERO_STRUCT(arena, type)                                                        \
     (type*)arena_alloc(arena, sizeof(type), _Alignof(type), 1, ARENA_ZERO_MEMORY)
+#define ARENA_MAKE_ZERO_STRUCT_WITH_LOCK(arena, type)                                              \
+    (type*)arena_alloc_with_lock(arena, sizeof(type), _Alignof(type), 1, ARENA_ZERO_MEMORY)
 
 /**
  Create a new arena allocator instance.
@@ -136,6 +143,8 @@ int arena_new(uint64_t capacity, arena_t* new_arena);
  @return A pointer to the allocated memory space within the arena.
  */
 void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags);
+void* arena_alloc_with_lock(
+    arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags);
 
 /**
  Get the current used space of the arena.

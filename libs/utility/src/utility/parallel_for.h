@@ -20,42 +20,43 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __UTILITY_RANDOM_H__
-#define __UTILITY_RANDOM_H__
+#ifndef __UTILITY_PARALLEL_FOR_H__
+#define __UTILITY_PARALLEL_FOR_H__
+
+#include "job_queue.h"
+#include "arena.h"
 
 #include <stdint.h>
 
-/**
- Xoroshiro128+ generator - adapted from: https://prng.di.unimi.it/xoroshiro128plus.c
- */
-typedef struct XoroRand
-{
-    uint64_t state[2];
-} xoro_rand_t;
+typedef void (*parallel_for_func_t)(uint32_t, uint32_t, void*);
 
-static xoro_rand_t xoro_rand_init(uint64_t s0, uint64_t s1)
+struct SplitConfig
 {
-    xoro_rand_t r;
-    r.state[0] = s0;
-    r.state[1] = s1;
-    return r;
-}
+    uint32_t max_split;
+    uint32_t min_count;
+};
 
-static uint64_t xoro_rand_rotl(uint64_t x, int k) { return (x << k) | (x >> (64 - k)); }
-
-static void xoro_rand_incr(xoro_rand_t* r)
+struct ParallelForData
 {
-    uint64_t s0 = r->state[0];
-    uint64_t s1 = r->state[1] ^ s0;
-    r->state[0] = xoro_rand_rotl(s0, 55) ^ s1 ^ (s1 << 14);
-    r->state[1] = xoro_rand_rotl(s1, 36);
-}
+    job_queue_t* jq;
+    job_t* parent;
+    uint32_t start;
+    uint32_t count;
+    uint32_t splits;
+    parallel_for_func_t func;
+    void* data;
+    struct SplitConfig* cfg;
+    arena_t* arena;
+};
 
-static uint64_t xoro_rand_next(xoro_rand_t* r)
-{
-    uint64_t res = r->state[0] + r->state[1];
-    xoro_rand_incr(r);
-    return res;
-}
+job_t* parallel_for(
+    job_queue_t* jq,
+    job_t* parent,
+    uint32_t start,
+    uint32_t count,
+    parallel_for_func_t func,
+    void* data,
+    struct SplitConfig* cfg,
+    arena_t* arena);
 
 #endif

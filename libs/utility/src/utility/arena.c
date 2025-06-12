@@ -56,6 +56,7 @@ int arena_new(uint64_t capacity, arena_t* new_arena)
 
     new_arena->end = new_arena->begin ? new_arena->begin + capacity : 0;
     new_arena->offset = 0;
+    mutex_init(&new_arena->mutex);
     return ARENA_SUCCESS;
 }
 
@@ -89,6 +90,14 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
 #endif
     return flags & ARENA_ZERO_MEMORY ? memset((void*)aligned_ptr, 0, count * type_size)
                                      : (void*)aligned_ptr;
+}
+
+void* arena_alloc_with_lock(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags)
+{
+    mutex_lock(&arena->mutex);
+    void* out = arena_alloc(arena, type_size, align, count, flags);
+    mutex_unlock(&arena->mutex);
+    return out;
 }
 
 uint64_t arena_current_size(arena_t* arena) { return (uint64_t)arena->offset; }

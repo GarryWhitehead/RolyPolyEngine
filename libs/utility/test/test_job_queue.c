@@ -2,6 +2,7 @@
 #include "unity_fixture.h"
 #include "utility/arena.h"
 #include "utility/job_queue.h"
+#include "utility/parallel_for.h"
 
 #include <stdatomic.h>
 
@@ -90,4 +91,43 @@ TEST(JobQueueGroup, JobQueue_JobWithChildrenTests)
 
     job_queue_destroy(jq);
     free(jobs);
+}
+
+void test_parallel_for(uint32_t start, uint32_t count, void* data)
+{
+    uint32_t* res = (uint32_t*)data;
+    for (uint32_t i = start; i < start + count; ++i)
+    {
+        res[i] = 1;
+    }
+}
+
+TEST(JobQueueGroup, ParallelFor)
+{
+    arena_t arena;
+    uint64_t arena_cap = 1 << 18;
+    int res = arena_new(arena_cap, &arena);
+    TEST_ASSERT(ARENA_SUCCESS == res);
+
+    int thread_count = 8;
+    job_queue_t* jq = job_queue_init(&arena, thread_count);
+    job_queue_adopt_thread(jq);
+
+    uint32_t count = 10000;
+    uint32_t thread_res[10000] = {0};
+
+    job_t* parent = job_queue_create_job(jq, NULL, NULL, NULL);
+    struct SplitConfig cfg = {.min_count = 64, .max_split = 12};
+    job_t* job = parallel_for(jq, parent, 0, count, test_parallel_for, thread_res, &cfg, &arena);
+
+    job_queue_run_job(jq, job);
+    job_queue_run_and_wait(jq, parent);
+
+    bool success = true;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        success &= thread_res[i] == 1;
+    }
+
+    TEST_ASSERT_TRUE(success);
 }

@@ -51,6 +51,8 @@ set (util_files
     src/utility/sleep.h
     src/utility/benchmark.c
     src/utility/benchmark.h
+    src/utility/parallel_for.c
+    src/utility/parallel_for.h
 )
 
 if (MSVC)
