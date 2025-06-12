@@ -37,6 +37,8 @@
 #include "shadow_manager.h"
 #include "skybox.h"
 
+#include <tracy/TracyC.h>
+
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
 {
     vkapi_driver_t* driver = engine->driver;
@@ -135,6 +137,8 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
 
 bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
 {
+    TracyCZoneN(ctx, "Scene::Update", 1);
+
     assert(scene);
     assert(scene->curr_camera);
 
@@ -337,6 +341,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         scene->objects.size * sizeof(struct DrawData),
         0,
         scene->draw_data);
+
+    TracyCZoneEnd(ctx);
 
     return true;
 }

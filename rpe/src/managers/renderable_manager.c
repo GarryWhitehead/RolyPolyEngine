@@ -36,6 +36,8 @@
 #include <utility/hash.h>
 #include <utility/sort.h>
 
+#include <tracy/TracyC.h>
+
 
 rpe_renderable_t* rpe_renderable_init(arena_t* arena)
 {
@@ -407,6 +409,8 @@ int sort_renderables(void* rend_manager, const void* a, const void* b)
 void rpe_rend_manager_batch_renderables(
     rpe_rend_manager_t* m, arena_dyn_array_t* object_arr, arena_dyn_array_t* batched_renderables)
 {
+    TracyCZoneN(ctx, "RM::BatchRenderables", 1);
+
     assert(m);
 
     dyn_array_clear(batched_renderables);
@@ -452,6 +456,8 @@ void rpe_rend_manager_batch_renderables(
         }
         prev = rend;
     }
+
+    TracyCZoneEnd(ctx);
 }
 
 bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj)

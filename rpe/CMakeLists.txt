@@ -117,6 +117,7 @@ target_link_libraries(
     log.c::log.c
     stb::stb
     Threads::Threads
+    Tracy::TracyClient
 )
 
 add_dependencies(RPE Shaders)

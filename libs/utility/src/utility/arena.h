@@ -178,6 +178,12 @@ void arena_release(arena_t* arena);
         assert((dyn_array)->type_size == sizeof(*_item));                                          \
         dyn_array_append(dyn_array, _item);                                                        \
     })
+#define DYN_ARRAY_APPEND_WITH_LOCK(dyn_array, item)                                                \
+    ({                                                                                             \
+        __auto_type _item = (item);                                                                \
+        assert((dyn_array)->type_size == sizeof(*_item));                                          \
+        dyn_array_append_with_lock(dyn_array, _item);                                              \
+    })
 
 #define DYN_ARRAY_SET(dyn_array, idx, item)                                                        \
     ({                                                                                             \
@@ -187,6 +193,7 @@ void arena_release(arena_t* arena);
     })
 #else
 #define DYN_ARRAY_APPEND(dyn_array, item) dyn_array_append(dyn_array, item);
+#define DYN_ARRAY_APPEND_WITH_LOCK(dyn_array, item) dyn_array_append_with_lock(dyn_array, item);
 
 #define DYN_ARRAY_SET(dyn_array, idx, item) dyn_array_set(dyn_array, idx, item);
 #endif
@@ -196,6 +203,8 @@ void arena_release(arena_t* arena);
 #define DYN_ARRAY_GET_PTR(type, dyn_array, idx) (type*)dyn_array_get(dyn_array, idx)
 
 #define DYN_ARRAY_POP_BACK(type, dyn_array) *(type*)dyn_array_pop_back(dyn_array)
+#define DYN_ARRAY_POP_BACK_WITH_LOCK(type, dyn_array)                                              \
+    *(type*)dyn_array_pop_back_with_lock(dyn_array)
 
 #define DYN_ARRAY_APPEND_CHAR(dyn_array, item)                                                     \
     {                                                                                              \
@@ -247,6 +256,7 @@ void dyn_array_shrink(arena_dyn_array_t* arr, size_t new_sz);
  @returns a pointer to where the item was placed in memory.
  */
 void* dyn_array_append(arena_dyn_array_t* dyn_array, void* item);
+void* dyn_array_append_with_lock(arena_dyn_array_t* arr, void* item);
 
 void dyn_array_resize(arena_dyn_array_t* arr, size_t new_size);
 
@@ -261,6 +271,7 @@ void* dyn_array_get(arena_dyn_array_t* dyn_array, uint32_t idx);
 void* dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item);
 
 void* dyn_array_pop_back(arena_dyn_array_t* arr);
+void* dyn_array_pop_back_with_lock(arena_dyn_array_t* arr);
 
 /**
  Remove an item from the array.
@@ -280,8 +291,6 @@ bool dyn_array_find(arena_dyn_array_t* arr, void* item);
 
 void dyn_array_clear(arena_dyn_array_t* dyn_array);
 
-void dyn_array_clone(arena_dyn_array_t* old, arena_dyn_array_t* cloned);
-
-/* ====================== Pool allocator ========================== */
+size_t dyn_array_size_with_lock(arena_dyn_array_t* dyn_array);
 
 #endif

@@ -175,6 +175,14 @@ void* dyn_array_append(arena_dyn_array_t* arr, void* item)
     return ptr;
 }
 
+void* dyn_array_append_with_lock(arena_dyn_array_t* arr, void* item)
+{
+    mutex_lock(&arr->arena->mutex);
+    void* out = dyn_array_append(arr, item);
+    mutex_unlock(&arr->arena->mutex);
+    return out;
+}
+
 void dyn_array_resize(arena_dyn_array_t* arr, size_t new_size)
 {
     assert(arr);
@@ -289,6 +297,14 @@ void* dyn_array_pop_back(arena_dyn_array_t* arr)
     return out;
 }
 
+void* dyn_array_pop_back_with_lock(arena_dyn_array_t* arr)
+{
+    mutex_lock(&arr->arena->mutex);
+    void* out = dyn_array_pop_back(arr);
+    mutex_unlock(&arr->arena->mutex);
+    return out;
+}
+
 void* dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item)
 {
     assert(idx < arr->size);
@@ -315,12 +331,10 @@ bool dyn_array_find(arena_dyn_array_t* arr, void* item)
 
 void dyn_array_clear(arena_dyn_array_t* dyn_array) { dyn_array->size = 0; }
 
-void dyn_array_clone(arena_dyn_array_t* old, arena_dyn_array_t* cloned)
+size_t dyn_array_size_with_lock(arena_dyn_array_t* dyn_array)
 {
-    cloned->size = old->size;
-    cloned->capacity = old->capacity;
-    cloned->align_size = old->align_size;
-    cloned->arena = old->arena;
-    cloned->data = arena_alloc(old->arena, old->type_size, old->align_size, old->size, 0);
-    memcpy(cloned->data, old->data, old->size * old->type_size);
+    mutex_lock(&dyn_array->arena->mutex);
+    size_t sz = dyn_array->size;
+    mutex_unlock(&dyn_array->arena->mutex);
+    return sz;
 }

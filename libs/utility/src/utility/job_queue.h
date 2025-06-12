@@ -53,9 +53,9 @@ typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) Job
     /// Arguments to pass to the function.
     void* args;
     /// The number of references to this job.
-    atomic_uint_fast16_t ref_count;
+    atomic_int_fast16_t ref_count;
     /// The number of jobs running for this particular job.
-    atomic_uint_fast16_t child_run_count;
+    atomic_int_fast16_t child_run_count;
     /// A index into the job cache which points to the parent of this job. Used for linking jobs to
     /// each other, so multiple jobs can be executed via one job.
     atomic_uint_fast16_t parent;
@@ -83,7 +83,10 @@ typedef struct JobQueue
 {
     /// An array of jobs which are assigned when creating a job.
     job_t* job_cache;
+    /// The number of jobs currently allocated. Used job indices are found in the `free_job_list`
     atomic_int job_count;
+    /// Job indices that have complete and can be re-used.
+    arena_dyn_array_t free_job_list;
     /// Main thread state cache array.
     thread_info_t thread_states[JOB_QUEUE_MAX_THREAD_COUNT];
     /// The number of threads this job queue is running. Doesn't include adopted threads.

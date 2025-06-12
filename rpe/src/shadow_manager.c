@@ -31,6 +31,8 @@
 
 #include <utility/arena.h>
 
+#include <tracy/TracyC.h>
+
 rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings)
 {
     assert(settings.cascade_count <= RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT);
@@ -166,6 +168,8 @@ void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t
 void rpe_shadow_manager_compute_csm_splits(
     rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera)
 {
+    TracyCZoneN(ctx, "SM::CsmSplits", 1);
+
     float clip_range = camera->z - camera->n;
     float min_z = camera->n;
     float max_z = camera->n + clip_range;
@@ -180,6 +184,8 @@ void rpe_shadow_manager_compute_csm_splits(
         float C = m->settings.split_lambda * (log_c - uniform) + uniform;
         scene->cascade_offsets[i] = (C - min_z) / clip_range;
     }
+
+    TracyCZoneEnd(ctx);
 }
 
 void update_projections_runner(void* data)

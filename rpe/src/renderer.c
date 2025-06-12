@@ -46,6 +46,8 @@
 #include <vulkan-api/resource_cache.h>
 #include <vulkan-api/sampler_cache.h>
 
+#include <tracy/TracyC.h>
+
 rpe_render_target_t rpe_render_target_init()
 {
     rpe_render_target_t rt = {0};
@@ -294,6 +296,8 @@ void rpe_renderer_render_single_indexed(
 
 void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap)
 {
+    TracyCZoneN(ctx, "Renderer::Render", 1);
+
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
     rpe_settings_t settings = engine->settings;
@@ -379,4 +383,6 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     //#endif
 
     rg_execute(rdr->rg, rdr->engine->driver, engine);
+
+    TracyCZoneEnd(ctx);
 }

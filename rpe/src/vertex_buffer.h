@@ -30,8 +30,8 @@
 #include <stdint.h>
 #include <vulkan-api/resource_cache.h>
 
-#define RPE_VERTEX_GPU_BUFFER_SIZE (1 << 20)
-#define RPE_INDEX_GPU_BUFFER_SIZE (1 << 20)
+#define RPE_VERTEX_GPU_BUFFER_SIZE (1 << 15)
+#define RPE_INDEX_GPU_BUFFER_SIZE (1 << 15)
 
 typedef struct VkApiStageInstance vkapi_staging_instance_t;
 typedef struct VkApiBuffer vkapi_buffer_t;

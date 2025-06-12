@@ -58,6 +58,7 @@ find_package(Ktx REQUIRED)
 find_package(volk REQUIRED)
 find_package(parg REQUIRED)
 find_package(nuklear REQUIRED)
+find_package(Tracy REQUIRED)
 
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)

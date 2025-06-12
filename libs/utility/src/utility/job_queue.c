@@ -98,14 +98,15 @@ bool _exit_requested(thread_info_t* info)
     return atomic_load_explicit(&info->job_queue->exit_thread, memory_order_relaxed);
 }
 
-void _decrement_ref(job_t* job)
+void _decrement_ref(job_queue_t* jq, job_t* job)
 {
     assert(job);
-    atomic_uint_fast16_t count =
+    atomic_int_fast16_t count =
         atomic_fetch_sub_explicit(&job->ref_count, 1, memory_order_acq_rel);
     assert(count > 0);
     if (count == 1)
     {
+        DYN_ARRAY_APPEND_WITH_LOCK(&jq->free_job_list, &job->idx);
         job = NULL;
     }
 }
@@ -238,7 +239,7 @@ void _thread_finish(thread_info_t* info, job_t* job)
         // We need to see the child run count from other threads, hence the acquire barrier. We
         // also want to publish the new count to other threads, so we also use a release
         // barrier.
-        atomic_uint_fast16_t count =
+        atomic_int_fast16_t count =
             atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel);
         assert(count > 0);
         if (count == 1)
@@ -246,7 +247,7 @@ void _thread_finish(thread_info_t* info, job_t* job)
             job_t* parent_job = job->parent == UINT16_MAX
                 ? NULL
                 : &info->job_queue->job_cache[job->parent];
-            _decrement_ref(job);
+            _decrement_ref(info->job_queue, job);
             job = parent_job;
             wake_threads = true;
         }
@@ -333,6 +334,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads)
     mutex_init(&jq->wait_mutex);
     condition_init(&jq->wait_cond);
 
+    MAKE_DYN_ARRAY(uint32_t, arena, 1000, &jq->free_job_list);
     jq->job_cache = ARENA_MAKE_ZERO_ARRAY(arena, job_t, JOB_QUEUE_MAX_JOB_COUNT);
 
     for (uint32_t i = 0; i < jq->thread_count; ++i)
@@ -351,15 +353,26 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
 {
     assert(jq);
 
-    atomic_int jc = atomic_fetch_add_explicit(&jq->job_count, 1, memory_order_relaxed);
-    assert(jc < JOB_QUEUE_MAX_JOB_COUNT);
+    int job_idx;
+    // The job free list is appended from multiple threads so lock when retrieving the size.
+    size_t sz = dyn_array_size_with_lock(&jq->free_job_list);
+    if (!sz)
+    {
+        atomic_int jc = atomic_fetch_add_explicit(&jq->job_count, 1, memory_order_relaxed);
+        assert(jc < JOB_QUEUE_MAX_JOB_COUNT);
+        job_idx = jc;
+    }
+    else
+    {
+        job_idx = DYN_ARRAY_POP_BACK_WITH_LOCK(uint32_t, &jq->free_job_list);
+    }
 
-    job_t* job = &jq->job_cache[jc];
+    job_t* job = &jq->job_cache[job_idx];
     job->func = func;
     job->args = args;
     job->ref_count = 1;
     job->child_run_count = 1;
-    job->idx = jc;
+    job->idx = job_idx;
     job->parent = UINT16_MAX;
     if (parent)
     {
@@ -415,9 +428,6 @@ void job_queue_run_ref_job(job_queue_t* jq, job_t* job)
 void job_queue_run_and_wait(job_queue_t* jq, job_t* job)
 {
     assert(job);
-
-    job_t* retain_job = job;
-    atomic_fetch_add_explicit(&retain_job->ref_count, 1, memory_order_relaxed);
     job_queue_run_ref_job(jq, job);
     job_queue_wait_and_release(jq, job);
 }
@@ -450,7 +460,7 @@ void job_queue_wait_and_release(job_queue_t* jq, job_t* job)
         }
     } while (!_job_completed(job) && !_exit_requested(*info));
 
-    _decrement_ref(job);
+    _decrement_ref(jq, job);
 }
 
 void job_queue_adopt_thread(job_queue_t* jq)
