@@ -142,7 +142,7 @@ typedef union Quat
 
 // ============================== Utility functions ===================================== **/
 
-static inline float math_to_radians(float deg) { return deg * 2.0f * (float)M_PI / 360.0f; }
+static inline float math_to_radians(float deg) { return deg * (float)M_PI / 180.0f; }
 
 /** ================================ Vector functions ==================================== **/
 
@@ -451,6 +451,12 @@ static inline math_vec3f math_vec3f_normalise(math_vec3f a)
 static inline math_vec4f math_vec4f_normalise(math_vec4f a)
 {
     return math_vec4f_div_sca(a, math_vec4f_norm(a));
+}
+
+/** Convenience functions **/
+static inline math_vec3f math_vec3f_from_vec4(math_vec4f a)
+{
+    return math_vec3f_init(a.x, a.y, a.z);
 }
 
 /** ==================================== Matrix functions ==================================== **/

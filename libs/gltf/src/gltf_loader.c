@@ -311,7 +311,11 @@ rpe_material_t* create_material_instance(cgltf_material* mat, gltf_asset_t* asse
 }
 
 bool create_mesh_instance(
-    cgltf_mesh* mesh, gltf_asset_t* asset, rpe_object_t* transform_obj, arena_t* arena)
+    cgltf_mesh* mesh,
+    cgltf_node* node,
+    gltf_asset_t* asset,
+    rpe_object_t* transform_obj,
+    arena_t* arena)
 {
     assert(mesh);
 
@@ -344,7 +348,7 @@ bool create_mesh_instance(
         uint8_t* weights_base = NULL;
         uint8_t* joints_base = NULL;
 
-        math_vec3f min, max;
+        rpe_aabox_t box = rpe_aabox_init();
 
         size_t pos_stride, norm_stride, uv_stride, weights_stride, joints_stride, col_stride,
             tangent_stride;
@@ -363,12 +367,10 @@ bool create_mesh_instance(
                 // The spec states that the position attribute must contain min/max values.
                 float* minp = &attrib->data->min[0];
                 float* maxp = &attrib->data->max[0];
-                min.x = minp[0];
-                min.y = minp[1];
-                min.z = minp[2];
-                max.x = maxp[0];
-                max.y = maxp[1];
-                max.z = maxp[2];
+                math_vec3f min = math_vec3f_init(minp[0], minp[1], minp[2]);
+                math_vec3f max = math_vec3f_init(maxp[0], maxp[1], maxp[2]);
+                box.min = math_vec3f_min(box.min, min);
+                box.max = math_vec3f_max(box.max, max);
             }
             else if (attrib->type == cgltf_attribute_type_normal)
             {
@@ -483,9 +485,16 @@ bool create_mesh_instance(
         rpe_renderable_t* renderable =
             rpe_engine_create_renderable(asset->engine, mesh_mat, new_mesh);
 
-        rpe_renderable_set_min_max_dimensions(renderable, min, max);
-        asset->aabbox.min = math_vec3f_min(asset->aabbox.min, min);
-        asset->aabbox.max = math_vec3f_max(asset->aabbox.max, max);
+        math_mat4f world_transform;
+        cgltf_node_transform_world(node, &world_transform.data[0][0]);
+
+        rpe_aabox_calc_rigid_transform(
+            &box,
+            math_mat4f_to_rotation_matrix(world_transform),
+            math_mat4f_translation_vec(world_transform));
+        rpe_renderable_set_min_max_dimensions(renderable, box.min, box.max);
+        asset->aabbox.min = math_vec3f_min(asset->aabbox.min, box.min);
+        asset->aabbox.max = math_vec3f_max(asset->aabbox.max, box.max);
 
         // Add the renderable to the manager all with the same transform.
         rpe_object_t mesh_obj =
@@ -585,7 +594,7 @@ bool gltf_node_create_node_hierachy_recursive( // NOLINT
 
     if (node->mesh)
     {
-        if (!create_mesh_instance(node->mesh, asset, obj_p, arena))
+        if (!create_mesh_instance(node->mesh, node, asset, obj_p, arena))
         {
             return false;
         }

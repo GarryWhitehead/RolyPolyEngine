@@ -398,6 +398,8 @@ void update_nk_draw_calls(
         // window. To achieve this and get round the batching, each ui renderable is placed on a
         // different layer. This does mean more draw calls, but this is unavoidable.
         rpe_renderable_set_view_layer(rend, current_layer);
+        // Pointless doing frustum culling on UI objects.
+        rpe_renderable_disbale_frustum_culling(rend);
 
         rpe_rend_manager_add(rm, rend, nk->rend_objs[idx], nk->transform_obj);
         rpe_scene_add_object(nk->scene, nk->rend_objs[idx]);

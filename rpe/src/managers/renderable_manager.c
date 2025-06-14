@@ -45,6 +45,8 @@ rpe_renderable_t* rpe_renderable_init(arena_t* arena)
     rend->sort_key = UINT32_MAX;
     rend->box = rpe_aabox_init();
     rend->view_layer = 0x2;
+    // Frustum culling is enabled by default.
+    rend->perform_cull_test = true;
     return rend;
 }
 
@@ -105,6 +107,12 @@ void rpe_renderable_set_view_layer(rpe_renderable_t* r, uint8_t layer)
         return;
     }
     r->view_layer = layer;
+}
+
+void rpe_renderable_disbale_frustum_culling(rpe_renderable_t* r)
+{
+    assert(r);
+    r->perform_cull_test = false;
 }
 
 rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena)

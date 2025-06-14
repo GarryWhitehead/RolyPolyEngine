@@ -10,6 +10,7 @@ struct IndexedIndirectCommand
     uint objectId;
     uint batchId;
     bool shadowCaster;
+    bool perform_cull_test;
 };
 
 struct Instance
@@ -93,9 +94,9 @@ bool checkIntersection(vec4 center, vec4 extent)
     int visible = 1;
     for (uint i = 0; i < 6; ++i)
     {
-        float d = camera_ubo.fustrums[i].x * center.x - abs(camera_ubo.fustrums[i].x) * extent.x +
-                  camera_ubo.fustrums[i].y * center.y - abs(camera_ubo.fustrums[i].y) * extent.y +
-                  camera_ubo.fustrums[i].z * center.z - abs(camera_ubo.fustrums[i].z) * extent.z + 
+        float d = abs(camera_ubo.fustrums[i].x) * extent.x - camera_ubo.fustrums[i].x * center.x +
+                  abs(camera_ubo.fustrums[i].y) * extent.y - camera_ubo.fustrums[i].y * center.y +
+                  abs(camera_ubo.fustrums[i].z) * extent.z - camera_ubo.fustrums[i].z * center.z + 
                   camera_ubo.fustrums[i].w;
 
        visible = d <= 0.0 ? visible & 1 : visible & 0;
@@ -114,7 +115,7 @@ void main()
     Instance i = instances[threadIdx];
     IndexedIndirectCommand indirectCmd = inputIndirectCmds[threadIdx];
 
-    bool isVis = true; //checkIntersection(i.center, i.extent);
+    bool isVis = indirectCmd.perform_cull_test ? checkIntersection(i.center, i.extent) : true;
     if (isVis)
     {
         // FIXME: The batching isn't correct here - different batches are at the moment placed 

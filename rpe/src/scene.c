@@ -207,6 +207,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
                     rpe_comp_manager_get_obj_idx(tm->comp_manager, rend->transform_obj);
                 draw.batch_id = i;
                 draw.shadow_caster = rend->material->shadow_caster;
+                draw.perform_cull_test = rend->perform_cull_test;
                 DYN_ARRAY_APPEND(&indirect_draws, &draw);
 
                 // The draw data is the per-material instance - different texture samplers can be
@@ -355,18 +356,24 @@ void rpe_scene_upload_extents(
     assert(rm);
     assert(tm);
 
+    size_t renderable_count = 0;
     for (size_t i = 0; i < scene->objects.size; ++i)
     {
         rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, i);
         if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
         {
+            ++renderable_count;
             rpe_renderable_t* rend = rpe_rend_manager_get_mesh(rm, obj);
+            if (!rend->perform_cull_test)
+            {
+                continue;
+            }
+
             rpe_transform_node_t* transform =
                 rpe_transform_manager_get_node(tm, rend->transform_obj);
 
             rpe_rend_extents_t* t = &scene->rend_extents[i];
-            math_mat4f model_world =
-                math_mat4f_mul(transform->world_transform, transform->local_transform);
+            math_mat4f model_world = transform->world_transform;
 
             rpe_aabox_t box = {.min = rend->box.min, .max = rend->box.max};
             rpe_aabox_t world_box = rpe_aabox_calc_rigid_transform(
@@ -375,13 +382,14 @@ void rpe_scene_upload_extents(
                 math_mat4f_translation_vec(model_world));
             t->extent = math_vec4f_init_vec3(rpe_aabox_get_half_extent(&world_box), 0.0f);
             t->center = math_vec4f_init_vec3(rpe_aabox_get_center(&world_box), 0.0f);
+            printf("extent = %f, %f, %f; center = %f, %f, %f\n", t->extent.x, t->extent.y, t->extent.z, t->center.x, t->center.y, t->center.z);
         }
     }
 
     vkapi_driver_map_gpu_buffer(
         engine->driver,
         scene->extents_buffer,
-        scene->objects.size * sizeof(rpe_rend_extents_t),
+        renderable_count * sizeof(rpe_rend_extents_t),
         0,
         scene->rend_extents);
 }

@@ -171,9 +171,18 @@ void rpe_rend_manager_copy(
 rpe_valloc_handle rpe_rend_manager_alloc_vertex_buffer(rpe_rend_manager_t* m, uint32_t vertex_size);
 rpe_valloc_handle rpe_rend_manager_alloc_index_buffer(rpe_rend_manager_t* m, uint32_t index_size);
 
+bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj);
+
+rpe_object_t rpe_rend_manager_get_transform(rpe_rend_manager_t* rm, rpe_object_t rend_obj);
+
+/****** Renderable functions *************/
+
 void rpe_renderable_set_box(rpe_renderable_t* r, rpe_aabox_t* box);
+
 void rpe_renderable_set_min_max_dimensions(rpe_renderable_t* r, math_vec3f min, math_vec3f max);
+
 void rpe_renderable_set_scissor(rpe_renderable_t* r, int32_t x, int32_t y, uint32_t w, uint32_t h);
+
 void rpe_renderable_set_viewport(
     rpe_renderable_t* r,
     int32_t x,
@@ -182,10 +191,10 @@ void rpe_renderable_set_viewport(
     uint32_t h,
     float min_depth,
     float max_depth);
+
 void rpe_renderable_set_view_layer(rpe_renderable_t* r, uint8_t layer);
 
-bool rpe_rend_manager_has_obj(rpe_rend_manager_t* m, rpe_object_t* obj);
-
-rpe_object_t rpe_rend_manager_get_transform(rpe_rend_manager_t* rm, rpe_object_t rend_obj);
+/// Frustum culling is enabled by default. This disables the check so the renderable will always be drawn.
+void rpe_renderable_disbale_frustum_culling(rpe_renderable_t* r);
 
 #endif
