@@ -33,10 +33,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <tracy/TracyC.h>
 #include <utility/hash.h>
 #include <utility/sort.h>
-
-#include <tracy/TracyC.h>
 
 
 rpe_renderable_t* rpe_renderable_init(arena_t* arena)
@@ -390,17 +389,15 @@ rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t*
 }
 
 #ifdef __linux__
-int sort_renderables(const void* a, const void* b, void* rend_manager)
+int sort_renderables(const void* a, const void* b, void*)
 #elif WIN32
 int sort_renderables(void* rend_manager, const void* a, const void* b)
 #endif
 {
-    assert(rend_manager);
-    rpe_object_t* a_obj = (rpe_object_t*)a;
-    rpe_object_t* b_obj = (rpe_object_t*)b;
-    rpe_rend_manager_t* rm = (rpe_rend_manager_t*)rend_manager;
-    rpe_renderable_t* a_rend = rpe_rend_manager_get_mesh(rm, a_obj);
-    rpe_renderable_t* b_rend = rpe_rend_manager_get_mesh(rm, b_obj);
+    struct RenderableInstance* a_instance = (struct RenderableInstance*)a;
+    struct RenderableInstance* b_instance = (struct RenderableInstance*)b;
+    rpe_renderable_t* a_rend = a_instance->rend;
+    rpe_renderable_t* b_rend = b_instance->rend;
     assert(a_rend->sort_key != UINT64_MAX);
     assert(b_rend->sort_key != UINT64_MAX);
     if (a_rend->sort_key > b_rend->sort_key)
@@ -415,22 +412,24 @@ int sort_renderables(void* rend_manager, const void* a, const void* b)
 }
 
 void rpe_rend_manager_batch_renderables(
-    rpe_rend_manager_t* m, arena_dyn_array_t* object_arr, arena_dyn_array_t* batched_renderables)
+    rpe_rend_manager_t* m,
+    struct RenderableInstance* instances,
+    size_t count,
+    arena_dyn_array_t* batched_renderables)
 {
     TracyCZoneN(ctx, "RM::BatchRenderables", 1);
 
     assert(m);
 
     dyn_array_clear(batched_renderables);
-    if (!object_arr->size)
+    if (!count)
     {
         return;
     }
 
-    QSORT_RS(object_arr->data, object_arr->size, sizeof(rpe_object_t), sort_renderables, (void*)m);
+    QSORT_RS(instances, count, sizeof(struct RenderableInstance), sort_renderables, NULL);
 
-    rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, object_arr, 0);
-    rpe_renderable_t* rend = rpe_rend_manager_get_mesh(m, obj);
+    rpe_renderable_t* rend = instances[0].rend;
     rpe_batch_renderable_t batch = {
         .material = rend->material,
         .first_idx = 0,
@@ -441,10 +440,9 @@ void rpe_rend_manager_batch_renderables(
     rpe_batch_renderable_t* curr_batch = DYN_ARRAY_APPEND(batched_renderables, &batch);
     rpe_renderable_t* prev = rend;
 
-    for (size_t i = 1; i < object_arr->size; ++i)
+    for (size_t i = 1; i < count; ++i)
     {
-        obj = DYN_ARRAY_GET_PTR(rpe_object_t, object_arr, i);
-        rend = rpe_rend_manager_get_mesh(m, obj);
+        rend = instances[i].rend;
 
         if (rend->sort_key == prev->sort_key)
         {

@@ -38,6 +38,8 @@
 #include "skybox.h"
 
 #include <tracy/TracyC.h>
+#include <utility/job_queue.h>
+#include <utility/parallel_for.h>
 
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena)
 {
@@ -167,13 +169,40 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
 
     rpe_transform_manager_update_ssbo(tm);
 
+    arena_dyn_array_t renderables;
+    MAKE_DYN_ARRAY(struct RenderableInstance, &engine->frame_arena, 200, &renderables);
+    // Segregate the renderables, lights, etc. from the scenes objects into their own lists, this
+    // is required mainly so we don't have races when running updates on multiple threads.
+    for (size_t i = 0; i < scene->objects.size; ++i)
+    {
+        rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, i);
+        if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
+        {
+            rpe_renderable_t* r = rpe_rend_manager_get_mesh(rm, obj);
+            rpe_transform_node_t* transform =
+                rpe_transform_manager_get_node(tm, r->transform_obj);
+            struct RenderableInstance instance = {.rend = r, .transform = transform};
+            DYN_ARRAY_APPEND(&renderables, &instance);
+        }
+        // Check for lights, transforms here.
+    }
+
     if (scene->is_dirty)
     {
-        rpe_rend_manager_batch_renderables(rm, &scene->objects, &scene->batched_draw_cache);
+        rpe_rend_manager_batch_renderables(
+            rm, renderables.data, renderables.size, &scene->batched_draw_cache);
         scene->is_dirty = false;
     }
 
-    rpe_scene_upload_extents(scene, engine, rm, tm);
+    job_t* parent = job_queue_create_parent_job(engine->job_queue);
+    struct UploadExtentsEntry entry = {
+        .scene = scene,
+        .engine = engine,
+        .rm = rm,
+        .tm = tm,
+        .instances = renderables.data,
+        .count = renderables.size};
+    rpe_scene_compute_model_extents(&entry, parent);
 
     arena_dyn_array_t indirect_draws;
     MAKE_DYN_ARRAY(struct IndirectDraw, &engine->frame_arena, 100, &indirect_draws);
@@ -194,28 +223,24 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         rpe_batch_renderable_t* batch = DYN_ARRAY_GET_PTR(rpe_batch_renderable_t, batched_draws, i);
         for (size_t j = batch->first_idx; j < batch->first_idx + batch->count; ++j)
         {
-            rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, j);
-            if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
-            {
-                rpe_renderable_t* rend = rpe_rend_manager_get_mesh(rm, obj);
+            struct RenderableInstance* instance = DYN_ARRAY_GET_PTR(struct RenderableInstance, &renderables, j);
+            rpe_renderable_t* rend = instance->rend;
 
-                struct IndirectDraw draw = {0};
-                draw.indirect_cmd.firstIndex = rend->mesh_data->index_offset;
-                draw.indirect_cmd.indexCount = rend->mesh_data->index_count;
-                draw.indirect_cmd.vertexOffset = (int32_t)rend->mesh_data->vertex_offset;
-                draw.object_id =
-                    rpe_comp_manager_get_obj_idx(tm->comp_manager, rend->transform_obj);
-                draw.batch_id = i;
-                draw.shadow_caster = rend->material->shadow_caster;
-                draw.perform_cull_test = rend->perform_cull_test;
-                DYN_ARRAY_APPEND(&indirect_draws, &draw);
+            struct IndirectDraw draw = {0};
+            draw.indirect_cmd.firstIndex = rend->mesh_data->index_offset;
+            draw.indirect_cmd.indexCount = rend->mesh_data->index_count;
+            draw.indirect_cmd.vertexOffset = (int32_t)rend->mesh_data->vertex_offset;
+            draw.object_id = rpe_comp_manager_get_obj_idx(tm->comp_manager, rend->transform_obj);
+            draw.batch_id = i;
+            draw.shadow_caster = rend->material->shadow_caster;
+            draw.perform_cull_test = rend->perform_cull_test;
+            DYN_ARRAY_APPEND(&indirect_draws, &draw);
 
-                // The draw data is the per-material instance - different texture samplers can be
-                // used without having to re-bind descriptors as we are using bindless samplers.
-                scene->draw_data[j] = rend->material->material_draw_data;
-                // These specialisation constants are set by the scene.
-                rend->material->material_consts.has_lighting = !scene->skip_lighting_pass;
-            }
+            // The draw data is the per-material instance - different texture samplers can be
+            // used without having to re-bind descriptors as we are using bindless samplers.
+            scene->draw_data[j] = rend->material->material_draw_data;
+            // These specialisation constants are set by the scene.
+            rend->material->material_consts.has_lighting = !scene->skip_lighting_pass;
         }
 
         {
@@ -326,6 +351,10 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     vkapi_driver_clear_gpu_buffer(driver, cmds, scene->shadow_draw_count_handle);
     vkapi_driver_clear_gpu_buffer(driver, cmds, scene->total_draw_handle);
 
+    // Ensure the model extent jobs are complete and data uploaded to the device before executing
+    // the compute.
+    rpe_scene_sync_and_upload_extents(scene, engine, renderables.size, parent);
+
     // Update the renderable extents buffer on the GPU and dispatch the culling compute shader.
     vkapi_driver_dispatch_compute(
         driver, scene->cull_compute->bundle, scene->objects.size / 128 + 1, 1, 1);
@@ -348,43 +377,60 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     return true;
 }
 
-void rpe_scene_upload_extents(
-    rpe_scene_t* scene, rpe_engine_t* engine, rpe_rend_manager_t* rm, rpe_transform_manager_t* tm)
+void rpe_scene_compute_model_extents_runner(uint32_t start, uint32_t count, void* data)
 {
-    assert(scene);
-    assert(engine);
-    assert(rm);
-    assert(tm);
+    assert(data);
+    struct UploadExtentsEntry* entry = (struct UploadExtentsEntry*)data;
+    assert(entry->scene);
+    assert(entry->engine);
+    assert(entry->rm);
+    assert(entry->tm);
 
-    size_t renderable_count = 0;
-    for (size_t i = 0; i < scene->objects.size; ++i)
+    for (size_t i = start; i < start + count; ++i)
     {
-        rpe_object_t* obj = DYN_ARRAY_GET_PTR(rpe_object_t, &scene->objects, i);
-        if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
+        struct RenderableInstance instance = entry->instances[i];
+        rpe_renderable_t* rend = instance.rend;
+
+        if (!rend->perform_cull_test)
         {
-            ++renderable_count;
-            rpe_renderable_t* rend = rpe_rend_manager_get_mesh(rm, obj);
-            if (!rend->perform_cull_test)
-            {
-                continue;
-            }
-
-            rpe_transform_node_t* transform =
-                rpe_transform_manager_get_node(tm, rend->transform_obj);
-
-            rpe_rend_extents_t* t = &scene->rend_extents[i];
-            math_mat4f model_world = transform->world_transform;
-
-            rpe_aabox_t box = {.min = rend->box.min, .max = rend->box.max};
-            rpe_aabox_t world_box = rpe_aabox_calc_rigid_transform(
-                &box,
-                math_mat4f_to_rotation_matrix(model_world),
-                math_mat4f_translation_vec(model_world));
-            t->extent = math_vec4f_init_vec3(rpe_aabox_get_half_extent(&world_box), 0.0f);
-            t->center = math_vec4f_init_vec3(rpe_aabox_get_center(&world_box), 0.0f);
-            printf("extent = %f, %f, %f; center = %f, %f, %f\n", t->extent.x, t->extent.y, t->extent.z, t->center.x, t->center.y, t->center.z);
+            continue;
         }
+
+        rpe_rend_extents_t* t = &entry->scene->rend_extents[i];
+        math_mat4f model_world = instance.transform->world_transform;
+
+        rpe_aabox_t box = {.min = rend->box.min, .max = rend->box.max};
+        rpe_aabox_t world_box = rpe_aabox_calc_rigid_transform(
+            &box,
+            math_mat4f_to_rotation_matrix(model_world),
+            math_mat4f_translation_vec(model_world));
+        t->extent = math_vec4f_init_vec3(rpe_aabox_get_half_extent(&world_box), 0.0f);
+        t->center = math_vec4f_init_vec3(rpe_aabox_get_center(&world_box), 0.0f);
     }
+}
+
+void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* parent)
+{
+    size_t count = entry->count;
+    struct SplitConfig cfg = {.min_count = 64, .max_split = 12};
+    job_t* job = parallel_for(
+        entry->engine->job_queue,
+        parent,
+        0,
+        count,
+        rpe_scene_compute_model_extents_runner,
+        entry,
+        &cfg,
+        &entry->engine->scratch_arena);
+    job_queue_run_job(entry->engine->job_queue, job);
+}
+
+void rpe_scene_sync_and_upload_extents(
+    rpe_scene_t* scene, rpe_engine_t* engine, size_t renderable_count, job_t* parent)
+{
+    // Ensure all model extent jobs have finished running before uploading.
+    job_queue_run_and_wait(engine->job_queue, parent);
+    arena_reset(&engine->scratch_arena);
 
     vkapi_driver_map_gpu_buffer(
         engine->driver,

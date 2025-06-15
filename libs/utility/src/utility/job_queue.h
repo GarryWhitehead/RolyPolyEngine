@@ -131,6 +131,12 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads);
 job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t* parent);
 
 /**
+  Create a parent job.
+  Note: Don't use the same parent job for subsequent runs. Instead create a new parent each time.
+  */
+job_t* job_queue_create_parent_job(job_queue_t* jq);
+
+/**
  Destroy the specified job queue. This terminates all running thread pools.
  @param jq A pointer to the job qeuue.
  */

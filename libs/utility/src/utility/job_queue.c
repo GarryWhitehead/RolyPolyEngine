@@ -384,6 +384,12 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
     return job;
 }
 
+job_t* job_queue_create_parent_job(job_queue_t* jq)
+{
+    assert(jq);
+    return job_queue_create_job(jq, NULL, NULL, NULL);
+}
+
 void job_queue_destroy(job_queue_t* jq)
 {
     atomic_store(&jq->exit_thread, true);

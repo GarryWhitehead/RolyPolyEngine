@@ -296,7 +296,7 @@ void rpe_shadow_manager_update_projections(
     rpe_light_manager_t* lm)
 {
     job_queue_t* jq = engine->job_queue;
-    sm->parent_job = job_queue_create_job(engine->job_queue, NULL, NULL, NULL);
+    sm->parent_job = job_queue_create_parent_job(engine->job_queue);
 
     for (int i = 0; i < sm->settings.cascade_count; ++i)
     {

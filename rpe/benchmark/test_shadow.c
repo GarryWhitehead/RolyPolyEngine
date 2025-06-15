@@ -30,7 +30,7 @@ void BM_test_shadow_cascade_gen(bm_run_state_t* state)
 
 BENCHMARK_ARG3(BM_test_shadow_cascade_gen, 2, 5, 8)
 
-void BM_test_shadow_update_projection(bm_run_state_t* state)
+/*void BM_test_shadow_update_projection(bm_run_state_t* state)
 {
     log_set_quiet(true);
     int64_t cascade_count = state->arg;
@@ -61,9 +61,10 @@ void BM_test_shadow_update_projection(bm_run_state_t* state)
     while (bm_state_set_running(state))
     {
         rpe_shadow_manager_update_projections(sm, &camera, &scene, engine, lm);
+        rpe_shadow_manager_sync_update(sm, engine);
     }
 }
 
-BENCHMARK_ARG3(BM_test_shadow_update_projection, 2, 5, 8);
+BENCHMARK_ARG3(BM_test_shadow_update_projection, 2, 5, 8);*/
 
 BENCHMARK_MAIN()

@@ -49,6 +49,7 @@ typedef struct RenderableManager rpe_rend_manager_t;
 typedef struct TransformManager rpe_transform_manager_t;
 typedef struct Ibl ibl_t;
 typedef struct Skybox rpe_skybox_t;
+typedef struct TransformNode rpe_transform_node_t;
 
 struct DrawData;
 
@@ -57,6 +58,12 @@ typedef struct RenderableExtents
     math_vec4f center;
     math_vec4f extent;
 } rpe_rend_extents_t;
+
+typedef struct RenderableInstance
+{
+    rpe_renderable_t* rend;
+    rpe_transform_node_t* transform;
+};
 
 typedef struct SceneUbo
 {
@@ -117,11 +124,22 @@ typedef struct Scene
 
 } rpe_scene_t;
 
+struct UploadExtentsEntry
+{
+    rpe_scene_t* scene;
+    rpe_engine_t* engine;
+    rpe_rend_manager_t* rm;
+    rpe_transform_manager_t* tm;
+    struct RenderableInstance* instances;
+    size_t count;
+};
+
 rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena);
 
 bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine);
 
-void rpe_scene_upload_extents(
-    rpe_scene_t* scene, rpe_engine_t* engine, rpe_rend_manager_t* rm, rpe_transform_manager_t* tm);
+void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* parent);
+
+void rpe_scene_sync_and_upload_extents(rpe_scene_t* scene, rpe_engine_t* engine, size_t renderable_count, job_t* parent);
 
 #endif
