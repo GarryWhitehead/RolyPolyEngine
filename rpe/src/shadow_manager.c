@@ -29,9 +29,8 @@
 #include "material.h"
 #include "scene.h"
 
-#include <utility/arena.h>
-
 #include <tracy/TracyC.h>
+#include <utility/arena.h>
 
 rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings)
 {

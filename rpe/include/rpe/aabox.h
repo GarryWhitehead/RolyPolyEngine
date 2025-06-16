@@ -79,7 +79,8 @@ rpe_aabox_calc_rigid_transform(rpe_aabox_t* box, math_mat3f rot, math_vec3f t)
 
 static inline rpe_aabox_t rpe_aabox_translate_to(math_vec3f trans, math_vec3f half_extent)
 {
-    rpe_aabox_t out = {.min = math_vec3f_sub(trans, half_extent), .max = math_vec3f_add(trans, half_extent)};
+    rpe_aabox_t out = {
+        .min = math_vec3f_sub(trans, half_extent), .max = math_vec3f_add(trans, half_extent)};
     return out;
 }
 

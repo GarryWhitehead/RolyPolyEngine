@@ -26,8 +26,8 @@
 #include "rpe/settings.h"
 
 #include <stdint.h>
-#include <utility/maths.h>
 #include <utility/job_queue.h>
+#include <utility/maths.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/resource_cache.h>
 
@@ -95,7 +95,8 @@ void rpe_shadow_manager_update_projections(
 void rpe_shadow_manager_sync_update(rpe_shadow_manager_t* m, rpe_engine_t* engine);
 
 // Make sure this is called after updating the projections (see above).
-void rpe_shadow_manager_upload_projections(rpe_shadow_manager_t* m, rpe_engine_t* engine, rpe_scene_t* scene);
+void rpe_shadow_manager_upload_projections(
+    rpe_shadow_manager_t* m, rpe_engine_t* engine, rpe_scene_t* scene);
 
 void rpe_shadow_manager_compute_csm_splits(
     rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera);

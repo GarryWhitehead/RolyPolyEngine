@@ -41,12 +41,11 @@
 #include <backend/convert_to_vk.h>
 #include <backend/objects.h>
 #include <string.h>
+#include <tracy/TracyC.h>
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
 #include <vulkan-api/sampler_cache.h>
-
-#include <tracy/TracyC.h>
 
 rpe_render_target_t rpe_render_target_init()
 {

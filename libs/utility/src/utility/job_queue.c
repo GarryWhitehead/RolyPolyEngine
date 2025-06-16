@@ -89,7 +89,8 @@ bool _active_jobs(job_queue_t* jq)
 
 bool _job_completed(job_t* job)
 {
-    int count = atomic_load_explicit(&job->child_run_count, memory_order_acquire) & JOB_QUEUE_JOB_COUNT_MASK;
+    int count = atomic_load_explicit(&job->child_run_count, memory_order_acquire) &
+        JOB_QUEUE_JOB_COUNT_MASK;
     return count <= 0;
 }
 
@@ -101,8 +102,7 @@ bool _exit_requested(thread_info_t* info)
 void _decrement_ref(job_queue_t* jq, job_t* job)
 {
     assert(job);
-    atomic_int_fast16_t count =
-        atomic_fetch_sub_explicit(&job->ref_count, 1, memory_order_acq_rel);
+    atomic_int_fast16_t count = atomic_fetch_sub_explicit(&job->ref_count, 1, memory_order_acq_rel);
     assert(count > 0);
     if (count == 1)
     {
@@ -223,13 +223,13 @@ void _thread_finish(thread_info_t* info, job_t* job)
         // also want to publish the new count to other threads, so we also use a release
         // barrier.
         atomic_int_fast16_t count =
-            atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel) & JOB_QUEUE_JOB_COUNT_MASK;
+            atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel) &
+            JOB_QUEUE_JOB_COUNT_MASK;
         assert(count > 0);
         if (count == 1)
         {
-            job_t* parent_job = job->parent == UINT16_MAX
-                ? NULL
-                : &info->job_queue->job_cache[job->parent];
+            job_t* parent_job =
+                job->parent == UINT16_MAX ? NULL : &info->job_queue->job_cache[job->parent];
             _decrement_ref(info->job_queue, job);
             job = parent_job;
             wake_threads = true;
@@ -335,7 +335,8 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
 {
     assert(jq);
 
-    size_t job_idx = atomic_fetch_add_explicit(&jq->job_count, 1, memory_order_relaxed) & JOB_QUEUE_JOB_COUNT_MASK;
+    size_t job_idx = atomic_fetch_add_explicit(&jq->job_count, 1, memory_order_relaxed) &
+        JOB_QUEUE_JOB_COUNT_MASK;
 
     job_t* job = &jq->job_cache[job_idx];
     job->func = func;

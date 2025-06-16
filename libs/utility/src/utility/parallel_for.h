@@ -23,8 +23,8 @@
 #ifndef __UTILITY_PARALLEL_FOR_H__
 #define __UTILITY_PARALLEL_FOR_H__
 
-#include "job_queue.h"
 #include "arena.h"
+#include "job_queue.h"
 
 #include <stdint.h>
 

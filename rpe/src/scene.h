@@ -139,8 +139,10 @@ rpe_scene_t* rpe_scene_init(rpe_engine_t* engine, arena_t* arena);
 
 bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine);
 
-void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* parent, struct SplitConfig* cfg);
+void rpe_scene_compute_model_extents(
+    struct UploadExtentsEntry* entry, job_t* parent, struct SplitConfig* cfg);
 
-void rpe_scene_sync_and_upload_extents(rpe_scene_t* scene, rpe_engine_t* engine, size_t renderable_count, job_t* parent);
+void rpe_scene_sync_and_upload_extents(
+    rpe_scene_t* scene, rpe_engine_t* engine, size_t renderable_count, job_t* parent);
 
 #endif

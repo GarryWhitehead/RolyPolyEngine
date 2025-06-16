@@ -194,7 +194,8 @@ void rpe_renderable_set_viewport(
 
 void rpe_renderable_set_view_layer(rpe_renderable_t* r, uint8_t layer);
 
-/// Frustum culling is enabled by default. This disables the check so the renderable will always be drawn.
+/// Frustum culling is enabled by default. This disables the check so the renderable will always be
+/// drawn.
 void rpe_renderable_disbale_frustum_culling(rpe_renderable_t* r);
 
 #endif

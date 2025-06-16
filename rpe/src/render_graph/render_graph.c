@@ -31,10 +31,9 @@
 #include "resources.h"
 
 #include <string.h>
+#include <tracy/TracyC.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
-
-#include <tracy/TracyC.h>
 
 render_graph_t* rg_init(arena_t* arena)
 {

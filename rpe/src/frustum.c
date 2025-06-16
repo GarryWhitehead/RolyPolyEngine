@@ -38,7 +38,7 @@ void rpe_frustum_projection(rpe_frustum_t* f, math_mat4f* view_proj)
     };
 
     math_mat4f m = *view_proj;
-    //m.cols[3] = math_vec4f_mul_sca(m.cols[3], -1.0f);
+    // m.cols[3] = math_vec4f_mul_sca(m.cols[3], -1.0f);
 
     f->planes[Left] = math_vec4f_sub(m.cols[3], m.cols[0]);
     f->planes[Right] = math_vec4f_add(m.cols[3], m.cols[0]);

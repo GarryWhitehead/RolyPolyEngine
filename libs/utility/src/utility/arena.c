@@ -92,7 +92,8 @@ void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_
                                      : (void*)aligned_ptr;
 }
 
-void* arena_alloc_with_lock(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags)
+void* arena_alloc_with_lock(
+    arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags)
 {
     mutex_lock(&arena->mutex);
     void* out = arena_alloc(arena, type_size, align, count, flags);

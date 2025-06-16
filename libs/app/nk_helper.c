@@ -43,7 +43,6 @@
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
-
 #include <tracy/TracyC.h>
 
 void set_ui_style(struct nk_context* ctx)
