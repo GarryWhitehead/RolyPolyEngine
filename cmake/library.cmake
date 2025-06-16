@@ -38,6 +38,7 @@ function(rpe_add_compiler_flags)
             -fno-common
             -fvisibility=hidden
             -fPIC
+            -fno-omit-frame-pointer
         )
 
         # clang/gcc specific flags

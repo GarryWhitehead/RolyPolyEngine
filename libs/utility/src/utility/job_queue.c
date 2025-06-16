@@ -89,7 +89,7 @@ bool _active_jobs(job_queue_t* jq)
 
 bool _job_completed(job_t* job)
 {
-    int count = atomic_load_explicit(&job->child_run_count, memory_order_acquire);
+    int count = atomic_load_explicit(&job->child_run_count, memory_order_acquire) & JOB_QUEUE_JOB_COUNT_MASK;
     return count <= 0;
 }
 
@@ -106,7 +106,6 @@ void _decrement_ref(job_queue_t* jq, job_t* job)
     assert(count > 0);
     if (count == 1)
     {
-        DYN_ARRAY_APPEND_WITH_LOCK(&jq->free_job_list, &job->idx);
         job = NULL;
     }
 }
@@ -114,6 +113,7 @@ void _decrement_ref(job_queue_t* jq, job_t* job)
 void _wake(job_queue_t* jq, int count)
 {
     mutex_lock(&jq->wait_mutex);
+    mutex_unlock(&jq->wait_mutex);
     if (count == 1)
     {
         condition_signal(&jq->wait_cond);
@@ -122,22 +122,19 @@ void _wake(job_queue_t* jq, int count)
     {
         condition_brdcast(&jq->wait_cond);
     }
-    mutex_unlock(&jq->wait_mutex);
 }
 
 void _wake_all(job_queue_t* jq)
 {
     mutex_lock(&jq->wait_mutex);
-    condition_brdcast(&jq->wait_cond);
     mutex_unlock(&jq->wait_mutex);
+    condition_brdcast(&jq->wait_cond);
 }
 
 void _wait(job_queue_t* jq) { condition_wait(&jq->wait_cond, &jq->wait_mutex); }
 
 job_t* _pop(job_queue_t* jq, thread_info_t* info)
 {
-    atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
-
     int idx = work_stealing_queue_pop(&info->work_queue);
     job_t* job = NULL;
     if (idx != INT32_MAX)
@@ -148,13 +145,7 @@ job_t* _pop(job_queue_t* jq, thread_info_t* info)
 
     if (!job)
     {
-        atomic_int old_job_count =
-            atomic_fetch_add_explicit(&jq->active_job_count, 1, memory_order_relaxed);
-        // Wake up other threads if there are still active jobs.
-        if (old_job_count >= 0)
-        {
-            _wake(jq, old_job_count + 1);
-        }
+        atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
     }
     return job;
 }
@@ -179,8 +170,6 @@ void _push(job_queue_t* jq, thread_info_t* info, job_t* job)
 
 job_t* _steal_from_queue(job_queue_t* jq, work_stealing_queue_t* queue)
 {
-    atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
-
     int idx = work_stealing_queue_steal(queue);
     job_t* job = NULL;
     if (idx != INT32_MAX)
@@ -191,13 +180,7 @@ job_t* _steal_from_queue(job_queue_t* jq, work_stealing_queue_t* queue)
 
     if (!job)
     {
-        atomic_int old_job_count =
-            atomic_fetch_add_explicit(&jq->active_job_count, 1, memory_order_relaxed);
-        // Wake up other threads if there are still active jobs.
-        if (old_job_count >= 0)
-        {
-            _wake(jq, old_job_count + 1);
-        }
+        atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
     }
     return job;
 }
@@ -240,7 +223,7 @@ void _thread_finish(thread_info_t* info, job_t* job)
         // also want to publish the new count to other threads, so we also use a release
         // barrier.
         atomic_int_fast16_t count =
-            atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel);
+            atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel) & JOB_QUEUE_JOB_COUNT_MASK;
         assert(count > 0);
         if (count == 1)
         {
@@ -334,7 +317,6 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads)
     mutex_init(&jq->wait_mutex);
     condition_init(&jq->wait_cond);
 
-    MAKE_DYN_ARRAY(uint32_t, arena, 1000, &jq->free_job_list);
     jq->job_cache = ARENA_MAKE_ZERO_ARRAY(arena, job_t, JOB_QUEUE_MAX_JOB_COUNT);
 
     for (uint32_t i = 0; i < jq->thread_count; ++i)
@@ -353,19 +335,7 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
 {
     assert(jq);
 
-    int job_idx;
-    // The job free list is appended from multiple threads so lock when retrieving the size.
-    size_t sz = dyn_array_size_with_lock(&jq->free_job_list);
-    if (!sz)
-    {
-        atomic_int jc = atomic_fetch_add_explicit(&jq->job_count, 1, memory_order_relaxed);
-        assert(jc < JOB_QUEUE_MAX_JOB_COUNT);
-        job_idx = jc;
-    }
-    else
-    {
-        job_idx = DYN_ARRAY_POP_BACK_WITH_LOCK(uint32_t, &jq->free_job_list);
-    }
+    size_t job_idx = atomic_fetch_add_explicit(&jq->job_count, 1, memory_order_relaxed) & JOB_QUEUE_JOB_COUNT_MASK;
 
     job_t* job = &jq->job_cache[job_idx];
     job->func = func;
@@ -378,7 +348,7 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
     {
         atomic_uint_fast16_t count =
             atomic_fetch_add_explicit(&parent->child_run_count, 1, memory_order_relaxed);
-        assert(count > 0);
+        assert((count & JOB_QUEUE_JOB_COUNT_MASK) > 0);
         job->parent = parent->idx;
     }
     return job;

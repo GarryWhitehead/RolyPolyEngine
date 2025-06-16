@@ -224,6 +224,7 @@ typedef struct DynArray
     size_t align_size;
     arena_t* arena;
     void* data;
+    mutex_t mutex;
 } arena_dyn_array_t;
 
 /**

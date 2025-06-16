@@ -155,6 +155,7 @@ int dyn_array_init(
     new_dyn_array->arena = arena;
     new_dyn_array->type_size = type_size;
     new_dyn_array->align_size = align;
+    mutex_init(&new_dyn_array->mutex);
     new_dyn_array->data = arena_alloc(arena, type_size, align, capcity, ARENA_NONZERO_MEMORY);
     if (!new_dyn_array->data)
     {
@@ -177,9 +178,9 @@ void* dyn_array_append(arena_dyn_array_t* arr, void* item)
 
 void* dyn_array_append_with_lock(arena_dyn_array_t* arr, void* item)
 {
-    mutex_lock(&arr->arena->mutex);
+    mutex_lock(&arr->mutex);
     void* out = dyn_array_append(arr, item);
-    mutex_unlock(&arr->arena->mutex);
+    mutex_unlock(&arr->mutex);
     return out;
 }
 
@@ -299,9 +300,9 @@ void* dyn_array_pop_back(arena_dyn_array_t* arr)
 
 void* dyn_array_pop_back_with_lock(arena_dyn_array_t* arr)
 {
-    mutex_lock(&arr->arena->mutex);
+    mutex_lock(&arr->mutex);
     void* out = dyn_array_pop_back(arr);
-    mutex_unlock(&arr->arena->mutex);
+    mutex_unlock(&arr->mutex);
     return out;
 }
 
@@ -333,8 +334,8 @@ void dyn_array_clear(arena_dyn_array_t* dyn_array) { dyn_array->size = 0; }
 
 size_t dyn_array_size_with_lock(arena_dyn_array_t* dyn_array)
 {
-    mutex_lock(&dyn_array->arena->mutex);
+    mutex_lock(&dyn_array->mutex);
     size_t sz = dyn_array->size;
-    mutex_unlock(&dyn_array->arena->mutex);
+    mutex_unlock(&dyn_array->mutex);
     return sz;
 }

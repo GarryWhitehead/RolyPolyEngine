@@ -202,7 +202,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         .tm = tm,
         .instances = renderables.data,
         .count = renderables.size};
-    rpe_scene_compute_model_extents(&entry, parent);
+    struct SplitConfig cfg = {.max_split = 12, .min_count = 32};
+    rpe_scene_compute_model_extents(&entry, parent, &cfg);
 
     arena_dyn_array_t indirect_draws;
     MAKE_DYN_ARRAY(struct IndirectDraw, &engine->frame_arena, 100, &indirect_draws);
@@ -409,10 +410,9 @@ void rpe_scene_compute_model_extents_runner(uint32_t start, uint32_t count, void
     }
 }
 
-void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* parent)
+void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* parent, struct SplitConfig* cfg)
 {
     size_t count = entry->count;
-    struct SplitConfig cfg = {.min_count = 64, .max_split = 12};
     job_t* job = parallel_for(
         entry->engine->job_queue,
         parent,
@@ -420,7 +420,7 @@ void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* pa
         count,
         rpe_scene_compute_model_extents_runner,
         entry,
-        &cfg,
+        cfg,
         &entry->engine->scratch_arena);
     job_queue_run_job(entry->engine->job_queue, job);
 }

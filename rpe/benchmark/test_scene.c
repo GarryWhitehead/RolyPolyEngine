@@ -9,6 +9,7 @@
 #include <rpe/transform_manager.h>
 #include <scene.h>
 #include <utility/benchmark.h>
+#include <utility/parallel_for.h>
 #include <vulkan-api/error_codes.h>
 
 void BM_test_upload_extents(bm_run_state_t* state)
@@ -74,11 +75,12 @@ void BM_test_upload_extents(bm_run_state_t* state)
         .rm = rm,
         .instances = instances,
         .count = model_count};
+    struct SplitConfig cfg = {.min_count = 64, .max_split = 12};
 
     while (bm_state_set_running(state))
     {
         job_t* parent = job_queue_create_parent_job(engine->job_queue);
-        rpe_scene_compute_model_extents(&entry, parent);
+        rpe_scene_compute_model_extents(&entry, parent, &cfg);
         job_queue_run_and_wait(engine->job_queue, parent);
     }
 }

@@ -34,7 +34,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define JOB_QUEUE_MAX_JOB_COUNT 1024
+#define JOB_QUEUE_MAX_JOB_COUNT 4096
+#define JOB_QUEUE_JOB_COUNT_MASK (JOB_QUEUE_MAX_JOB_COUNT - 1)
 #define JOB_QUEUE_MAX_THREAD_COUNT 32
 #define JOB_QUEUE_CACHELINE_SIZE 64
 
@@ -85,8 +86,6 @@ typedef struct JobQueue
     job_t* job_cache;
     /// The number of jobs currently allocated. Used job indices are found in the `free_job_list`
     atomic_int job_count;
-    /// Job indices that have complete and can be re-used.
-    arena_dyn_array_t free_job_list;
     /// Main thread state cache array.
     thread_info_t thread_states[JOB_QUEUE_MAX_THREAD_COUNT];
     /// The number of threads this job queue is running. Doesn't include adopted threads.
@@ -171,7 +170,5 @@ void job_queue_wait_and_release(job_queue_t* jq, job_t* job);
  @param jq A pointer to the job queue.
  */
 void job_queue_adopt_thread(job_queue_t* jq);
-
-uint32_t job_get_tid(job_t* job);
 
 #endif

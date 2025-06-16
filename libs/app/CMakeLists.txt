@@ -20,6 +20,7 @@ target_link_libraries(
     KTX::ktx
     log.c::log.c
     nuklear::nuklear
+    Tracy::TracyClient
     ${glfw3_LIBRARIES}
 )
 

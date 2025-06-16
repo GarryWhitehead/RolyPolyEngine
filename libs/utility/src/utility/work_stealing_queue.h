@@ -25,7 +25,7 @@
 #include <stdatomic.h>
 #include <stdint.h>
 
-#define WORK_STEALING_QUEUE_MAX_JOB_COUNT 1024
+#define WORK_STEALING_QUEUE_MAX_JOB_COUNT 4096
 
 // Forward declarations.
 typedef struct Arena arena_t;

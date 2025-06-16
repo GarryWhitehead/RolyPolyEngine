@@ -44,6 +44,8 @@
 #define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
 
+#include <tracy/TracyC.h>
+
 void set_ui_style(struct nk_context* ctx)
 {
     struct nk_color table[NK_COLOR_COUNT] = {0};
@@ -331,6 +333,8 @@ void update_nk_inputs(nk_instance_t* nk, app_window_t* app_win)
 void update_nk_draw_calls(
     nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, arena_t* arena)
 {
+    TracyCZoneN(ctx, "App::NK_HELPER", 1);
+
     assert(nk);
 
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
@@ -411,6 +415,8 @@ void update_nk_draw_calls(
 
     nk_clear(&nk->ctx);
     arena_reset(arena);
+
+    TracyCZoneEnd(ctx);
 }
 
 void nk_helper_new_frame(
