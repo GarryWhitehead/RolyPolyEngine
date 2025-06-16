@@ -179,12 +179,11 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         if (rpe_comp_manager_has_obj(rm->comp_manager, *obj))
         {
             rpe_renderable_t* r = rpe_rend_manager_get_mesh(rm, obj);
-            rpe_transform_node_t* transform =
-                rpe_transform_manager_get_node(tm, r->transform_obj);
+            rpe_transform_node_t* transform = rpe_transform_manager_get_node(tm, r->transform_obj);
             struct RenderableInstance instance = {.rend = r, .transform = transform};
             DYN_ARRAY_APPEND(&renderables, &instance);
         }
-        // Check for lights, transforms here.
+        // TODO: Check for lights here.
     }
 
     if (scene->is_dirty)
@@ -224,7 +223,8 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
         rpe_batch_renderable_t* batch = DYN_ARRAY_GET_PTR(rpe_batch_renderable_t, batched_draws, i);
         for (size_t j = batch->first_idx; j < batch->first_idx + batch->count; ++j)
         {
-            struct RenderableInstance* instance = DYN_ARRAY_GET_PTR(struct RenderableInstance, &renderables, j);
+            struct RenderableInstance* instance =
+                DYN_ARRAY_GET_PTR(struct RenderableInstance, &renderables, j);
             rpe_renderable_t* rend = instance->rend;
 
             struct IndirectDraw draw = {0};
@@ -334,7 +334,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     vkapi_driver_map_gpu_buffer(
         driver,
         scene->mesh_data_handle,
-        scene->objects.size * sizeof(struct IndirectDraw),
+        renderables.size * sizeof(struct IndirectDraw),
         0,
         indirect_draws.data);
 
@@ -343,7 +343,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     vkapi_driver_map_gpu_buffer(driver, scene->camera_ubo, sizeof(rpe_camera_ubo_t), 0, &cam_ubo);
 
     struct SceneUbo scene_ubo = {
-        .model_count = scene->objects.size,
+        .model_count = renderables.size,
         .ibl_mip_levels = scene->curr_ibl ? scene->curr_ibl->options.specular_level_count : 0};
     vkapi_driver_map_gpu_buffer(
         engine->driver, scene->scene_ubo, sizeof(rpe_scene_ubo_t), 0, &scene_ubo);
@@ -369,7 +369,7 @@ bool rpe_scene_update(rpe_scene_t* scene, rpe_engine_t* engine)
     vkapi_driver_map_gpu_buffer(
         driver,
         scene->draw_data_handle,
-        scene->objects.size * sizeof(struct DrawData),
+        renderables.size * sizeof(struct DrawData),
         0,
         scene->draw_data);
 
@@ -410,7 +410,8 @@ void rpe_scene_compute_model_extents_runner(uint32_t start, uint32_t count, void
     }
 }
 
-void rpe_scene_compute_model_extents(struct UploadExtentsEntry* entry, job_t* parent, struct SplitConfig* cfg)
+void rpe_scene_compute_model_extents(
+    struct UploadExtentsEntry* entry, job_t* parent, struct SplitConfig* cfg)
 {
     size_t count = entry->count;
     job_t* job = parallel_for(

@@ -406,10 +406,9 @@ void update_nk_draw_calls(
         rpe_renderable_disbale_frustum_culling(rend);
 
         rpe_rend_manager_add(rm, rend, nk->rend_objs[idx], nk->transform_obj);
-        rpe_scene_add_object(nk->scene, nk->rend_objs[idx]);
+        rpe_scene_add_object(nk->scene, nk->rend_objs[idx++]);
 
         index_offset += cmd->elem_count;
-        ++idx;
         current_layer += 0x01;
     }
 

@@ -27,7 +27,11 @@
 #include "utility/arena.h"
 #include "utility/compiler.h"
 
-#define VKAPI_MAX_COMMAND_BUFFER_SIZE 10
+// This needs to be at least three due to triple buffering - plus a few more frames for good
+// measure. Note: Setting this too high on systems with less memory (<2gb), setting this too high
+// (>=10) leads to issues with memory exhaustion mainly due to textures being waited on for erasure
+// from the frame graph.
+#define VKAPI_MAX_COMMAND_BUFFER_SIZE 5
 #define VKAPI_COMMANDS_MAX_EXTERNAL_SIGNAL_COUNT 3
 
 // forward declarations

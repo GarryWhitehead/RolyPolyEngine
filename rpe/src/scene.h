@@ -32,7 +32,7 @@
 #include <utility/maths.h>
 #include <vulkan-api/resource_cache.h>
 
-#define RPE_SCENE_MAX_STATIC_MODEL_COUNT 3000
+#define RPE_SCENE_MAX_STATIC_MODEL_COUNT 1000
 #define RPE_SCENE_MAX_BONE_COUNT 1000
 #define RPE_SCENE_CAMERA_UBO_BINDING 0
 #define RPE_SCENE_SKIN_SSBO_BINDING 0
