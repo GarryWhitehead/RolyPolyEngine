@@ -27,7 +27,7 @@ void thread_func1(void* arg)
 TEST(JobQueueGroup, JobQueue_GeneralTests)
 {
     arena_t arena;
-    uint64_t arena_cap = 1 << 18;
+    uint64_t arena_cap = 1 << 25;
     int res = arena_new(arena_cap, &arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
@@ -67,7 +67,7 @@ void thread_func2(void* f) { counter++; }
 TEST(JobQueueGroup, JobQueue_JobWithChildrenTests)
 {
     arena_t arena;
-    uint64_t arena_cap = 1 << 18;
+    uint64_t arena_cap = 1 << 25;
     int res = arena_new(arena_cap, &arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
@@ -105,7 +105,7 @@ void test_parallel_for(uint32_t start, uint32_t count, void* data)
 TEST(JobQueueGroup, ParallelFor)
 {
     arena_t arena;
-    uint64_t arena_cap = 1 << 18;
+    uint64_t arena_cap = 1 << 25;
     int res = arena_new(arena_cap, &arena);
     TEST_ASSERT(ARENA_SUCCESS == res);
 
