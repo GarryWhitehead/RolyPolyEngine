@@ -80,6 +80,7 @@ TEST(VisibilityGroup, VisCompute_Test)
         {-1.51f, 0.0f, -0.5f, 0.0f},
         // edge cases where the box is not visible, with the correct outcome
         {-101.01f, 0.0f, -100.0f, 0.0f}};
+
     uint32_t test_data_size = 20;
 
     rpe_compute_t* compute = rpe_compute_init_from_file(driver, "cull.comp.spv", arena);
@@ -91,8 +92,10 @@ TEST(VisibilityGroup, VisCompute_Test)
     struct RenderableExtents extents[20] = {0};
     for (uint32_t i = 0; i < test_data_size; ++i)
     {
-        extents[i].center = pass_translations[i];
-        extents[i].extent = half_extent;
+        rpe_aabox_t aabb = rpe_aabox_translate_to(
+            math_vec3f_from_vec4(pass_translations[i]), math_vec3f_from_vec4(half_extent));
+        extents[i].center = math_vec4f_init_vec3(rpe_aabox_get_center(&aabb), 1.0f);
+        extents[i].extent = math_vec4f_init_vec3(rpe_aabox_get_half_extent(&aabb), 1.0f);
     }
 
     buffer_handle_t cam_ubo = rpe_compute_bind_ubo(compute, driver, 0);
@@ -104,8 +107,11 @@ TEST(VisibilityGroup, VisCompute_Test)
         rpe_compute_bind_ssbo_host_gpu(compute, driver, 1, test_data_size, 0);
     rpe_compute_bind_ssbo_gpu_host(compute, driver, 2, test_data_size, 0);
     rpe_compute_bind_ssbo_gpu_host(compute, driver, 3, test_data_size, 0);
-    buffer_handle_t draw_count_handle = rpe_compute_bind_ssbo_host_gpu(compute, driver, 4, 1, 0);
-    buffer_handle_t total_draw_handle = rpe_compute_bind_ssbo_host_gpu(compute, driver, 5, 1, 0);
+    rpe_compute_bind_ssbo_gpu_host(compute, driver, 4, test_data_size, 0);
+    rpe_compute_bind_ssbo_gpu_host(compute, driver, 5, test_data_size, 0);
+    buffer_handle_t draw_count_handle = rpe_compute_bind_ssbo_host_gpu(compute, driver, 6, 1, 0);
+    rpe_compute_bind_ssbo_gpu_host(compute, driver, 7, 1, 0);
+    buffer_handle_t total_draw_handle = rpe_compute_bind_ssbo_host_gpu(compute, driver, 8, 2, 0);
 
     uint32_t zero = 0;
     struct IndirectDraw zero_draw[20] = {0};
@@ -123,20 +129,24 @@ TEST(VisibilityGroup, VisCompute_Test)
 
     uint32_t draw_count_host = 0;
     uint32_t total_count_host = 0;
-    rpe_compute_download_ssbo_to_host(compute, driver, 4, sizeof(uint32_t), &draw_count_host);
-    rpe_compute_download_ssbo_to_host(compute, driver, 5, sizeof(uint32_t), &total_count_host);
+    struct IndirectDraw host_draw_cmds[20];
+
+    rpe_compute_download_ssbo_to_host(compute, driver, 6, sizeof(uint32_t), &draw_count_host);
+    rpe_compute_download_ssbo_to_host(compute, driver, 8, sizeof(uint32_t), &total_count_host);
+    rpe_compute_download_ssbo_to_host(
+        compute, driver, 4, sizeof(struct IndirectDraw) * test_data_size, &host_draw_cmds);
 
     TEST_ASSERT_EQUAL_UINT(16, draw_count_host);
     TEST_ASSERT_EQUAL_UINT(16, total_count_host);
 
     // These should all pass the visibility check.
-    /*for (int i = 0; i < 16; ++i)
+    for (int i = 0; i < 16; ++i)
     {
-        TEST_ASSERT_EQUAL_UINT(1, results[i]);
+        TEST_ASSERT_EQUAL_UINT(1, host_draw_cmds[i].indirect_cmd.instanceCount);
     }
     // These are outside the frustum so should fail.
     for (int i = 16; i < 20; ++i)
     {
-        TEST_ASSERT_EQUAL_UINT(0, results[i]);
-    }*/
+        TEST_ASSERT_EQUAL_UINT(0, host_draw_cmds[i].indirect_cmd.instanceCount);
+    }
 }

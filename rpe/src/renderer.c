@@ -41,6 +41,7 @@
 #include <backend/convert_to_vk.h>
 #include <backend/objects.h>
 #include <string.h>
+#include <tracy/TracyC.h>
 #include <utility/arena.h>
 #include <vulkan-api/renderpass.h>
 #include <vulkan-api/resource_cache.h>
@@ -294,6 +295,8 @@ void rpe_renderer_render_single_indexed(
 
 void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swap)
 {
+    TracyCZoneN(ctx, "Renderer::Render", 1);
+
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
     rpe_settings_t settings = engine->settings;
@@ -340,9 +343,13 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
 
     input_handle = rpe_colour_pass_render(rdr->rg, scene, settings.gbuffer_dims, depth_format);
 
-    // Render the shadow maps - cascade and point/spot maps.
+    // Render the shadow maps - cascade and point/spot maps (once added).
     if (draw_shadows)
     {
+        // Check the csm projections have complete, and upload.
+        rpe_shadow_manager_sync_update(engine->shadow_manager, engine);
+        rpe_shadow_manager_upload_projections(engine->shadow_manager, engine, scene);
+        // And issue the shadow rendering commands.
         rpe_shadow_pass_render(
             engine->shadow_manager, rdr->rg, scene, settings.shadow.cascade_dims, depth_format);
     }
@@ -375,4 +382,6 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
     //#endif
 
     rg_execute(rdr->rg, rdr->engine->driver, engine);
+
+    TracyCZoneEnd(ctx);
 }

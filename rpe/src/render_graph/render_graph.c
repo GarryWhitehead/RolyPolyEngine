@@ -31,7 +31,7 @@
 #include "resources.h"
 
 #include <string.h>
-#include <utility/hash.h>
+#include <tracy/TracyC.h>
 #include <vulkan-api/driver.h>
 #include <vulkan-api/renderpass.h>
 
@@ -173,6 +173,8 @@ rg_handle_t rg_add_write(
 
 render_graph_t* rg_compile(render_graph_t* rg)
 {
+    TracyCZoneN(ctx, "Rg::Compile", 1);
+
     assert(rg);
 
     rg_dep_graph_cull(rg->dep_graph, rg->arena);
@@ -254,6 +256,8 @@ render_graph_t* rg_compile(render_graph_t* rg)
         rg_resource_node_t* node = DYN_ARRAY_GET(rg_resource_node_t*, &rg->resource_nodes, i);
         rg_res_node_update_res_usage(node, rg, rg->dep_graph);
     }
+
+    TracyCZoneEnd(ctx);
 
     return rg;
 }

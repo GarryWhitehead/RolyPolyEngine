@@ -30,6 +30,7 @@ TEST_GROUP_RUNNER(JobQueueGroup)
 {
     RUN_TEST_CASE(JobQueueGroup, JobQueue_GeneralTests)
     RUN_TEST_CASE(JobQueueGroup, JobQueue_JobWithChildrenTests)
+    RUN_TEST_CASE(JobQueueGroup, ParallelFor)
 }
 
 TEST_GROUP_RUNNER(WorkStealingQueueGroup)

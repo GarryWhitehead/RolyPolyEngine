@@ -29,6 +29,7 @@
 #include "material.h"
 #include "scene.h"
 
+#include <tracy/TracyC.h>
 #include <utility/arena.h>
 
 rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings)
@@ -146,6 +147,7 @@ rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct Shado
         sm->csm_debug_bundle->raster_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
         sm->csm_debug_bundle->raster_state.front_face = VK_FRONT_FACE_CLOCKWISE;
     }
+
     return sm;
 }
 
@@ -165,6 +167,8 @@ void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t
 void rpe_shadow_manager_compute_csm_splits(
     rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera)
 {
+    TracyCZoneN(ctx, "SM::CsmSplits", 1);
+
     float clip_range = camera->z - camera->n;
     float min_z = camera->n;
     float max_z = camera->n + clip_range;
@@ -179,114 +183,142 @@ void rpe_shadow_manager_compute_csm_splits(
         float C = m->settings.split_lambda * (log_c - uniform) + uniform;
         scene->cascade_offsets[i] = (C - min_z) / clip_range;
     }
+
+    TracyCZoneEnd(ctx);
+}
+
+void update_projections_runner(void* data)
+{
+    assert(data);
+    struct JobEntry* je = (struct JobEntry*)data;
+
+    rpe_scene_t* scene = je->scene;
+    rpe_camera_t* camera = je->camera;
+    rpe_shadow_manager_t* sm = je->sm;
+    int idx = je->idx;
+
+    // ================ Update the cascade shadow maps =========================
+    // Adapted from: https://alextardif.com/shadowmapping.html
+
+    float last_split = idx == 0 ? 0.0f : scene->cascade_offsets[idx - 1];
+    float clip_range = camera->z - camera->n;
+
+    math_mat4f inv_vp = math_mat4f_inverse(math_mat4f_mul(camera->projection, camera->view));
+
+    math_vec3f corners[8] = {
+        {-1.0f, 1.0f, 0.0f},
+        {1.0f, 1.0f, 0.0f},
+        {1.0f, -1.0f, 0.0f},
+        {-1.0f, -1.0f, 0.0f},
+        {-1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f},
+        {-1.0f, -1.0f, 1.0f},
+    };
+
+    // Transform each corner to camera space using the inverse view-proj matrix.
+    for (int j = 0; j < 8; ++j)
+    {
+        math_vec4f f = math_mat4f_mul_vec(inv_vp, math_vec4f_init_vec3(corners[j], 1.0f));
+        corners[j].x = f.x / f.w;
+        corners[j].y = f.y / f.w;
+        corners[j].z = f.z / f.w;
+    }
+
+    // Adjust frustum corners based on current split distance.
+    for (int j = 0; j < 4; ++j)
+    {
+        math_vec3f dist = math_vec3f_sub(corners[j + 4], corners[j]);
+        corners[j + 4] =
+            math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, scene->cascade_offsets[idx]));
+        corners[j] = math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, last_split));
+    }
+
+    // Find the center of the frustrum.
+    math_vec3f center = {0};
+    for (int j = 0; j < 8; ++j)
+    {
+        center = math_vec3f_add(corners[j], center);
+    }
+    center = math_vec3f_mul_sca(center, 1.0f / 8.0f);
+
+    // Create a consistent projection size by creating a circle around the frustum and
+    // projecting over that - this reduces shimmering.
+    float radius = math_vec3f_distance(corners[0], corners[6]) * 0.5f;
+    float texels_per_unit = (float)sm->settings.cascade_dims / radius;
+
+    math_mat4f scalar_mat = math_mat4f_identity();
+    math_mat4f_scale(
+        math_vec3f_init(texels_per_unit, texels_per_unit, texels_per_unit), &scalar_mat);
+
+    // Get the directional light params.
+    assert(je->dir_light);
+    math_vec3f light_dir = math_vec3f_normalise(math_vec3f_mul_sca(je->dir_light->position, -1.0f));
+
+    // Create the look-at matrix from the perspective of the light and scale it.
+    math_vec3f up = {0.0f, 1.0f, 0.0f};
+    math_vec3f zero = {0.0f, 0.0f, 0.0f};
+    math_mat4f light_lookat = math_mat4f_lookat(light_dir, zero, up);
+    light_lookat = math_mat4f_mul(scalar_mat, light_lookat);
+    math_mat4f inv_lookat = math_mat4f_inverse(light_lookat);
+
+    math_vec4f t_center = math_mat4f_mul_vec(light_lookat, math_vec4f_init_vec3(center, 1.0f));
+
+    // Clamp to texel increment.
+    t_center.x = floorf(t_center.x);
+    t_center.y = floorf(t_center.y);
+    // Convert back to original space.
+    t_center = math_mat4f_mul_vec(inv_lookat, t_center);
+
+    center.x = t_center.x / t_center.w;
+    center.y = t_center.y / t_center.w;
+    center.z = t_center.z / t_center.w;
+
+    math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, -radius));
+
+    // View matrix looking at the texel-corrected frustum center from the directional light
+    // source.
+    math_mat4f light_view = math_mat4f_lookat(center, eye, up);
+    math_mat4f light_ortho =
+        math_mat4f_ortho(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
+
+    scene->shadow_map.cascades[idx].vp = math_mat4f_mul(light_ortho, light_view);
+    scene->shadow_map.cascades[idx].split_depth =
+        (camera->n + scene->cascade_offsets[idx] * clip_range) * -1.0f;
 }
 
 void rpe_shadow_manager_update_projections(
-    rpe_shadow_manager_t* m,
+    rpe_shadow_manager_t* sm,
     rpe_camera_t* camera,
     rpe_scene_t* scene,
     rpe_engine_t* engine,
     rpe_light_manager_t* lm)
 {
-    assert(m);
-    assert(camera);
+    job_queue_t* jq = engine->job_queue;
+    sm->parent_job = job_queue_create_parent_job(engine->job_queue);
 
-    // ================ Update the cascade shadow maps =========================
-    // Adapted from: https://alextardif.com/shadowmapping.html
-
-    float last_split = 0.0f;
-    float clip_range = camera->z - camera->n;
-
-    math_mat4f inv_vp = math_mat4f_inverse(math_mat4f_mul(camera->projection, camera->view));
-
-    for (int i = 0; i < m->settings.cascade_count; ++i)
+    for (int i = 0; i < sm->settings.cascade_count; ++i)
     {
-        math_vec3f corners[8] = {
-            {-1.0f, 1.0f, 0.0f},
-            {1.0f, 1.0f, 0.0f},
-            {1.0f, -1.0f, 0.0f},
-            {-1.0f, -1.0f, 0.0f},
-            {-1.0f, 1.0f, 1.0f},
-            {1.0f, 1.0f, 1.0f},
-            {1.0f, -1.0f, 1.0f},
-            {-1.0f, -1.0f, 1.0f},
-        };
+        struct JobEntry* entry = &sm->job_entries[i];
+        entry->sm = sm;
+        entry->scene = scene;
+        entry->camera = camera;
+        entry->idx = i;
+        entry->dir_light = rpe_light_manager_get_dir_light_params(lm);
 
-        // Transform each corner to camera space using the inverse view-proj matrix.
-        for (int j = 0; j < 8; ++j)
-        {
-            math_vec4f f = math_mat4f_mul_vec(inv_vp, math_vec4f_init_vec3(corners[j], 1.0f));
-            corners[j].x = f.x / f.w;
-            corners[j].y = f.y / f.w;
-            corners[j].z = f.z / f.w;
-        }
-
-        // Adjust frustum corners based on current split distance.
-        for (int j = 0; j < 4; ++j)
-        {
-            math_vec3f dist = math_vec3f_sub(corners[j + 4], corners[j]);
-            corners[j + 4] =
-                math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, scene->cascade_offsets[i]));
-            corners[j] = math_vec3f_add(corners[j], math_vec3f_mul_sca(dist, last_split));
-        }
-
-        // Find the center of the frustrum.
-        math_vec3f center = {0};
-        for (int j = 0; j < 8; ++j)
-        {
-            center = math_vec3f_add(corners[j], center);
-        }
-        center = math_vec3f_mul_sca(center, 1.0f / 8.0f);
-
-        // Create a consistent projection size by creating a circle around the frustum and
-        // projecting over that - this reduces shimmering.
-        float radius = math_vec3f_distance(corners[0], corners[6]) * 0.5f;
-        float texels_per_unit = (float)m->settings.cascade_dims / radius;
-
-        math_mat4f scalar_mat = math_mat4f_identity();
-        math_mat4f_scale(
-            math_vec3f_init(texels_per_unit, texels_per_unit, texels_per_unit), &scalar_mat);
-
-        // Get the directional light params.
-        rpe_light_instance_t* dir_light = rpe_light_manager_get_dir_light_params(lm);
-        assert(dir_light);
-        math_vec3f light_dir = math_vec3f_normalise(math_vec3f_mul_sca(dir_light->position, -1.0f));
-
-        // Create the look-at matrix from the perspective of the light and scale it.
-        math_vec3f up = {0.0f, 1.0f, 0.0f};
-        math_vec3f zero = {0.0f, 0.0f, 0.0f};
-        math_mat4f light_lookat = math_mat4f_lookat(light_dir, zero, up);
-        light_lookat = math_mat4f_mul(scalar_mat, light_lookat);
-        math_mat4f inv_lookat = math_mat4f_inverse(light_lookat);
-
-        math_vec4f t_center = math_mat4f_mul_vec(light_lookat, math_vec4f_init_vec3(center, 1.0f));
-
-        // Clamp to texel increment.
-        t_center.x = floorf(t_center.x);
-        t_center.y = floorf(t_center.y);
-        // Convert back to original space.
-        t_center = math_mat4f_mul_vec(inv_lookat, t_center);
-
-        center.x = t_center.x / t_center.w;
-        center.y = t_center.y / t_center.w;
-        center.z = t_center.z / t_center.w;
-
-        math_vec3f eye = math_vec3f_sub(center, math_vec3f_mul_sca(light_dir, -radius));
-
-        // View matrix looking at the texel-corrected frustum center from the directional light
-        // source.
-        math_mat4f light_view = math_mat4f_lookat(center, eye, up);
-        math_mat4f light_ortho =
-            math_mat4f_ortho(-radius, radius, -radius, radius, -radius * 6.0f, radius * 6.0f);
-
-        scene->shadow_map.cascades[i].vp = math_mat4f_mul(light_ortho, light_view);
-        scene->shadow_map.cascades[i].split_depth =
-            (camera->n + scene->cascade_offsets[i] * clip_range) * -1.0f;
-
-        last_split = scene->cascade_offsets[i];
+        entry->job = job_queue_create_job(jq, update_projections_runner, entry, sm->parent_job);
+        job_queue_run_job(jq, sm->job_entries[i].job);
     }
+}
 
-    // Upload cascade UBO to device.
+void rpe_shadow_manager_sync_update(rpe_shadow_manager_t* m, rpe_engine_t* engine)
+{
+    job_queue_run_and_wait(engine->job_queue, m->parent_job);
+}
+
+void rpe_shadow_manager_upload_projections(
+    rpe_shadow_manager_t* m, rpe_engine_t* engine, rpe_scene_t* scene)
+{
     vkapi_driver_map_gpu_buffer(
         engine->driver,
         m->cascade_ubo,

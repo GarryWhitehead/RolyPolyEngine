@@ -117,6 +117,7 @@ target_link_libraries(
     log.c::log.c
     stb::stb
     Threads::Threads
+    Tracy::TracyClient
 )
 
 add_dependencies(RPE Shaders)
@@ -175,6 +176,7 @@ if (BUILD_BENCHMARKS AND BUILD_GPU_TESTS)
 
     set (benchmark_srcs
         benchmark/test_shadow.c
+        benchmark/test_scene.c
     )
 
     add_executable(RpeBenchmark ${benchmark_srcs})

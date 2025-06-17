@@ -61,6 +61,7 @@ class VkSceneEditor3dPackage(ConanFile):
         self.requires("ktx/4.0.0")
         self.requires("parg/1.0.3")
         self.requires("nuklear/4.12.0")
+        self.requires("tracy/0.11.1")
 
         if self.options.build_tests:
             self.requires("unity/2.6.0")

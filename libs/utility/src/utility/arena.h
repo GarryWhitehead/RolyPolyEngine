@@ -24,6 +24,7 @@
 #define __UTILITY_ARENA_H__
 
 #include "compiler.h"
+#include "thread.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -73,6 +74,8 @@ typedef struct Arena
     uint8_t* begin;
     uint8_t* end;
     ptrdiff_t offset;
+    // For thread-safe functions.
+    mutex_t mutex;
 #ifdef ENABLE_DEBUG_ARENA
     /// Used for identifying the arena when debugging.
     const char* id;
@@ -106,6 +109,8 @@ typedef struct Arena
  */
 #define ARENA_MAKE_STRUCT(arena, type, flags)                                                      \
     (type*)arena_alloc(arena, sizeof(type), _Alignof(type), 1, flags)
+#define ARENA_MAKE_STRUCT_WITH_LOCK(arena, type, flags)                                            \
+    (type*)arena_alloc_with_lock(arena, sizeof(type), _Alignof(type), 1, flags)
 
 /**
  Create a single (zeroed) allocation in an arena. Useful when wishing to allocate space for structs.
@@ -114,6 +119,8 @@ typedef struct Arena
  */
 #define ARENA_MAKE_ZERO_STRUCT(arena, type)                                                        \
     (type*)arena_alloc(arena, sizeof(type), _Alignof(type), 1, ARENA_ZERO_MEMORY)
+#define ARENA_MAKE_ZERO_STRUCT_WITH_LOCK(arena, type)                                              \
+    (type*)arena_alloc_with_lock(arena, sizeof(type), _Alignof(type), 1, ARENA_ZERO_MEMORY)
 
 /**
  Create a new arena allocator instance.
@@ -136,6 +143,8 @@ int arena_new(uint64_t capacity, arena_t* new_arena);
  @return A pointer to the allocated memory space within the arena.
  */
 void* arena_alloc(arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags);
+void* arena_alloc_with_lock(
+    arena_t* arena, ptrdiff_t type_size, ptrdiff_t align, ptrdiff_t count, int flags);
 
 /**
  Get the current used space of the arena.
@@ -169,6 +178,12 @@ void arena_release(arena_t* arena);
         assert((dyn_array)->type_size == sizeof(*_item));                                          \
         dyn_array_append(dyn_array, _item);                                                        \
     })
+#define DYN_ARRAY_APPEND_WITH_LOCK(dyn_array, item)                                                \
+    ({                                                                                             \
+        __auto_type _item = (item);                                                                \
+        assert((dyn_array)->type_size == sizeof(*_item));                                          \
+        dyn_array_append_with_lock(dyn_array, _item);                                              \
+    })
 
 #define DYN_ARRAY_SET(dyn_array, idx, item)                                                        \
     ({                                                                                             \
@@ -178,6 +193,7 @@ void arena_release(arena_t* arena);
     })
 #else
 #define DYN_ARRAY_APPEND(dyn_array, item) dyn_array_append(dyn_array, item);
+#define DYN_ARRAY_APPEND_WITH_LOCK(dyn_array, item) dyn_array_append_with_lock(dyn_array, item);
 
 #define DYN_ARRAY_SET(dyn_array, idx, item) dyn_array_set(dyn_array, idx, item);
 #endif
@@ -187,6 +203,8 @@ void arena_release(arena_t* arena);
 #define DYN_ARRAY_GET_PTR(type, dyn_array, idx) (type*)dyn_array_get(dyn_array, idx)
 
 #define DYN_ARRAY_POP_BACK(type, dyn_array) *(type*)dyn_array_pop_back(dyn_array)
+#define DYN_ARRAY_POP_BACK_WITH_LOCK(type, dyn_array)                                              \
+    *(type*)dyn_array_pop_back_with_lock(dyn_array)
 
 #define DYN_ARRAY_APPEND_CHAR(dyn_array, item)                                                     \
     {                                                                                              \
@@ -206,6 +224,7 @@ typedef struct DynArray
     size_t align_size;
     arena_t* arena;
     void* data;
+    mutex_t mutex;
 } arena_dyn_array_t;
 
 /**
@@ -238,6 +257,7 @@ void dyn_array_shrink(arena_dyn_array_t* arr, size_t new_sz);
  @returns a pointer to where the item was placed in memory.
  */
 void* dyn_array_append(arena_dyn_array_t* dyn_array, void* item);
+void* dyn_array_append_with_lock(arena_dyn_array_t* arr, void* item);
 
 void dyn_array_resize(arena_dyn_array_t* arr, size_t new_size);
 
@@ -252,6 +272,7 @@ void* dyn_array_get(arena_dyn_array_t* dyn_array, uint32_t idx);
 void* dyn_array_set(arena_dyn_array_t* arr, uint32_t idx, void* item);
 
 void* dyn_array_pop_back(arena_dyn_array_t* arr);
+void* dyn_array_pop_back_with_lock(arena_dyn_array_t* arr);
 
 /**
  Remove an item from the array.
@@ -271,8 +292,6 @@ bool dyn_array_find(arena_dyn_array_t* arr, void* item);
 
 void dyn_array_clear(arena_dyn_array_t* dyn_array);
 
-void dyn_array_clone(arena_dyn_array_t* old, arena_dyn_array_t* cloned);
-
-/* ====================== Pool allocator ========================== */
+size_t dyn_array_size_with_lock(arena_dyn_array_t* dyn_array);
 
 #endif

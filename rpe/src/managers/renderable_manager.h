@@ -34,6 +34,7 @@
 typedef struct Engine rpe_engine_t;
 typedef struct ComponentManager rpe_comp_manager_t;
 typedef struct Object rpe_object_t;
+struct RenderableInstance;
 
 typedef struct Mesh
 {
@@ -55,6 +56,8 @@ typedef struct Renderable
     rpe_rect2d_t scissor;
     rpe_viewport_t viewport;
     uint8_t view_layer;
+    // States whether frustum culling should be skipped for this renderable.
+    bool perform_cull_test;
 
     // Used for the material key - batching is dependent on viewport/scissor changes.
     struct RenderableKey
@@ -74,13 +77,17 @@ typedef struct BatchedDraw
     rpe_viewport_t viewport;
 } rpe_batch_renderable_t;
 
+// clang-format off
 struct IndirectDraw
 {
-    VkDrawIndexedIndirectCommand indirect_cmd;
-    uint32_t object_id;
-    uint32_t batch_id;
-    bool shadow_caster;
-};
+    VkDrawIndexedIndirectCommand indirect_cmd;  // 20 bytes
+    uint32_t object_id;                         // 4 bytes
+    uint32_t batch_id;                          // 4 bytes
+    bool shadow_caster;                         // 4 bytes
+    bool perform_cull_test;                     // 4 bytes
+    int padding;                                // 4 bytes
+};                                              // Total : 40bytes.
+// clang-format on
 
 typedef struct RenderableManager
 {
@@ -100,6 +107,9 @@ rpe_rend_manager_t* rpe_rend_manager_init(rpe_engine_t* engine, arena_t* arena);
 rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t* obj);
 
 void rpe_rend_manager_batch_renderables(
-    rpe_rend_manager_t* m, arena_dyn_array_t* object_arr, arena_dyn_array_t* batched_renderables);
+    rpe_rend_manager_t* m,
+    struct RenderableInstance* instances,
+    size_t count,
+    arena_dyn_array_t* batched_renderables);
 
 #endif

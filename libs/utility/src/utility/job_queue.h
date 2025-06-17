@@ -34,14 +34,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define JOB_QUEUE_MAX_JOB_COUNT 1024
+#define JOB_QUEUE_MAX_JOB_COUNT 4096
+#define JOB_QUEUE_JOB_COUNT_MASK (JOB_QUEUE_MAX_JOB_COUNT - 1)
 #define JOB_QUEUE_MAX_THREAD_COUNT 32
 #define JOB_QUEUE_CACHELINE_SIZE 64
 
 // Forward declarations.
 typedef struct JobQueue job_queue_t;
 
-typedef void (*job_func_t)(void* args);
+typedef void (*job_func_t)(void*);
 
 /**
  Information on each job created.
@@ -53,12 +54,13 @@ typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) Job
     /// Arguments to pass to the function.
     void* args;
     /// The number of references to this job.
-    atomic_uint_fast16_t ref_count;
+    atomic_int_fast16_t ref_count;
     /// The number of jobs running for this particular job.
-    atomic_uint_fast16_t child_run_count;
+    atomic_int_fast16_t child_run_count;
     /// A index into the job cache which points to the parent of this job. Used for linking jobs to
     /// each other, so multiple jobs can be executed via one job.
     atomic_uint_fast16_t parent;
+    uint32_t idx;
 } job_t;
 
 /**
@@ -81,7 +83,9 @@ typedef struct RPE_ALIGNAS(JOB_QUEUE_CACHELINE_SIZE) ThreadInfo
 typedef struct JobQueue
 {
     /// An array of jobs which are assigned when creating a job.
-    arena_dyn_array_t job_cache;
+    job_t* job_cache;
+    /// The number of jobs currently allocated. Used job indices are found in the `free_job_list`
+    atomic_int job_count;
     /// Main thread state cache array.
     thread_info_t thread_states[JOB_QUEUE_MAX_THREAD_COUNT];
     /// The number of threads this job queue is running. Doesn't include adopted threads.
@@ -124,6 +128,12 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads);
  @return
  */
 job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t* parent);
+
+/**
+  Create a parent job.
+  Note: Don't use the same parent job for subsequent runs. Instead create a new parent each time.
+  */
+job_t* job_queue_create_parent_job(job_queue_t* jq);
 
 /**
  Destroy the specified job queue. This terminates all running thread pools.

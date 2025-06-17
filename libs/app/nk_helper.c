@@ -43,6 +43,7 @@
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_VARARGS
 #include <nuklear.h>
+#include <tracy/TracyC.h>
 
 void set_ui_style(struct nk_context* ctx)
 {
@@ -331,6 +332,8 @@ void update_nk_inputs(nk_instance_t* nk, app_window_t* app_win)
 void update_nk_draw_calls(
     nk_instance_t* nk, rpe_engine_t* engine, app_window_t* win, arena_t* arena)
 {
+    TracyCZoneN(ctx, "App::NK_HELPER", 1);
+
     assert(nk);
 
     rpe_rend_manager_t* rm = rpe_engine_get_rend_manager(engine);
@@ -398,17 +401,20 @@ void update_nk_draw_calls(
         // window. To achieve this and get round the batching, each ui renderable is placed on a
         // different layer. This does mean more draw calls, but this is unavoidable.
         rpe_renderable_set_view_layer(rend, current_layer);
+        // Pointless doing frustum culling on UI objects.
+        rpe_renderable_disbale_frustum_culling(rend);
 
         rpe_rend_manager_add(rm, rend, nk->rend_objs[idx], nk->transform_obj);
-        rpe_scene_add_object(nk->scene, nk->rend_objs[idx]);
+        rpe_scene_add_object(nk->scene, nk->rend_objs[idx++]);
 
         index_offset += cmd->elem_count;
-        ++idx;
         current_layer += 0x01;
     }
 
     nk_clear(&nk->ctx);
     arena_reset(arena);
+
+    TracyCZoneEnd(ctx);
 }
 
 void nk_helper_new_frame(

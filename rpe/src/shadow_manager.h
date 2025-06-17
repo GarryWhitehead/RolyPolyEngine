@@ -26,6 +26,7 @@
 #include "rpe/settings.h"
 
 #include <stdint.h>
+#include <utility/job_queue.h>
 #include <utility/maths.h>
 #include <vulkan-api/program_manager.h>
 #include <vulkan-api/resource_cache.h>
@@ -39,6 +40,21 @@ typedef struct Engine rpe_engine_t;
 typedef struct Scene rpe_scene_t;
 typedef struct Camera rpe_camera_t;
 typedef struct LightManager rpe_light_manager_t;
+typedef struct ShadowManager rpe_shadow_manager_t;
+typedef struct LightInstance rpe_light_instance_t;
+
+/**
+ Entry data for projection update jobs.
+ */
+struct JobEntry
+{
+    rpe_shadow_manager_t* sm;
+    rpe_camera_t* camera;
+    rpe_scene_t* scene;
+    job_t* job;
+    rpe_light_instance_t* dir_light;
+    int idx;
+};
 
 typedef struct ShadowMap
 {
@@ -62,7 +78,8 @@ typedef struct ShadowManager
     shader_handle_t csm_shaders[2];
     shader_handle_t csm_debug_shaders[2];
     buffer_handle_t cascade_ubo;
-
+    job_t* parent_job;
+    struct JobEntry job_entries[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
 } rpe_shadow_manager_t;
 
 rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct ShadowSettings settings);
@@ -73,6 +90,13 @@ void rpe_shadow_manager_update_projections(
     rpe_scene_t* scene,
     rpe_engine_t* engine,
     rpe_light_manager_t* lm);
+
+// Check that the projection update jobs have finished running.
+void rpe_shadow_manager_sync_update(rpe_shadow_manager_t* m, rpe_engine_t* engine);
+
+// Make sure this is called after updating the projections (see above).
+void rpe_shadow_manager_upload_projections(
+    rpe_shadow_manager_t* m, rpe_engine_t* engine, rpe_scene_t* scene);
 
 void rpe_shadow_manager_compute_csm_splits(
     rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera);

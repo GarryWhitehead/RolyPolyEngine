@@ -299,6 +299,9 @@ void gltf_resource_loader_load_textures(gltf_asset_t* asset, rpe_engine_t* engin
         decode_image(&rl, asset, entry, rl.parent_job);
     }
 
+    // TODO: Rather than wait here - leave it to the client to decide when to sync - just return
+    // from here instead.
+
     for (size_t i = 0; i < rl.decode_queue.size; ++i)
     {
         struct DecodeEntry* entry = DYN_ARRAY_GET_PTR(struct DecodeEntry, &rl.decode_queue, i);

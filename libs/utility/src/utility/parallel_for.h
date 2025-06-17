@@ -1,4 +1,4 @@
-/* Copyright (c) 2024 Garry Whitehead
+/* Copyright (c) 2024-2025 Garry Whitehead
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -19,31 +19,44 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#ifndef __UTILITY_WORK_STEALING_QUEUE_H__
-#define __UTILITY_WORK_STEALING_QUEUE_H__
 
-#include <stdatomic.h>
+#ifndef __UTILITY_PARALLEL_FOR_H__
+#define __UTILITY_PARALLEL_FOR_H__
+
+#include "arena.h"
+#include "job_queue.h"
+
 #include <stdint.h>
 
-#define WORK_STEALING_QUEUE_MAX_JOB_COUNT 4096
+typedef void (*parallel_for_func_t)(uint32_t, uint32_t, void*);
 
-// Forward declarations.
-typedef struct Arena arena_t;
-
-typedef struct WorkStealingDeque
+struct SplitConfig
 {
-    atomic_int top_idx;
-    atomic_int bottom_idx;
-    int idx_mask;
-    int items[WORK_STEALING_QUEUE_MAX_JOB_COUNT];
-} work_stealing_queue_t;
+    uint32_t max_split;
+    uint32_t min_count;
+};
 
-work_stealing_queue_t work_stealing_queue_init(arena_t* arena, uint32_t queue_count);
+struct ParallelForData
+{
+    job_queue_t* jq;
+    job_t* parent;
+    uint32_t start;
+    uint32_t count;
+    uint32_t splits;
+    parallel_for_func_t func;
+    void* data;
+    struct SplitConfig* cfg;
+    arena_t* arena;
+};
 
-void work_stealing_queue_push(work_stealing_queue_t* queue, int item);
-
-int work_stealing_queue_pop(work_stealing_queue_t* queue);
-
-int work_stealing_queue_steal(work_stealing_queue_t* queue);
+job_t* parallel_for(
+    job_queue_t* jq,
+    job_t* parent,
+    uint32_t start,
+    uint32_t count,
+    parallel_for_func_t func,
+    void* data,
+    struct SplitConfig* cfg,
+    arena_t* arena);
 
 #endif
