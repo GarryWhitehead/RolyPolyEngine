@@ -137,7 +137,7 @@ int app_window_init(
     if (new_win->show_ui)
     {
         const char* font_path = RPE_ASSETS_DIRECTORY "/Roboto-Regular.ttf";
-        new_win->nk = nk_helper_init(font_path, 16.0f, app->engine, new_win, &app->arena);
+        new_win->nk = nk_helper_init(font_path, 18.0f, app->engine, new_win, &app->arena);
         if (!new_win->nk)
         {
             return APP_ERROR_UI_FONT_NOT_FOUND;
@@ -321,7 +321,7 @@ void app_window_scroll_response(GLFWwindow* window, double xoffset, double yoffs
     app_window_t* input_sys = (app_window_t*)glfwGetWindowUserPointer(window);
     float fov = input_sys->camera->fov;
     fov -= (float)yoffset;
-    CLAMP(input_sys->camera->fov, 1.0f, 90.0f);
+    fov = CLAMP(fov, 1.0f, 90.0f);
     rpe_camera_set_fov(input_sys->camera, fov);
 
     if (input_sys->show_ui)

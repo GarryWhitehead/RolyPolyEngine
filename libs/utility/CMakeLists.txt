@@ -53,6 +53,7 @@ set (util_files
     src/utility/benchmark.h
     src/utility/parallel_for.c
     src/utility/parallel_for.h
+    src/utility/timer.h
 )
 
 if (MSVC)

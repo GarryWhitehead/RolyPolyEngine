@@ -30,7 +30,7 @@
 #include "resource_cache.h"
 #include "staging_pool.h"
 
-#define VKAPI_DRIVER_MAX_DRAW_COUNT 1000
+#define VKAPI_DRIVER_MAX_DRAW_COUNT 500
 
 #define VKAPI_SCRATCH_ARENA_SIZE 1 << 20
 #define VKAPI_PERM_ARENA_SIZE 1 << 30

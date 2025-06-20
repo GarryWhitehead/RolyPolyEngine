@@ -28,6 +28,18 @@
 
 #include <rpe/engine.h>
 #include <rpe/scene.h>
+#include <utility/timer.h>
+
+#ifndef NDEBUG
+#define APP_START_TIMER(timer) util_timer_start(timer)
+#else
+#define APP_START_TIMER(timer)
+#endif
+#ifndef NDEBUG
+#define APP_END_TIMER(timer) util_timer_end(timer)
+#else
+#define APP_END_TIMER(timer)
+#endif
 
 #define RPE_APP_ARENA_SIZE 1 << 30
 
@@ -35,6 +47,15 @@ typedef struct Engine rpe_engine_t;
 
 typedef void (*PreRenderFunc)(rpe_engine_t*, void*);
 typedef void (*PostRenderFunc)(rpe_engine_t*, void*);
+
+#ifndef NDEBUG
+typedef struct AppDebugRegistry
+{
+    util_timer_t ui_time;
+    util_timer_t render_time;
+
+} rpe_app_debug_registry_t;
+#endif
 
 typedef struct Application
 {
@@ -53,7 +74,9 @@ typedef struct Application
     float camera_fov;
     float camera_near;
     float camera_far;
-
+#ifndef NDEBUG
+    rpe_app_debug_registry_t registry;
+#endif
 } rpe_app_t;
 
 /**

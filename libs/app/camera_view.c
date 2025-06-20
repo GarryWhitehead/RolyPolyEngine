@@ -31,7 +31,7 @@
 rpe_camera_view_t rpe_camera_view_init(rpe_engine_t* engine)
 {
     rpe_camera_view_t cam_view = {0};
-    cam_view.move_speed = 0.2f;
+    cam_view.move_speed = 0.35f;
     cam_view.key_events = HASH_SET_CREATE(enum MovementType, bool, &engine->perm_arena);
     cam_view.view = math_mat4f_identity();
     cam_view.eye.x = 0.0f;
@@ -98,7 +98,7 @@ math_vec3f rpe_camera_view_front_vec(rpe_camera_view_t* cam_view)
     math_vec3f out = {
         -cosf(math_to_radians(cam_view->rotation.x)) * sinf(math_to_radians(cam_view->rotation.y)),
         sinf(math_to_radians(cam_view->rotation.x)),
-        -cosf(math_to_radians(cam_view->rotation.x)) * cosf(math_to_radians(cam_view->rotation.y))};
+        cosf(math_to_radians(cam_view->rotation.x)) * cosf(math_to_radians(cam_view->rotation.y))};
     return math_vec3f_normalise(out);
 }
 
@@ -152,25 +152,25 @@ void rpe_camera_view_update_key_events(rpe_camera_view_t* cam_view, float dt)
     if (get_movement_state(cam_view, &type))
     {
         cam_view->eye =
-            math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
+            math_vec3f_add(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
     }
     type = RPE_MOVEMENT_BACKWARD;
     if (get_movement_state(cam_view, &type))
     {
         cam_view->eye =
-            math_vec3f_add(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
+            math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->front_vec, speed));
     }
     type = RPE_MOVEMENT_LEFT;
     if (get_movement_state(cam_view, &type))
     {
         cam_view->eye =
-            math_vec3f_add(cam_view->eye, math_vec3f_mul_sca(cam_view->right_vec, speed));
+            math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->right_vec, speed));
     }
     type = RPE_MOVEMENT_RIGHT;
     if (get_movement_state(cam_view, &type))
     {
         cam_view->eye =
-            math_vec3f_sub(cam_view->eye, math_vec3f_mul_sca(cam_view->right_vec, speed));
+            math_vec3f_add(cam_view->eye, math_vec3f_mul_sca(cam_view->right_vec, speed));
     }
     rpe_camera_view_update_view(cam_view);
 }

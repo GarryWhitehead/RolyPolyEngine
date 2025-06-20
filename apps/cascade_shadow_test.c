@@ -25,6 +25,7 @@
 #include <gltf/gltf_asset.h>
 #include <gltf/gltf_loader.h>
 #include <gltf/resource_loader.h>
+#include <inttypes.h>
 #include <parg.h>
 #include <rpe/light_manager.h>
 #include <rpe/material.h>
@@ -37,13 +38,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <utility/filesystem.h>
-
+#include <utility/timer.h>
 
 #define MODEL_TREE_COUNT 10
 #define MODEL_COUNT 1
 
 /**
- * A app for testing the casccade shadows method. Draws a basic landscape scene using models
+ * A app for testing the cascade shadows method. Draws a basic landscape scene using models
  * from the Vulkan Asset git repo. This must be cloned and a path passed via the cmd arg when
  * running this.
  */
@@ -129,52 +130,101 @@ void light_update(rpe_engine_t* engine, void* data)
     rpe_light_manager_set_position(rpe_engine_get_light_manager(engine), light_data->dir_obj, &pos);
 }
 
-void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win)
+void ui_metric_window(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win, rpe_app_t* app)
+{
+    nk_instance_t* nk = win->nk;
+    struct nk_context* ctx = &nk->ctx;
+
+    if (nk_begin(
+            ctx,
+            "Metrics",
+            nk_rect(20, 450, 330, 250),
+            NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
+                NK_WINDOW_TITLE))
+    {
+        if (nk_tree_push(ctx, NK_TREE_NODE, "Performance", NK_MINIMIZED))
+        {
+            nk_layout_row_dynamic(ctx, 30, 1);
+
+            double ui_time = util_timer_get_time_secs(&app->registry.ui_time);
+            double render_time = util_timer_get_time_secs(&app->registry.render_time);
+            double ui_fps = 1.0 / ui_time;
+            double render_fps = 1.0 / render_time;
+
+            char text[120];
+            sprintf(text, "UI Draw Time: %.4f ms (%.3f fps)", ui_time * 1000, ui_fps);
+            nk_label(ctx, text, NK_TEXT_LEFT);
+            sprintf(text, "Render Draw Time: %.4f ms (%.3f fps)", render_time * 1000, render_fps);
+            nk_label(ctx, text, NK_TEXT_LEFT);
+
+            nk_tree_pop(ctx);
+        }
+    }
+    nk_end(ctx);
+}
+
+void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win, rpe_app_t* app)
 {
     nk_instance_t* nk = win->nk;
     struct nk_context* ctx = &nk->ctx;
     rpe_settings_t settings = rpe_engine_get_settings(engine);
 
+    static bool show_metrics = true;
+
     if (nk_begin(
             ctx,
             "Shadow Cascade Test",
-            nk_rect(50, 50, 230, 250),
+            nk_rect(20, 20, 340, 300),
             NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
                 NK_WINDOW_TITLE))
     {
+        nk_layout_space_begin(ctx, NK_STATIC, 150, 64);
+        nk_layout_space_push(ctx, nk_rect(15, 15, 300, 170));
+        if (nk_group_begin(ctx, "Shadow Group", NK_WINDOW_BORDER | NK_WINDOW_BACKGROUND))
+        {
+            nk_layout_row_dynamic(ctx, 30, 1);
+            if (nk_checkbox_label(ctx, "Draw shadows", (nk_bool*)&settings.draw_shadows))
+            {
+                rpe_engine_update_settings(engine, &settings);
+            }
+
+            // Cascade levels.
+            nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
+            {
+                nk_layout_row_push(ctx, 100);
+                nk_label(ctx, "Cascade levels:", NK_TEXT_RIGHT);
+                nk_layout_row_push(ctx, 160);
+                if (nk_slider_int(ctx, 1, &settings.shadow.cascade_count, 8, 1))
+                {
+                    rpe_engine_update_settings(engine, &settings);
+                }
+            }
+
+            // Lambda
+            nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
+            {
+                nk_layout_row_push(ctx, 100);
+                nk_label(ctx, "Split lambda:", NK_TEXT_RIGHT);
+                nk_layout_row_push(ctx, 160);
+                if (nk_slider_float(ctx, 0.1f, &settings.shadow.split_lambda, 1.0f, 0.1f))
+                {
+                    rpe_engine_update_settings(engine, &settings);
+                }
+            }
+            nk_layout_space_end(ctx);
+            nk_group_end(ctx);
+        }
+
         nk_layout_row_dynamic(ctx, 30, 1);
-        if (nk_checkbox_label(ctx, "Draw shadows", (nk_bool*)&settings.draw_shadows))
-        {
-            rpe_engine_update_settings(engine, &settings);
-        }
-
-        // Cascade levels.
-        nk_layout_row_dynamic(ctx, 30, 2);
-        nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
-        {
-            nk_layout_row_push(ctx, 50);
-            nk_label(ctx, "Cascade levels:", NK_TEXT_LEFT);
-            nk_layout_row_push(ctx, 150);
-            if (nk_slider_int(ctx, 1, &settings.shadow.cascade_count, 8, 1))
-            {
-                rpe_engine_update_settings(engine, &settings);
-            }
-        }
-
-        // Lambda
-        nk_layout_row_dynamic(ctx, 30, 2);
-        nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
-        {
-            nk_layout_row_push(ctx, 50);
-            nk_label(ctx, "Split lambda:", NK_TEXT_LEFT);
-            nk_layout_row_push(ctx, 150);
-            if (nk_slider_float(ctx, 0.1f, &settings.shadow.split_lambda, 1.0f, 0.1f))
-            {
-                rpe_engine_update_settings(engine, &settings);
-            }
-        }
+        nk_spacer(ctx);
+        nk_checkbox_label(ctx, "Show Metrics", (nk_bool*)&show_metrics);
     }
     nk_end(ctx);
+
+    if (show_metrics)
+    {
+        ui_metric_window(engine, scene, win, app);
+    }
 }
 
 int main(int argc, char** argv)

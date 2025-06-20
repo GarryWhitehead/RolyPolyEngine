@@ -47,8 +47,9 @@ typedef struct Engine rpe_engine_t;
 typedef struct AppWindow app_window_t;
 typedef struct Camera rpe_camera_t;
 typedef struct Material rpe_material_t;
+typedef struct Application rpe_app_t;
 
-typedef void (*UiCallback)(rpe_engine_t*, rpe_scene_t*, app_window_t*);
+typedef void (*UiCallback)(rpe_engine_t*, rpe_scene_t*, app_window_t*, rpe_app_t*);
 
 typedef struct NkInstance
 {
@@ -93,6 +94,7 @@ void nk_helper_destroy(nk_instance_t* nk);
 void nk_helper_new_frame(
     nk_instance_t* nk,
     rpe_engine_t* engine,
+    rpe_app_t* app,
     app_window_t* app_win,
     UiCallback ui_callback,
     arena_t* arena);
