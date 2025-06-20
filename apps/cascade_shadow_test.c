@@ -142,6 +142,7 @@ void ui_metric_window(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* wi
             NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
                 NK_WINDOW_TITLE))
     {
+#ifndef NDEBUG
         if (nk_tree_push(ctx, NK_TREE_NODE, "Performance", NK_MINIMIZED))
         {
             nk_layout_row_dynamic(ctx, 30, 1);
@@ -159,6 +160,7 @@ void ui_metric_window(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* wi
 
             nk_tree_pop(ctx);
         }
+#endif
     }
     nk_end(ctx);
 }
