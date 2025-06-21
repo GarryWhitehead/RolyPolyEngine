@@ -360,8 +360,7 @@ void update_nk_draw_calls(
     nk_buffer_init_fixed(&nk->v_buffer, vertex_tmp, sizeof(rpe_vertex_t) * 2000);
     nk_buffer_init_fixed(&nk->i_buffer, index_tmp, sizeof(uint16_t) * 2000);
 
-    nk_flags res = nk_convert(&nk->ctx, &nk->cmds, &nk->v_buffer, &nk->i_buffer, &nk->config);
-    assert(res == NK_CONVERT_SUCCESS);
+    nk_convert(&nk->ctx, &nk->cmds, &nk->v_buffer, &nk->i_buffer, &nk->config);
 
     rpe_mesh_t* mesh = rpe_rend_manager_create_mesh(
         rm,
@@ -420,6 +419,7 @@ void update_nk_draw_calls(
 void nk_helper_new_frame(
     nk_instance_t* nk,
     rpe_engine_t* engine,
+    rpe_app_t* app,
     app_window_t* app_win,
     UiCallback ui_callback,
     arena_t* arena)
@@ -427,7 +427,7 @@ void nk_helper_new_frame(
     update_nk_inputs(nk, app_win);
 
     // Draw the widgets for this frame via the callback.
-    ui_callback(engine, rpe_engine_get_current_scene(engine), app_win);
+    ui_callback(engine, rpe_engine_get_current_scene(engine), app_win, app);
 
     update_nk_draw_calls(nk, engine, app_win, arena);
 }

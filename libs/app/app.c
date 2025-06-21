@@ -87,7 +87,7 @@ void rpe_app_run(
         if (app_win->show_ui)
         {
             nk_helper_new_frame(
-                app_win->nk, app->engine, app_win, ui_callback, &app->scratch_arena);
+                app_win->nk, app->engine, app, app_win, ui_callback, &app->scratch_arena);
         }
 
         double now = glfwGetTime();
@@ -112,10 +112,15 @@ void rpe_app_run(
         }
 
         // begin the rendering for this frame - render the main scene
+        APP_START_TIMER(&app->registry.ui_time);
         rpe_renderer_render(renderer, app->scene, true);
+        APP_END_TIMER(&app->registry.ui_time);
+
         if (app_win->show_ui)
         {
+            APP_START_TIMER(&app->registry.render_time);
             rpe_renderer_render(renderer, app_win->nk->scene, false);
+            APP_END_TIMER(&app->registry.render_time);
         }
 
         if (post_render_func)
