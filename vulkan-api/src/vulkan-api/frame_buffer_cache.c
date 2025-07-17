@@ -26,6 +26,8 @@
 #include "pipeline.h"
 #include "renderpass.h"
 
+#include <string.h>
+
 vkapi_rpass_key_t vkapi_rpass_key_init()
 {
     vkapi_rpass_key_t i = {0};

@@ -31,6 +31,10 @@
 #include <utility/arena.h>
 #include <vulkan-api/program_manager.h>
 
+// When using threaded cmd buffers, to keep threads balanced with work, a max threshold is applied
+// which if exceeded, then a new batch is started.
+#define RPE_RENDERABLE_BATCH_THRESHOLD_COUNT 200
+
 typedef struct Engine rpe_engine_t;
 typedef struct ComponentManager rpe_comp_manager_t;
 typedef struct Object rpe_object_t;
@@ -108,6 +112,7 @@ rpe_renderable_t* rpe_rend_manager_get_mesh(rpe_rend_manager_t* m, rpe_object_t*
 
 void rpe_rend_manager_batch_renderables(
     rpe_rend_manager_t* m,
+    rpe_engine_t* engine,
     struct RenderableInstance* instances,
     size_t count,
     arena_dyn_array_t* batched_renderables);

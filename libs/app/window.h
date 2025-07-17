@@ -81,7 +81,7 @@ int app_window_init(
     uint32_t width,
     uint32_t height,
     app_window_t* new_win,
-    rpe_settings_t* settings,
+    struct Settings* settings,
     bool show_ui);
 
 /**

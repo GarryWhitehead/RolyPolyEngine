@@ -23,10 +23,6 @@
 #ifndef __RPE_PRIV_ENGINE_H__
 #define __RPE_PRIV_ENGINE_H__
 
-#define RPE_ENGINE_SCRATCH_ARENA_SIZE 1 << 25
-#define RPE_ENGINE_PERM_ARENA_SIZE 1 << 30
-#define RPE_ENGINE_FRAME_ARENA_SIZE 1 << 30
-
 #include "rpe/settings.h"
 
 #include <stdint.h>
@@ -93,7 +89,7 @@ typedef struct Engine
 
     job_queue_t* job_queue;
 
-    rpe_settings_t settings;
+    struct Settings settings;
 } rpe_engine_t;
 
 #endif

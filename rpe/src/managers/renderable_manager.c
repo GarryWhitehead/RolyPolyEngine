@@ -413,6 +413,7 @@ int sort_renderables(void* rend_manager, const void* a, const void* b)
 
 void rpe_rend_manager_batch_renderables(
     rpe_rend_manager_t* m,
+    rpe_engine_t* engine,
     struct RenderableInstance* instances,
     size_t count,
     arena_dyn_array_t* batched_renderables)
@@ -440,11 +441,14 @@ void rpe_rend_manager_batch_renderables(
     rpe_batch_renderable_t* curr_batch = DYN_ARRAY_APPEND(batched_renderables, &batch);
     rpe_renderable_t* prev = rend;
 
+    vkapi_driver_t* driver = engine->driver;
+    bool threaded_cmdbuffers = driver->settings.threaded_cmdbuffers;
+
     for (size_t i = 1; i < count; ++i)
     {
         rend = instances[i].rend;
 
-        if (rend->sort_key == prev->sort_key)
+        if (rend->sort_key == prev->sort_key && curr_batch->count < RPE_RENDERABLE_BATCH_THRESHOLD_COUNT)
         {
             ++curr_batch->count;
         }

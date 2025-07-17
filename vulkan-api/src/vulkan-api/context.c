@@ -149,6 +149,7 @@ vkapi_context_t* vkapi_context_init(arena_t* perm_arena)
 void vkapi_context_shutdown(vkapi_context_t* context, VkSurfaceKHR surface)
 {
     vkDestroyDevice(context->device, VK_NULL_HANDLE);
+#ifndef NDEBUG
     if (context->debug_messenger)
     {
         vkDestroyDebugUtilsMessengerEXT(
@@ -158,6 +159,7 @@ void vkapi_context_shutdown(vkapi_context_t* context, VkSurfaceKHR surface)
     {
         vkDestroyDebugReportCallbackEXT(context->instance, context->debug_callback, VK_NULL_HANDLE);
     }
+#endif
     if (surface)
     {
         vkDestroySurfaceKHR(context->instance, surface, VK_NULL_HANDLE);
@@ -229,7 +231,7 @@ int vkapi_context_prep_extensions(
         context->extensions.has_multi_view = true;
     }
 
-#ifdef VULKAN_VALIDATION_DEBUG
+#ifndef NDEBUG
     // if debug utils isn't supported, try debug report
     if (!context->extensions.has_debug_utils &&
         vkapi_find_ext_props(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, dev_ext_props, dev_ext_prop_count))
@@ -277,7 +279,7 @@ int vkapi_context_create_instance(
         ARENA_MAKE_ARRAY(scratch_arena, VkLayerProperties, layer_count, 0);
     VK_CHECK_RESULT(vkEnumerateInstanceLayerProperties(&layer_count, layer_prop_arr));
 
-#ifdef VULKAN_VALIDATION_DEBUG
+#ifndef NDEBUG
     if (vkapi_find_layer_ext(VKAPI_VALIDATION_LAYER_NAME, layer_prop_arr, layer_count))
     {
         DYN_ARRAY_APPEND_CHAR(&context->req_layers, VKAPI_VALIDATION_LAYER_NAME);
@@ -312,7 +314,7 @@ int vkapi_context_create_instance(
     createInfo.ppEnabledExtensionNames = ext_arr.data;
     VK_CHECK_RESULT(vkCreateInstance(&createInfo, VK_NULL_HANDLE, &context->instance));
 
-#ifdef VULKAN_VALIDATION_DEBUG
+#ifndef NDEBUG
     // For some reason, on windows the instance needs to be NULL to successfully
     // get the proc address, only Mac and Linux the VkInstance needs to be
     // passed.

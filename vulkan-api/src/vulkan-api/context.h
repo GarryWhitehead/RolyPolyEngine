@@ -70,8 +70,7 @@ typedef struct VkApiContext
     // An array of validation layer names, passed when creating the device.
     arena_dyn_array_t req_layers;
 
-#ifdef VULKAN_VALIDATION_DEBUG
-
+#ifndef NDEBUG
     VkDebugReportCallbackEXT debug_callback;
     VkDebugUtilsMessengerEXT debug_messenger;
 #endif

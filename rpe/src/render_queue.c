@@ -38,33 +38,33 @@ rpe_render_queue_t* rpe_render_queue_init(arena_t* arena)
     return q;
 }
 
-void rpe_render_queue_submit_all(rpe_render_queue_t* q, vkapi_driver_t* driver)
+void rpe_render_queue_submit_all(rpe_render_queue_t* q, rpe_engine_t* engine)
 {
     assert(q);
 
-    rpe_command_bucket_submit(q->gbuffer_bucket, driver);
+    rpe_command_bucket_submit(q->gbuffer_bucket, engine);
     rpe_command_bucket_reset(q->depth_bucket);
-    rpe_command_bucket_submit(q->lighting_bucket, driver);
-    rpe_command_bucket_submit(q->post_process_bucket, driver);
+    rpe_command_bucket_submit(q->lighting_bucket, engine);
+    rpe_command_bucket_submit(q->post_process_bucket, engine);
 }
 
 void rpe_render_queue_submit_one(
-    rpe_render_queue_t* q, vkapi_driver_t* driver, enum QueueBucketType type)
+    rpe_render_queue_t* q, rpe_engine_t* engine, enum QueueBucketType type)
 {
     assert(q);
     switch (type)
     {
         case RPE_RENDER_QUEUE_GBUFFER:
-            rpe_command_bucket_submit(q->gbuffer_bucket, driver);
+            rpe_command_bucket_submit(q->gbuffer_bucket, engine);
             break;
         case RPE_RENDER_QUEUE_DEPTH:
-            rpe_command_bucket_submit(q->depth_bucket, driver);
+            rpe_command_bucket_submit(q->depth_bucket, engine);
             break;
         case RPE_RENDER_QUEUE_LIGHTING:
-            rpe_command_bucket_submit(q->lighting_bucket, driver);
+            rpe_command_bucket_submit(q->lighting_bucket, engine);
             break;
         case RPE_RENDER_QUEUE_POST_PROCESS:
-            rpe_command_bucket_submit(q->post_process_bucket, driver);
+            rpe_command_bucket_submit(q->post_process_bucket, engine);
             break;
     }
 }

@@ -30,8 +30,6 @@
 #include "resource_cache.h"
 #include "staging_pool.h"
 
-#define VKAPI_DRIVER_MAX_DRAW_COUNT 500
-
 #define VKAPI_SCRATCH_ARENA_SIZE 1 << 20
 #define VKAPI_PERM_ARENA_SIZE 1 << 30
 
@@ -51,6 +49,20 @@ enum BarrierType
     VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ,
     VKAPI_BARRIER_INDIRECT_CMD_READ_TO_COMPUTE
 };
+
+struct ThreadDrawInfo
+{
+    // Pipeline and descriptor set caches required for each cmd buffer thread.
+    vkapi_desc_cache_t* desc_cache;
+    vkapi_pipeline_cache_t* pline_cache;
+};
+
+typedef struct VkApiSettings
+{
+    bool threaded_cmdbuffers;
+    size_t scratch_arena_size;
+    size_t perm_arena_size;
+} vkapi_settings_t;
 
 typedef struct VkApiDriver
 {
@@ -87,13 +99,18 @@ typedef struct VkApiDriver
     vkapi_desc_cache_t* desc_cache;
     vkapi_sampler_cache_t* sampler_cache;
 
+    struct ThreadDrawInfo thread_draw_info[VKAPI_COMMANDS_MAX_THREAD_COUNT];
+
     uint64_t current_frame;
+
+    vkapi_settings_t settings;
 
 } vkapi_driver_t;
 
 int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface);
 
-vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* errror_code);
+vkapi_driver_t* vkapi_driver_init(
+    const char** instance_ext, uint32_t ext_count, vkapi_settings_t* settings, int* errror_code);
 
 void vkapi_driver_shutdown(vkapi_driver_t* driver, VkSurfaceKHR surface);
 
@@ -113,17 +130,36 @@ void vkapi_driver_end_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc);
 
 void vkapi_driver_begin_rpass(
     vkapi_driver_t* driver,
-    VkCommandBuffer cmds,
     vkapi_render_pass_data_t* data,
-    vkapi_rt_handle_t* rt_handle);
+    vkapi_rt_handle_t* rt_handle,
+    bool use_threads);
+
 void vkapi_driver_end_rpass(VkCommandBuffer cmds);
+
+void vkapi_driver_bind_vertex_buffer_sc(
+    vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding, uint32_t id);
 
 void vkapi_driver_bind_vertex_buffer(
     vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding);
+
+void vkapi_driver_bind_index_buffer_sc(
+    vkapi_driver_t* driver, buffer_handle_t ib_handle, uint32_t id);
+
 void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle);
 
 void vkapi_driver_bind_gfx_pipeline(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
+
+void vkapi_driver_bind_gfx_pipeline_sc(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, uint32_t id);
+
+// Note: Binding of the pipeline must be done via `vkapi_driver_bind_gfx_pipeline` before binding
+// descriptors.
+void vkapi_driver_bind_descriptors(
     vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind);
+
+void vkapi_driver_bind_descriptors_sc(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind, uint32_t id);
 
 void vkapi_driver_map_gpu_buffer(
     vkapi_driver_t* driver, buffer_handle_t h, size_t size, size_t offset, void* data);
@@ -150,7 +186,10 @@ void vkapi_driver_map_gpu_vertex(
 void vkapi_driver_set_push_constant(
     vkapi_driver_t* driver, shader_prog_bundle_t* bundle, void* data, enum ShaderStage stage);
 
+void vkapi_driver_set_scissor_sc(vkapi_driver_t* driver, VkRect2D scissor, uint32_t id);
 void vkapi_driver_set_scissor(vkapi_driver_t* driver, VkRect2D scissor);
+
+void vkapi_driver_set_viewport_sc(vkapi_driver_t* driver, VkViewport vp, uint32_t id);
 void vkapi_driver_set_viewport(vkapi_driver_t* driver, VkViewport vp);
 
 void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vertex_offset);
@@ -158,13 +197,24 @@ void vkapi_driver_draw(vkapi_driver_t* driver, uint32_t vert_count, int32_t vert
 void vkapi_driver_draw_indexed(
     vkapi_driver_t* driver, uint32_t index_count, int32_t vertex_offset, int32_t index_offset);
 
+void vkapi_driver_draw_indirect_indexed_sc(
+    vkapi_driver_t* driver,
+    buffer_handle_t indirect_cmd_buffer,
+    uint32_t offset,
+    buffer_handle_t cmd_count_buffer,
+    uint32_t draw_count_offset,
+    uint32_t stride,
+    uint32_t max_draw_count,
+    uint32_t id);
+
 void vkapi_driver_draw_indirect_indexed(
     vkapi_driver_t* driver,
     buffer_handle_t indirect_cmd_buffer,
     uint32_t offset,
     buffer_handle_t cmd_count_buffer,
     uint32_t draw_count_offset,
-    uint32_t stride);
+    uint32_t stride,
+    uint32_t max_draw_count);
 
 void vkapi_driver_begin_cond_render(
     vkapi_driver_t* driver, buffer_handle_t cond_buffer, int32_t offset);
@@ -176,7 +226,8 @@ void vkapi_driver_dispatch_compute(
     uint32_t y_work_count,
     uint32_t z_work_count);
 
-void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle);
+void vkapi_driver_draw_quad(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkRect2D scissor, VkViewport vp);
 
 void vkapi_driver_clear_gpu_buffer(
     vkapi_driver_t* driver, vkapi_cmdbuffer_t* cmd_buffer, buffer_handle_t handle);

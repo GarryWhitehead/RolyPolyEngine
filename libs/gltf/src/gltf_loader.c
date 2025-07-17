@@ -32,6 +32,7 @@
 #include <rpe/renderable_manager.h>
 #include <rpe/scene.h>
 #include <rpe/transform_manager.h>
+#include <rpe/settings.h>
 #include <utility/arena.h>
 
 #define CGLTF_IMPLEMENTATION
@@ -482,8 +483,9 @@ bool create_mesh_instance(
             indices_type);
         DYN_ARRAY_APPEND(&asset->meshes, &new_mesh);
 
+        rpe_engine_t* engine = asset->engine;
         rpe_renderable_t* renderable =
-            rpe_engine_create_renderable(asset->engine, mesh_mat, new_mesh);
+            rpe_engine_create_renderable(engine, mesh_mat, new_mesh);
 
         math_mat4f world_transform;
         cgltf_node_transform_world(node, &world_transform.data[0][0]);
@@ -498,7 +500,7 @@ bool create_mesh_instance(
 
         // Add the renderable to the manager all with the same transform.
         rpe_object_t mesh_obj =
-            rpe_obj_manager_create_obj(rpe_engine_get_obj_manager(asset->engine));
+            rpe_obj_manager_create_obj(rpe_engine_get_obj_manager(engine));
         rpe_rend_manager_add(asset->rend_manager, renderable, mesh_obj, *transform_obj);
         DYN_ARRAY_APPEND(&asset->objects, &mesh_obj);
     }
@@ -784,7 +786,7 @@ void gltf_model_create_instances(
 
                 rpe_object_t model_trans_obj =
                     rpe_transform_manager_copy(tm, om, parent_trans_obj, &objects);
-                rpe_transform_manager_set_transform(tm, model_trans_obj, &transforms[i]);
+                rpe_transform_manager_set_trs_transform(tm, model_trans_obj, &transforms[i]);
 
                 rpe_rend_manager_copy(
                     rm,

@@ -130,6 +130,12 @@ target_compile_definitions(
     "$<$<PLATFORM_ID:Windows>:_USE_MATH_DEFINES;NOMINMAX;_CRT_SECURE_NO_WARNINGS>"  
 )
 
+#set_target_properties(RPE PROPERTIES
+    #LINK_FLAGS "-fsanitize=address -fsanitize-recover=address"
+    #LINK_FLAGS "-fsanitize=thread"
+    #COMPILE_FLAGS -fsanitize=address)
+#target_link_libraries(RPE PRIVATE -fsanitize=address)
+
 # add common compile flags
 rpe_add_compiler_flags(TARGET RPE)
 

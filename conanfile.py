@@ -32,6 +32,7 @@ class VkSceneEditor3dPackage(ConanFile):
         "build_gpu_tests": True,
         "build_benchmark": True,
         "verbose": False,
+        "tracy:enable": False,
         }
 
     generators = "CMakeDeps"

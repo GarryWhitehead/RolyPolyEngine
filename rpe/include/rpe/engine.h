@@ -41,10 +41,10 @@ typedef struct Material rpe_material_t;
 typedef struct Mesh rpe_mesh_t;
 typedef struct Camera rpe_camera_t;
 typedef struct Skybox rpe_skybox_t;
-typedef struct Settings rpe_settings_t;
 typedef struct JobQueue job_queue_t;
+struct Settings;
 
-rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings);
+rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, struct Settings* settings);
 
 void rpe_engine_shutdown(rpe_engine_t* engine);
 
@@ -75,7 +75,7 @@ rpe_shadow_manager_t* rpe_engine_get_shadow_manager(rpe_engine_t* engine);
 job_queue_t* rpe_engine_get_job_queue(rpe_engine_t* engine);
 rpe_scene_t* rpe_engine_get_current_scene(rpe_engine_t* engine);
 
-rpe_settings_t rpe_engine_get_settings(rpe_engine_t* engine);
-void rpe_engine_update_settings(rpe_engine_t* engine, rpe_settings_t* settings);
+struct Settings rpe_engine_get_settings(rpe_engine_t* engine);
+void rpe_engine_update_settings(rpe_engine_t* engine, struct Settings* settings);
 
 #endif

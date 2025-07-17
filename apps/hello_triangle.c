@@ -28,7 +28,26 @@
 #include <rpe/settings.h>
 #include <rpe/transform_manager.h>
 
-#define MODELS_PER_AXIS 5
+#define MODELS_PER_AXIS 20
+
+struct AnimateData
+{
+    arena_dyn_array_t* transform_objs;
+};
+
+void animate(rpe_engine_t* engine, void* data, double dt)
+{
+    rpe_transform_manager_t* tm = rpe_engine_get_transform_manager(engine);
+
+    struct AnimateData* d = (struct AnimateData*)data;
+    for (size_t i = 0; i < d->transform_objs->size; ++i)
+    {
+        rpe_object_t o = DYN_ARRAY_GET(rpe_object_t, d->transform_objs, i);
+        math_mat4f T = rpe_transform_manager_get_trs_matrix(tm, o);
+        math_mat4f TR = math_mat4f_axis_rotate((float)dt, math_vec3f_init(0.0f, 1.0f, 0.0f));
+        rpe_transform_manager_set_matrix_transform(tm, o, math_mat4f_mul(T, TR));
+    }
+}
 
 int main()
 {
@@ -36,7 +55,10 @@ int main()
     const uint32_t win_height = 1080;
 
     rpe_app_t app;
-    struct Settings settings = {.gbuffer_dims = 2048, .draw_shadows = false};
+    struct Settings settings = rpe_init_settings();
+    settings.draw_shadows = false;
+    settings.system.max_static_model_draw_count = 100000;
+
     int error = rpe_app_init("HelloTriangles", win_width, win_height, &app, &settings, false);
     if (error != APP_SUCCESS)
     {
@@ -86,6 +108,8 @@ int main()
         RPE_RENDERABLE_INDICES_U32);
 
     rpe_renderable_t* renderable = rpe_engine_create_renderable(app.engine, mat, mesh);
+    arena_dyn_array_t transform_objs;
+    MAKE_DYN_ARRAY(rpe_object_t, &app.arena, 10000, &transform_objs);
 
     for (int z = 0; z < MODELS_PER_AXIS; ++z)
     {
@@ -102,12 +126,16 @@ int main()
                 t.scale = math_vec3f_init(0.2f, 0.2f, 0.2f);
                 t.translation = math_vec3f_init((float)x / 2.0f, (float)y / 2.0f, (float)z / 2.0f);
                 rpe_transform_manager_add_local_transform(t_manager, &t, &t_obj);
+                // save the transform objects so we can rotate each frame.
+                DYN_ARRAY_APPEND(&transform_objs, &t_obj);
             }
         }
     }
 
+    struct AnimateData data = {.transform_objs = &transform_objs};
+
     rpe_camera_view_set_position(&app.window.cam_view, math_vec3f_init(0.0f, 0.0f, -4.0f));
-    rpe_app_run(&app, renderer, NULL, NULL, NULL, NULL, NULL);
+    rpe_app_run(&app, renderer, animate, &data, NULL, NULL, NULL);
 
     rpe_app_shutdown(&app);
 

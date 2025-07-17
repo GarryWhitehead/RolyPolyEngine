@@ -101,7 +101,7 @@ void rpe_shadow_manager_upload_projections(
 void rpe_shadow_manager_compute_csm_splits(
     rpe_shadow_manager_t* m, rpe_scene_t* scene, rpe_camera_t* camera);
 
-void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene);
+void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene, rpe_engine_t* engine);
 
 
 #endif

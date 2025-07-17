@@ -56,10 +56,13 @@ rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_
 {
     assert(engine);
 
+    struct SystemSettings sys_settings = engine->settings.system;
+    const size_t max_static_model_count = sys_settings.max_static_model_draw_count;
+
     rpe_transform_manager_t* m = ARENA_MAKE_ZERO_STRUCT(arena, rpe_transform_manager_t);
     MAKE_DYN_ARRAY(rpe_transform_node_t, arena, 100, &m->nodes);
     MAKE_DYN_ARRAY(rpe_skin_instance_t, arena, 100, &m->skins);
-    m->static_transforms = ARENA_MAKE_ARRAY(arena, math_mat4f, RPE_SCENE_MAX_STATIC_MODEL_COUNT, 0);
+    m->static_transforms = ARENA_MAKE_ARRAY(arena, math_mat4f, max_static_model_count, 0);
     m->skinned_transforms = ARENA_MAKE_ARRAY(arena, math_mat4f, RPE_SCENE_MAX_BONE_COUNT, 0);
     m->comp_manager = rpe_comp_manager_init(arena);
     m->engine = engine;
@@ -73,7 +76,7 @@ rpe_transform_manager_t* rpe_transform_manager_init(rpe_engine_t* engine, arena_
     m->transform_buffer_handle = vkapi_res_cache_create_ssbo(
         engine->driver->res_cache,
         engine->driver,
-        sizeof(math_mat4f) * RPE_SCENE_MAX_STATIC_MODEL_COUNT,
+        sizeof(math_mat4f) * max_static_model_count,
         0,
         VKAPI_BUFFER_HOST_TO_GPU);
 
@@ -362,7 +365,7 @@ rpe_object_t* rpe_transform_manager_get_parent(rpe_transform_manager_t* m, rpe_o
     return node->parent;
 }
 
-void rpe_transform_manager_set_transform(
+void rpe_transform_manager_set_trs_transform(
     rpe_transform_manager_t* m, rpe_object_t obj, rpe_model_transform_t* trans)
 {
     assert(m);
@@ -370,6 +373,17 @@ void rpe_transform_manager_set_transform(
     assert(idx != RPE_INVALID_OBJECT);
     rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
     node->local_transform = compute_trs(trans);
+    rpe_transform_manager_update_world(m, obj);
+}
+
+void rpe_transform_manager_set_matrix_transform(
+    rpe_transform_manager_t* m, rpe_object_t obj, math_mat4f trans)
+{
+    assert(m);
+    uint64_t idx = rpe_comp_manager_get_obj_idx(m->comp_manager, obj);
+    assert(idx != RPE_INVALID_OBJECT);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
+    node->local_transform = trans;
     rpe_transform_manager_update_world(m, obj);
 }
 
@@ -381,3 +395,13 @@ rpe_object_t* rpe_transform_manager_get_child(rpe_transform_manager_t* m, rpe_ob
     rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &m->nodes, idx);
     return node->first_child;
 }
+
+math_mat4f rpe_transform_manager_get_trs_matrix(rpe_transform_manager_t* tm, rpe_object_t obj)
+{
+    assert(tm);
+    uint64_t idx = rpe_comp_manager_get_obj_idx(tm->comp_manager, obj);
+    assert(idx != RPE_INVALID_OBJECT);
+    rpe_transform_node_t* node = DYN_ARRAY_GET_PTR(rpe_transform_node_t, &tm->nodes, idx);
+    return node->local_transform;
+}
+

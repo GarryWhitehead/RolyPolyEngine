@@ -38,6 +38,9 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* a
 {
     assert(e);
 
+    struct SystemSettings sys_settings = e->settings.system;
+    const size_t max_static_model_count = sys_settings.max_static_model_draw_count;
+
     rpe_material_t instance = {0};
     instance.double_sided = false;
     // Material will cast shadows by default.
@@ -83,12 +86,12 @@ rpe_material_t rpe_material_init(rpe_engine_t* e, rpe_scene_t* scene, arena_t* a
         instance.program_bundle,
         RPE_SCENE_TRANSFORM_SSBO_BINDING,
         e->transform_manager->transform_buffer_handle,
-        RPE_SCENE_MAX_STATIC_MODEL_COUNT);
+        max_static_model_count);
     shader_bundle_update_ssbo_desc(
         instance.program_bundle,
         RPE_SCENE_DRAW_DATA_SSBO_BINDING,
         scene->draw_data_handle,
-        RPE_SCENE_MAX_STATIC_MODEL_COUNT);
+        max_static_model_count);
 
     return instance;
 }

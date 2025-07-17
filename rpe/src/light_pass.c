@@ -167,8 +167,14 @@ void execute_light_pass(
     shader_bundle_add_image_sampler(
         d->prog_bundle, driver, spec_handle, RPE_LIGHT_PASS_SAMPLER_SPECULAR_ENVMAP_BINDING);
 
-    vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
-    vkapi_driver_draw_quad(driver, d->prog_bundle);
+    vkapi_driver_begin_rpass(driver, &info.data, &info.handle, false);
+
+    uint32_t w = engine->curr_swapchain->extent.width;
+    uint32_t h = engine->curr_swapchain->extent.height;
+    VkRect2D scissor = {.extent.width = w, .extent.height = h};
+    VkViewport vp = {.width = (float)w, .height = (float)h, .maxDepth = 1.0f};
+
+    vkapi_driver_draw_quad(driver, d->prog_bundle, scissor, vp);
     vkapi_driver_end_rpass(cmd_buffer->instance);
 }
 

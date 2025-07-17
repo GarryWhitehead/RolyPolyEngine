@@ -41,6 +41,8 @@ rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct Shado
     sm->settings = settings;
 
     vkapi_driver_t* driver = engine->driver;
+    struct SystemSettings sys_settings = engine->settings.system;
+    const size_t max_static_model_count = sys_settings.max_static_model_draw_count;
 
     sm->csm_shaders[RPE_BACKEND_SHADER_STAGE_VERTEX] = program_cache_from_spirv(
         driver->prog_manager,
@@ -114,7 +116,7 @@ rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct Shado
         sm->csm_bundle,
         RPE_SHADOW_MANAGER_TRANSFORM_SSBO_BINDING,
         engine->transform_manager->transform_buffer_handle,
-        RPE_SCENE_MAX_STATIC_MODEL_COUNT);
+        max_static_model_count);
 
     if (settings.enable_debug_cascade)
     {
@@ -151,7 +153,7 @@ rpe_shadow_manager_t* rpe_shadow_manager_init(rpe_engine_t* engine, struct Shado
     return sm;
 }
 
-void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene)
+void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t* scene, rpe_engine_t* engine)
 {
     assert(sm);
     assert(scene);
@@ -161,7 +163,7 @@ void rpe_shadow_manager_update_draw_buffer(rpe_shadow_manager_t* sm, rpe_scene_t
         sm->csm_bundle,
         RPE_SHADOW_MANAGER_DRAW_DATA_SSBO_BINDING,
         scene->draw_data_handle,
-        RPE_SCENE_MAX_STATIC_MODEL_COUNT);
+        engine->settings.system.max_static_model_draw_count);
 }
 
 void rpe_shadow_manager_compute_csm_splits(

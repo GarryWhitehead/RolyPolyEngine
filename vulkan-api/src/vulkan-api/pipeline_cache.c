@@ -77,21 +77,10 @@ vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* d
     return c;
 }
 
-bool vkapi_pline_cache_compare_graphic_keys(graphics_pl_key_t* lhs, graphics_pl_key_t* rhs)
-{
-    return memcmp(lhs, rhs, sizeof(graphics_pl_key_t)) == 0; // NOLINT
-}
-
-bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_key_t* rhs)
-{
-    return memcmp(lhs, rhs, sizeof(compute_pl_key_t)) == 0; // NOLINT
-}
-
 void vkapi_pline_cache_bind_graphics_pline(
     vkapi_pipeline_cache_t* c,
     VkCommandBuffer cmds,
-    struct SpecConstParams* spec_consts,
-    bool force_rebind)
+    struct SpecConstParams* spec_consts)
 {
     assert(c);
 
@@ -99,22 +88,9 @@ void vkapi_pline_cache_bind_graphics_pline(
     // call, but when re-using the same renderpass for different draw-calls but rebinding pipeline,
     // as the renderpass is set via being_rpass, it will be cleared with no way of getting the
     // previous renderpass.
-    assert(c->rpass_state.instance && "[PipelineCahce] No render pass has been declared.");
+    assert(c->rpass_state.instance && "[PipelineCache] No render pass has been declared.");
     c->graphics_pline_requires.render_pass = c->rpass_state.instance;
     c->graphics_pline_requires.colour_attach_count = c->rpass_state.colour_attach_count;
-
-    // Check if the required pipeline is already bound. If so, nothing to do
-    // here.
-    if (vkapi_pline_cache_compare_graphic_keys(
-            &c->graphics_pline_requires, &c->bound_graphics_pline) &&
-        !force_rebind)
-    {
-        vkapi_graphics_pl_t* pl = HASH_SET_GET(&c->gfx_pipelines, &c->bound_graphics_pline);
-        assert(pl);
-        pl->last_used_frame_stamp = c->driver->current_frame;
-        c->graphics_pline_requires = vkapi_graphics_pline_key_init();
-        return;
-    }
 
     vkapi_graphics_pl_t* pl = vkapi_pline_cache_find_or_create_gfx_pline(c, spec_consts);
     assert(pl);

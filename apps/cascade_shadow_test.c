@@ -169,7 +169,7 @@ void ui_callback(rpe_engine_t* engine, rpe_scene_t* scene, app_window_t* win, rp
 {
     nk_instance_t* nk = win->nk;
     struct nk_context* ctx = &nk->ctx;
-    rpe_settings_t settings = rpe_engine_get_settings(engine);
+    struct Settings settings = rpe_engine_get_settings(engine);
 
     static bool show_metrics = true;
 
@@ -265,13 +265,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    rpe_settings_t settings = {
-        .gbuffer_dims = 2048,
-        .draw_shadows = true,
-        .shadow.cascade_dims = 2048,
-        .shadow.split_lambda = 0.9f,
-        .shadow.cascade_count = 3,
-        .shadow.enable_debug_cascade = false};
+    struct Settings settings = rpe_init_settings();
 
     rpe_app_t app;
     int error =

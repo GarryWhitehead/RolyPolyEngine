@@ -58,7 +58,7 @@ function(rpe_add_compiler_flags)
 
     else()
         set(build_type_debug            ${compile_options} -g -fno-inline)
-        set(build_type_relwithdebinfo   ${compile_options} -g -O2)
+        set(build_type_relwithdebinfo   ${compile_options} -g -fno-inline)
         set(build_type_release          ${compile_options} -O2)
     endif()
     

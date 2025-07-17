@@ -143,8 +143,7 @@ vkapi_pipeline_cache_t* vkapi_pline_cache_init(arena_t* arena, vkapi_driver_t* d
 void vkapi_pline_cache_bind_graphics_pline(
     vkapi_pipeline_cache_t* c,
     VkCommandBuffer cmds,
-    struct SpecConstParams* spec_consts,
-    bool force_rebind);
+    struct SpecConstParams* spec_consts);
 
 vkapi_graphics_pl_t* vkapi_pline_cache_find_or_create_gfx_pline(
     vkapi_pipeline_cache_t* c, struct SpecConstParams* spec_consts);
@@ -190,6 +189,4 @@ void vkapi_pline_cache_bind_compute_shader_modules(
 void vkapi_pline_cache_destroy(vkapi_pipeline_cache_t* c);
 void vkapi_pline_cache_gc(vkapi_pipeline_cache_t* c, uint64_t current_frame);
 
-bool vkapi_pline_cache_compare_graphic_keys(graphics_pl_key_t* lhs, graphics_pl_key_t* rhs);
-bool vkapi_pline_cache_compare_compute_keys(compute_pl_key_t* lhs, compute_pl_key_t* rhs);
 #endif

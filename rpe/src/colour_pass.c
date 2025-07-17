@@ -125,6 +125,7 @@ void execute_gbuffer(
     rpe_scene_t* scene = d->scene;
     assert(scene);
 
+    bool threaded_cmdbuffers = driver->settings.threaded_cmdbuffers;
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_driver_get_gfx_cmds(driver);
     rpe_vertex_buffer_upload_to_gpu(engine->vbuffer, driver);
 
@@ -137,15 +138,26 @@ void execute_gbuffer(
     vkapi_driver_acquire_buffer_barrier(
         driver, cmd_buffer, scene->draw_count_handle, VKAPI_BARRIER_COMPUTE_TO_INDIRECT_CMD_READ);
 
-    vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
+    vkapi_driver_begin_rpass(driver, &info.data, &info.handle, true);
 
-    // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset
-    // into this buffer.
-    vkapi_driver_bind_vertex_buffer(driver, engine->vbuffer->vertex_buffer, 0);
-    vkapi_driver_bind_vertex_buffer(driver, scene->model_draw_data_handle, 1);
-    vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
+    // If using threaded cmdbuffers, then the vertex and index buffers are bound on each thread via
+    // the command packets.
+    if (!threaded_cmdbuffers)
+    {
+        // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset
+        // into this buffer.
+        vkapi_driver_bind_vertex_buffer(driver, engine->vbuffer->vertex_buffer, 0);
+        vkapi_driver_bind_vertex_buffer(driver, scene->model_draw_data_handle, 1);
+        vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
+    }
 
-    rpe_render_queue_submit_one(scene->render_queue, driver, RPE_RENDER_QUEUE_GBUFFER);
+    rpe_render_queue_submit_one(scene->render_queue, engine, RPE_RENDER_QUEUE_GBUFFER);
+
+    if (threaded_cmdbuffers)
+    {
+        vkapi_commands_execute_range_sc(
+            driver->commands, scene->colour_sc_indices[0], scene->colour_sc_indices[1]);
+    }
 
     vkapi_driver_end_rpass(cmd_buffer->instance);
 

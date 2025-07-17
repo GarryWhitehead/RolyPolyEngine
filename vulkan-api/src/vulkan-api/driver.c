@@ -35,16 +35,28 @@
 #include <string.h>
 #include <utility/maths.h>
 
-vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count, int* error_code)
+vkapi_settings_t vkapi_driver_init_settings()
+{
+    vkapi_settings_t settings = {
+        .threaded_cmdbuffers = true,
+        .scratch_arena_size = VKAPI_SCRATCH_ARENA_SIZE,
+        .perm_arena_size = VKAPI_PERM_ARENA_SIZE};
+    return settings;
+}
+
+vkapi_driver_t* vkapi_driver_init(
+    const char** instance_ext, uint32_t ext_count, vkapi_settings_t* settings, int* error_code)
 {
     // RENDERDOC_CREATE_API_INSTANCE
 
     *error_code = VKAPI_SUCCESS;
 
+    vkapi_settings_t s = !settings ? vkapi_driver_init_settings() : *settings;
+
     // Allocate the arena space.
     arena_t perm_arena, scratch_arena;
-    int perm_err = arena_new(VKAPI_PERM_ARENA_SIZE, &perm_arena);
-    int scratch_err = arena_new(VKAPI_SCRATCH_ARENA_SIZE, &scratch_arena);
+    int perm_err = arena_new(s.perm_arena_size, &perm_arena);
+    int scratch_err = arena_new(s.scratch_arena_size, &scratch_arena);
     if (perm_err != ARENA_SUCCESS || scratch_err != ARENA_SUCCESS)
     {
         *error_code = VKAPI_ERROR_INVALID_ARENA;
@@ -55,6 +67,7 @@ vkapi_driver_t* vkapi_driver_init(const char** instance_ext, uint32_t ext_count,
     assert(driver);
     driver->_perm_arena = perm_arena;
     driver->_scratch_arena = scratch_arena;
+    driver->settings = s;
 
     VK_CHECK_RESULT(volkInitialize())
     driver->context = vkapi_context_init(&driver->_perm_arena);
@@ -123,6 +136,17 @@ int vkapi_driver_create_device(vkapi_driver_t* driver, VkSurfaceKHR surface)
     driver->sampler_cache = vkapi_sampler_cache_init(&driver->_perm_arena);
     driver->res_cache = vkapi_res_cache_init(driver, &driver->_perm_arena);
 
+    if (driver->settings.threaded_cmdbuffers)
+    {
+        for (int idx = 0; idx < VKAPI_COMMANDS_MAX_THREAD_COUNT; ++idx)
+        {
+            driver->thread_draw_info[idx].desc_cache =
+                vkapi_desc_cache_init(driver, &driver->_perm_arena);
+            driver->thread_draw_info[idx].pline_cache =
+                vkapi_pline_cache_init(&driver->_perm_arena, driver);
+        }
+    }
+
     return VKAPI_SUCCESS;
 }
 
@@ -132,6 +156,15 @@ void vkapi_driver_shutdown(vkapi_driver_t* driver, VkSurfaceKHR surface)
     // destroying all other Vulkan objects.
     vkapi_commands_destroy(driver->context, driver->commands);
     vkapi_commands_destroy(driver->context, driver->compute_commands);
+
+    if (driver->settings.threaded_cmdbuffers)
+    {
+        for (int i = 0; i < VKAPI_COMMANDS_MAX_THREAD_COUNT; ++i)
+        {
+            vkapi_pline_cache_destroy(driver->thread_draw_info[i].pline_cache);
+            vkapi_desc_cache_destroy(driver->thread_draw_info[i].desc_cache);
+        }
+    }
 
     vkapi_fb_cache_destroy(driver->framebuffer_cache, driver);
     vkapi_pline_cache_destroy(driver->pline_cache);
@@ -259,6 +292,9 @@ bool vkapi_driver_begin_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
     assert(driver);
     assert(sc);
 
+    // CLear the secondary cmd buffers ready for recording.
+    vkapi_commands_new_frame_sc(driver->commands);
+
     // get the next image index which will be the framebuffer we draw too
     VkResult res = vkAcquireNextImageKHR(
         driver->context->device,
@@ -309,13 +345,13 @@ void vkapi_driver_end_frame(vkapi_driver_t* driver, vkapi_swapchain_t* sc)
 }
 
 void vkapi_driver_begin_rpass(
-    vkapi_driver_t* driver,
-    VkCommandBuffer cmds,
-    vkapi_render_pass_data_t* data,
-    vkapi_rt_handle_t* rt_handle)
+    vkapi_driver_t* driver, vkapi_render_pass_data_t* data, vkapi_rt_handle_t* rt_handle, bool use_threads)
 {
     assert(driver);
     assert(rt_handle->id < driver->render_targets.size);
+
+    vkapi_cmdbuffer_t* cmd_buffer = vkapi_driver_get_gfx_cmds(driver);
+    VkCommandBuffer cmds = cmd_buffer->instance;
 
     int attach_count = 0;
     vkapi_render_target_t* rt =
@@ -413,6 +449,8 @@ void vkapi_driver_begin_rpass(
         }
     }
 
+    bool threaded_cmdbuffers = driver->settings.threaded_cmdbuffers & use_threads;
+
     // extents of the frame buffer
     VkRect2D extents = {
         .offset.x = 0, .offset.y = 0, .extent.width = fbo->width, .extent.height = fbo->height};
@@ -424,55 +462,101 @@ void vkapi_driver_begin_rpass(
     bi.renderArea = extents;
     bi.clearValueCount = attach_count;
     bi.pClearValues = clear_values;
-    vkCmdBeginRenderPass(cmds, &bi, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(
+        cmds,
+        &bi,
+        threaded_cmdbuffers ? VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS
+                            : VK_SUBPASS_CONTENTS_INLINE);
 
-    // Viewport and scissor can be overwritten later by the user.
-    VkViewport viewport = {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = (float)fbo->width,
-        .height = (float)fbo->height,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f};
-    vkCmdSetViewport(cmds, 0, 1, &viewport);
+    vkapi_commands_set_rpass_sc(driver->commands, rpass->instance, fbo->instance);
 
-    VkRect2D scissor = {
-        .offset.x = 0,
-        .offset.y = 0,
-        .extent.width = (int32_t)fbo->width,
-        .extent.height = (int32_t)fbo->height};
-    vkCmdSetScissor(cmds, 0, 1, &scissor);
+    VkRect2D scissor = {.extent.width = fbo->width, .extent.height = fbo->height };
+    VkViewport vp = { .width = (float)fbo->width, .height = (float)fbo->height, .maxDepth = 1.0f};
+    vkapi_commands_set_viewport_scissor_state(driver->commands, scissor, vp);
 
     // bind the renderpass to the pipeline
-    vkapi_pline_cache_bind_rpass(driver->pline_cache, rpass->instance);
-    vkapi_pline_cache_bind_colour_attach_count(
-        driver->pline_cache, vkapi_rpass_get_attach_count(rpass));
+    if (threaded_cmdbuffers)
+    {
+        for (int i = 0; i < VKAPI_COMMANDS_MAX_THREAD_COUNT; ++i)
+        {
+            vkapi_pipeline_cache_t* cache = driver->thread_draw_info[i].pline_cache;
+            vkapi_pline_cache_bind_rpass(cache, rpass->instance);
+            vkapi_pline_cache_bind_colour_attach_count(cache, vkapi_rpass_get_attach_count(rpass));
+        }
+    }
+    else
+    {
+        vkapi_pline_cache_bind_rpass(driver->pline_cache, rpass->instance);
+        vkapi_pline_cache_bind_colour_attach_count(
+            driver->pline_cache, vkapi_rpass_get_attach_count(rpass));
+    }
     arena_reset(&driver->_scratch_arena);
 }
 
 void vkapi_driver_end_rpass(VkCommandBuffer cmds) { vkCmdEndRenderPass(cmds); }
 
+void _bind_vertex_buffer(
+    vkapi_driver_t* driver, buffer_handle_t vb_handle, VkCommandBuffer cmds, uint32_t binding)
+{
+    vkapi_buffer_t* vb = vkapi_res_cache_get_buffer(driver->res_cache, vb_handle);
+    VkDeviceSize offset[1] = {0};
+    vkCmdBindVertexBuffers(cmds, binding, 1, &vb->buffer, offset);
+}
+
+void vkapi_driver_bind_vertex_buffer_sc(
+    vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding, uint32_t id)
+{
+    assert(driver);
+    assert(vkapi_buffer_handle_is_valid(vb_handle));
+    VkCommandBuffer cmds = vkapi_commands_get_secondary_cmds(driver->commands, id);
+    _bind_vertex_buffer(driver, vb_handle, cmds, binding);
+}
+
 void vkapi_driver_bind_vertex_buffer(
     vkapi_driver_t* driver, buffer_handle_t vb_handle, uint32_t binding)
 {
-    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_buffer_t* vb = vkapi_res_cache_get_buffer(driver->res_cache, vb_handle);
-    VkDeviceSize offset[1] = {0};
-    vkCmdBindVertexBuffers(cmd_buffer->instance, binding, 1, &vb->buffer, offset);
+    assert(driver);
+    assert(vkapi_buffer_handle_is_valid(vb_handle));
+    VkCommandBuffer cmds = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _bind_vertex_buffer(driver, vb_handle, cmds, binding);
+}
+
+void _bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle, VkCommandBuffer cmds)
+{
+    vkapi_buffer_t* ib = vkapi_res_cache_get_buffer(driver->res_cache, ib_handle);
+    vkCmdBindIndexBuffer(cmds, ib->buffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
+void vkapi_driver_bind_index_buffer_sc(
+    vkapi_driver_t* driver, buffer_handle_t ib_handle, uint32_t id)
+{
+    assert(driver);
+    assert(vkapi_buffer_handle_is_valid(ib_handle));
+    VkCommandBuffer cmds = vkapi_commands_get_secondary_cmds(driver->commands, id);
+    _bind_index_buffer(driver, ib_handle, cmds);
 }
 
 void vkapi_driver_bind_index_buffer(vkapi_driver_t* driver, buffer_handle_t ib_handle)
 {
-    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_buffer_t* ib = vkapi_res_cache_get_buffer(driver->res_cache, ib_handle);
-    vkCmdBindIndexBuffer(cmd_buffer->instance, ib->buffer, 0, VK_INDEX_TYPE_UINT32);
+    assert(driver);
+    assert(vkapi_buffer_handle_is_valid(ib_handle));
+    VkCommandBuffer cmds = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _bind_index_buffer(driver, ib_handle, cmds);
 }
 
-void vkapi_driver_bind_gfx_pipeline(
-    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind)
+void _bind_descriptors(
+    vkapi_driver_t* driver,
+    vkapi_desc_cache_t* desc_cache,
+    vkapi_pipeline_cache_t* pline_cache,
+    shader_prog_bundle_t* bundle,
+    VkCommandBuffer cmds,
+    bool force_rebind)
 {
-    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(driver->pline_cache, bundle);
+    assert(driver);
+    assert(desc_cache);
+    assert(pline_cache);
+
+    vkapi_pl_layout_t* pl_layout = vkapi_pline_cache_get_pl_layout(pline_cache, bundle);
 
     bool bound_samplers = false;
     struct DescriptorImage image_samplers[VKAPI_PIPELINE_MAX_SAMPLER_BIND_COUNT] = {0};
@@ -491,7 +575,7 @@ void vkapi_driver_bind_gfx_pipeline(
     }
     if (bound_samplers)
     {
-        vkapi_desc_cache_bind_sampler(driver->desc_cache, image_samplers);
+        vkapi_desc_cache_bind_sampler(desc_cache, image_samplers);
     }
 
     // Bind all the buffers associated with this pipeline
@@ -501,8 +585,7 @@ void vkapi_driver_bind_gfx_pipeline(
         if (vkapi_buffer_handle_is_valid(info->buffer))
         {
             vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, info->buffer);
-            vkapi_desc_cache_bind_ubo(
-                driver->desc_cache, info->binding, buffer->buffer, info->size);
+            vkapi_desc_cache_bind_ubo(desc_cache, info->binding, buffer->buffer, info->size);
         }
     }
     for (size_t i = 0; i < VKAPI_PIPELINE_MAX_SSBO_BIND_COUNT; ++i)
@@ -511,29 +594,65 @@ void vkapi_driver_bind_gfx_pipeline(
         if (vkapi_buffer_handle_is_valid(info->buffer))
         {
             vkapi_buffer_t* buffer = vkapi_res_cache_get_buffer(driver->res_cache, info->buffer);
-            vkapi_desc_cache_bind_ssbo(
-                driver->desc_cache, info->binding, buffer->buffer, info->size);
+            vkapi_desc_cache_bind_ssbo(desc_cache, info->binding, buffer->buffer, info->size);
         }
     }
 
     vkapi_desc_cache_bind_descriptors(
-        driver->desc_cache,
-        cmds->instance,
+        desc_cache,
+        cmds,
         bundle,
         pl_layout->instance,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         force_rebind);
-    vkapi_pline_cache_bind_gfx_shader_modules(driver->pline_cache, bundle);
+
+    vkapi_pline_cache_bind_gfx_pl_layout(pline_cache, pl_layout->instance);
+}
+
+void vkapi_driver_bind_descriptors_sc(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind, uint32_t id)
+{
+    assert(driver);
+
+    uint32_t thread_id = id % VKAPI_COMMANDS_MAX_THREAD_COUNT;
+    vkapi_pipeline_cache_t* pline_cache = driver->thread_draw_info[thread_id].pline_cache;
+    vkapi_desc_cache_t* desc_cache = driver->thread_draw_info[thread_id].desc_cache;
+    VkCommandBuffer cmd_buffer = vkapi_commands_get_secondary_cmds(driver->commands, id);
+
+    _bind_descriptors(driver, desc_cache, pline_cache, bundle, cmd_buffer, force_rebind);
+}
+
+void vkapi_driver_bind_descriptors(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, bool force_rebind)
+{
+    assert(driver);
+    VkCommandBuffer cmd_buffer = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _bind_descriptors(
+        driver, driver->desc_cache, driver->pline_cache, bundle, cmd_buffer, force_rebind);
+}
+
+void _bind_gfx_pipeline(
+    VkCommandBuffer cmds,
+    vkapi_pipeline_cache_t* pline_cache,
+    shader_prog_bundle_t* bundle)
+{
+    assert(bundle);
+    assert(pline_cache);
+    assert(
+        pline_cache->graphics_pline_requires.pl_layout &&
+        "Pipeline layout not set; Have you called `bind_descriptors` before calling this "
+        "function?");
+
+    vkapi_pline_cache_bind_gfx_shader_modules(pline_cache, bundle);
 
     // Bind the rasterisation and depth/stencil states
-    vkapi_pline_cache_bind_cull_mode(driver->pline_cache, bundle->raster_state.cull_mode);
-    vkapi_pline_cache_bind_front_face(driver->pline_cache, bundle->raster_state.front_face);
-    vkapi_pline_cache_bind_polygon_mode(driver->pline_cache, bundle->raster_state.polygon_mode);
-    vkapi_pline_cache_bind_depth_test_enable(driver->pline_cache, bundle->ds_state.test_enable);
-    vkapi_pline_cache_bind_depth_write_enable(driver->pline_cache, bundle->ds_state.write_enable);
-    vkapi_pline_cache_bind_depth_compare_op(driver->pline_cache, bundle->ds_state.compare_op);
-    vkapi_pline_cache_bind_depth_clamp(
-        driver->pline_cache, bundle->raster_state.depth_clamp_enable);
+    vkapi_pline_cache_bind_cull_mode(pline_cache, bundle->raster_state.cull_mode);
+    vkapi_pline_cache_bind_front_face(pline_cache, bundle->raster_state.front_face);
+    vkapi_pline_cache_bind_polygon_mode(pline_cache, bundle->raster_state.polygon_mode);
+    vkapi_pline_cache_bind_depth_test_enable(pline_cache, bundle->ds_state.test_enable);
+    vkapi_pline_cache_bind_depth_write_enable(pline_cache, bundle->ds_state.write_enable);
+    vkapi_pline_cache_bind_depth_compare_op(pline_cache, bundle->ds_state.compare_op);
+    vkapi_pline_cache_bind_depth_clamp(pline_cache, bundle->raster_state.depth_clamp_enable);
 
     // TODO: Need to support differences in front/back stencil
     struct DepthStencilBlock ds_state = {0};
@@ -544,7 +663,7 @@ void vkapi_driver_bind_gfx_pipeline(
     ds_state.reference = bundle->ds_state.front.reference;
     ds_state.stencil_fail_op = bundle->ds_state.front.stencil_fail_op;
     ds_state.stencil_test_enable = bundle->ds_state.stencil_test_enable;
-    vkapi_pline_cache_bind_depth_stencil_block(driver->pline_cache, &ds_state);
+    vkapi_pline_cache_bind_depth_stencil_block(pline_cache, &ds_state);
 
     // blend factors
     struct BlendFactorBlock blend_state = {0};
@@ -555,32 +674,76 @@ void vkapi_driver_bind_gfx_pipeline(
     blend_state.src_alpha_blend_factor = bundle->blend_state.src_alpha;
     blend_state.dst_alpha_blend_factor = bundle->blend_state.dst_alpha;
     blend_state.alpha_blend_op = bundle->blend_state.alpha;
-    vkapi_pline_cache_bind_blend_factor_block(driver->pline_cache, &blend_state);
+    vkapi_pline_cache_bind_blend_factor_block(pline_cache, &blend_state);
 
     // Bind primitive info
-    vkapi_pline_cache_bind_prim_restart(driver->pline_cache, bundle->render_prim.prim_restart);
-    vkapi_pline_cache_bind_topology(driver->pline_cache, bundle->render_prim.topology);
-    vkapi_pline_cache_bind_tess_vert_count(driver->pline_cache, bundle->tesse_vert_count);
+    vkapi_pline_cache_bind_prim_restart(pline_cache, bundle->render_prim.prim_restart);
+    vkapi_pline_cache_bind_topology(pline_cache, bundle->render_prim.topology);
+    vkapi_pline_cache_bind_tess_vert_count(pline_cache, bundle->tesse_vert_count);
 
-    vkapi_pline_cache_bind_vertex_input(
-        driver->pline_cache, bundle->vert_attrs, bundle->vert_bind_desc);
-    vkapi_pline_cache_bind_spec_constants(driver->pline_cache, bundle);
+    vkapi_pline_cache_bind_vertex_input(pline_cache, bundle->vert_attrs, bundle->vert_bind_desc);
+    vkapi_pline_cache_bind_spec_constants(pline_cache, bundle);
 
-    vkapi_pline_cache_bind_gfx_pl_layout(driver->pline_cache, pl_layout->instance);
     vkapi_pline_cache_bind_graphics_pline(
-        driver->pline_cache, cmds->instance, bundle->spec_const_params, force_rebind);
+        pline_cache, cmds, bundle->spec_const_params);
+}
+
+void vkapi_driver_bind_gfx_pipeline_sc(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle, uint32_t id)
+{
+    assert(driver);
+
+    uint32_t thread_id = id % VKAPI_COMMANDS_MAX_THREAD_COUNT;
+    vkapi_pipeline_cache_t* pline_cache = driver->thread_draw_info[thread_id].pline_cache;
+    VkCommandBuffer cmd_buffer = vkapi_commands_get_secondary_cmds(driver->commands, id);
+
+    _bind_gfx_pipeline(cmd_buffer, pline_cache, bundle);
+}
+
+void vkapi_driver_bind_gfx_pipeline(
+    vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
+{
+    assert(driver);
+    VkCommandBuffer cmd_buffer = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _bind_gfx_pipeline(cmd_buffer, driver->pline_cache, bundle);
+}
+
+void _set_scissor(vkapi_driver_t* driver, VkRect2D scissor, VkCommandBuffer cmds)
+{
+    vkCmdSetScissor(cmds, 0, 1, &scissor);
+}
+
+void vkapi_driver_set_scissor_sc(vkapi_driver_t* driver, VkRect2D scissor, uint32_t id)
+{
+    assert(driver);
+    VkCommandBuffer cmd_buffer = vkapi_commands_get_secondary_cmds(driver->commands, id);
+    _set_scissor(driver, scissor, cmd_buffer);
 }
 
 void vkapi_driver_set_scissor(vkapi_driver_t* driver, VkRect2D scissor)
 {
-    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkCmdSetScissor(cmd_buffer->instance, 0, 1, &scissor);
+    assert(driver);
+    VkCommandBuffer cmd_buffer = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _set_scissor(driver, scissor, cmd_buffer);
+}
+
+void _set_viewport(vkapi_driver_t* driver, VkViewport vp, VkCommandBuffer cmds)
+{
+    vkCmdSetViewport(cmds, 0, 1, &vp);
+}
+
+void vkapi_driver_set_viewport_sc(vkapi_driver_t* driver, VkViewport vp, uint32_t id)
+{
+    assert(driver);
+    VkCommandBuffer cmd_buffer = vkapi_commands_get_secondary_cmds(driver->commands, id);
+    _set_viewport(driver, vp, cmd_buffer);
 }
 
 void vkapi_driver_set_viewport(vkapi_driver_t* driver, VkViewport vp)
 {
-    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkCmdSetViewport(cmd_buffer->instance, 0, 1, &vp);
+    assert(driver);
+    VkCommandBuffer cmd_buffer = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _set_viewport(driver, vp, cmd_buffer);
 }
 
 void vkapi_driver_set_push_constant(
@@ -609,26 +772,67 @@ void vkapi_driver_draw_indexed(
     vkCmdDrawIndexed(cmd_buffer->instance, index_count, 1, index_offset, vertex_offset, 0);
 }
 
+void _draw_indirect_indexed(
+    vkapi_driver_t* driver,
+    buffer_handle_t indirect_cmd_buffer,
+    uint32_t offset,
+    buffer_handle_t cmd_count_buffer,
+    uint32_t draw_count_offset,
+    uint32_t stride,
+    uint32_t max_draw_count,
+    VkCommandBuffer cmds)
+{
+    assert(driver);
+    assert(max_draw_count > 0);
+    assert(stride > 0);
+    assert(vkapi_buffer_handle_is_valid(indirect_cmd_buffer));
+    assert(vkapi_buffer_handle_is_valid(cmd_count_buffer));
+
+    vkapi_buffer_t* ic_buffer = vkapi_res_cache_get_buffer(driver->res_cache, indirect_cmd_buffer);
+    vkapi_buffer_t* count_buffer = vkapi_res_cache_get_buffer(driver->res_cache, cmd_count_buffer);
+    vkCmdDrawIndexedIndirectCount(
+        cmds,
+        ic_buffer->buffer,
+        offset,
+        count_buffer->buffer,
+        draw_count_offset,
+        max_draw_count,
+        stride);
+}
+
+void vkapi_driver_draw_indirect_indexed_sc(
+    vkapi_driver_t* driver,
+    buffer_handle_t indirect_cmd_buffer,
+    uint32_t offset,
+    buffer_handle_t cmd_count_buffer,
+    uint32_t draw_count_offset,
+    uint32_t stride,
+    uint32_t max_draw_count,
+    uint32_t id)
+{
+    assert(driver);
+    assert(vkapi_buffer_handle_is_valid(indirect_cmd_buffer));
+    assert(vkapi_buffer_handle_is_valid(cmd_count_buffer));
+    VkCommandBuffer cmds = vkapi_commands_get_secondary_cmds(driver->commands, id);
+    _draw_indirect_indexed(
+        driver, indirect_cmd_buffer, offset, cmd_count_buffer, draw_count_offset, stride, max_draw_count, cmds);
+}
+
 void vkapi_driver_draw_indirect_indexed(
     vkapi_driver_t* driver,
     buffer_handle_t indirect_cmd_buffer,
     uint32_t offset,
     buffer_handle_t cmd_count_buffer,
     uint32_t draw_count_offset,
-    uint32_t stride)
+    uint32_t stride,
+    uint32_t max_draw_count)
 {
     assert(driver);
-    vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_buffer_t* ic_buffer = vkapi_res_cache_get_buffer(driver->res_cache, indirect_cmd_buffer);
-    vkapi_buffer_t* count_buffer = vkapi_res_cache_get_buffer(driver->res_cache, cmd_count_buffer);
-    vkCmdDrawIndexedIndirectCount(
-        cmd_buffer->instance,
-        ic_buffer->buffer,
-        offset,
-        count_buffer->buffer,
-        draw_count_offset,
-        VKAPI_DRIVER_MAX_DRAW_COUNT,
-        stride);
+    assert(vkapi_buffer_handle_is_valid(indirect_cmd_buffer));
+    assert(vkapi_buffer_handle_is_valid(cmd_count_buffer));
+    VkCommandBuffer cmds = vkapi_driver_get_gfx_cmds(driver)->instance;
+    _draw_indirect_indexed(
+        driver, indirect_cmd_buffer, offset, cmd_count_buffer, draw_count_offset, stride, max_draw_count, cmds);
 }
 
 void vkapi_driver_begin_cond_render(
@@ -740,10 +944,14 @@ void vkapi_driver_dispatch_compute(
     RENDERDOC_END_CAPTURE(NULL, NULL)
 }
 
-void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle)
+void vkapi_driver_draw_quad(vkapi_driver_t* driver, shader_prog_bundle_t* bundle, VkRect2D scissor, VkViewport vp)
 {
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle, false);
+    vkapi_driver_bind_descriptors(driver, bundle, true);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle);
+    vkapi_driver_set_scissor(driver, scissor);
+    vkapi_driver_set_viewport(driver, vp);
+
     vkCmdDraw(cmd_buffer->instance, 3, 1, 0, 0);
 }
 
@@ -964,6 +1172,16 @@ vkapi_cmdbuffer_t* vkapi_driver_get_gfx_cmds(vkapi_driver_t* driver)
 
 void vkapi_driver_gc(vkapi_driver_t* driver)
 {
+    if (driver->settings.threaded_cmdbuffers)
+    {
+        for (int i = 0; i < VKAPI_COMMANDS_MAX_THREAD_COUNT; ++i)
+        {
+            vkapi_pline_cache_gc(driver->thread_draw_info[i].pline_cache, driver->current_frame);
+            vkapi_desc_cache_gc(driver->thread_draw_info[i].desc_cache, driver->current_frame);
+        }
+    }
+
+    vkapi_commands_gc(driver->commands, driver);
     vkapi_pline_cache_gc(driver->pline_cache, driver->current_frame);
     vkapi_desc_cache_gc(driver->desc_cache, driver->current_frame);
     vkapi_res_cache_gc(driver->res_cache, driver);

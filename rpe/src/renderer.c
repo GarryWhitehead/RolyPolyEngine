@@ -205,11 +205,10 @@ void rpe_renderer_begin_renderpass(
 {
     assert(rdr);
     vkapi_driver_t* driver = rdr->engine->driver;
-    vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     vkapi_render_pass_data_t data = {0};
 
     setup_single_render(rdr->engine, &data, rt, multi_view_count);
-    vkapi_driver_begin_rpass(driver, cmds->instance, &data, &rt->handle);
+    vkapi_driver_begin_rpass(driver, &data, &rt->handle, false);
 }
 
 void rpe_render_end_renderpass(rpe_renderer_t* rdr)
@@ -236,16 +235,33 @@ void rpe_renderer_render_single_quad(
     vkapi_cmdbuffer_t* cmds = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
     rpe_renderer_begin_renderpass(rdr, rt, multi_view_count);
 
-    if (vp)
+    uint32_t w = rdr->engine->curr_swapchain->extent.width;
+    uint32_t h = rdr->engine->curr_swapchain->extent.height;
+
+    rpe_viewport_t v = {0};
+    if (!vp)
     {
-        vkapi_driver_set_viewport(driver, viewport_to_vk(vp));
+        v.rect.width = w;
+        v.rect.height = h;
+        v.max_depth = 1.0f;
     }
-    if (scissor)
+    else
     {
-        vkapi_driver_set_scissor(driver, rect2d_to_vk(scissor));
+        v = *vp;
     }
 
-    vkapi_driver_draw_quad(driver, bundle);
+    rpe_rect2d_t s = {0};
+    if (!scissor)
+    {
+        s.width = w;
+        s.height = h;
+    }
+    else
+    {
+        s = *scissor;
+    }
+
+    vkapi_driver_draw_quad(driver, bundle, rect2d_to_vk(&s), viewport_to_vk(&v));
     vkapi_driver_end_rpass(cmds->instance);
 }
 
@@ -268,7 +284,7 @@ void rpe_renderer_render_single_indexed(
 
     vkapi_driver_bind_vertex_buffer(driver, vertex_buffer, 0);
     vkapi_driver_bind_index_buffer(driver, index_buffer);
-    vkapi_driver_bind_gfx_pipeline(driver, bundle, true);
+    vkapi_driver_bind_gfx_pipeline(driver, bundle);
 
     if (pb_entries)
     {
@@ -299,7 +315,7 @@ void rpe_renderer_render(rpe_renderer_t* rdr, rpe_scene_t* scene, bool clear_swa
 
     rpe_engine_t* engine = rdr->engine;
     vkapi_driver_t* driver = engine->driver;
-    rpe_settings_t settings = engine->settings;
+    struct Settings settings = engine->settings;
     bool draw_shadows =
         scene->shadow_status == RPE_SCENE_SHADOW_STATUS_ENABLED && settings.draw_shadows;
 

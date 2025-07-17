@@ -33,7 +33,7 @@ int rpe_app_init(
     uint32_t win_width,
     uint32_t win_height,
     rpe_app_t* new_app,
-    rpe_settings_t* settings,
+    struct Settings* settings,
     bool show_ui)
 {
     new_app->should_close = false;
@@ -108,7 +108,7 @@ void rpe_app_run(
 
         if (pre_render_func)
         {
-            pre_render_func(app->engine, pre_data);
+            pre_render_func(app->engine, pre_data, time_step);
         }
 
         // begin the rendering for this frame - render the main scene
@@ -125,7 +125,7 @@ void rpe_app_run(
 
         if (post_render_func)
         {
-            post_render_func(app->engine, post_data);
+            post_render_func(app->engine, post_data, time_step);
         }
 
         rpe_renderer_end_frame(renderer);

@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <vulkan-api/resource_cache.h>
 
+#define RPE_COMMANDS_THREAD_MIN_COUNT 10
+
 // Forward declarations
 typedef struct Arena arena_t;
 typedef struct VkApiDriver vkapi_driver_t;
@@ -50,6 +52,7 @@ typedef struct CommandPacket
     void* cmds;
     rpe_cmd_packet_t* next;
     DispatchFunction dispatch_func;
+    bool submit_threaded;
     size_t data_size;
     uint8_t data[];
 } rpe_cmd_packet_t;
@@ -74,6 +77,8 @@ typedef struct DrawIndirectIndexCommand
     uint32_t offset;
     uint32_t draw_count_offset;
     uint32_t stride;
+    uint32_t max_draw_count;
+    uint32_t id;
 } rpe_commands_draw_indirect_index_t;
 
 typedef struct PushConstantCommand
@@ -100,16 +105,48 @@ struct CondRenderCommand
 struct PipelineBindCommand
 {
     shader_prog_bundle_t* bundle;
+    uint32_t id;
+};
+
+struct DescriptorSetBindCommand
+{
+    shader_prog_bundle_t* bundle;
+    uint32_t id;
 };
 
 struct ScissorCommand
 {
     rpe_rect2d_t scissor;
+    uint32_t id;
 };
 
 struct ViewportCommand
 {
     rpe_viewport_t vp;
+    uint32_t id;
+};
+
+struct BindVertexBufferCommand
+{
+    buffer_handle_t handle;
+    uint32_t binding;
+    uint32_t id;
+};
+
+struct BindIndexBufferCommand
+{
+    buffer_handle_t handle;
+    uint32_t id;
+};
+
+struct SecondaryCmdBeginCommand
+{
+    uint32_t id;
+};
+
+struct SecondaryCmdEndCommand
+{
+    uint32_t id;
 };
 
 rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena);
@@ -131,7 +168,7 @@ rpe_cmd_packet_t* rpe_command_bucket_append_command(
 
 /* ** Private functions. ** */
 
-void rpe_command_bucket_submit(rpe_cmd_bucket_t* bucket, vkapi_driver_t* driver);
+void rpe_command_bucket_submit(rpe_cmd_bucket_t* bucket, rpe_engine_t* engine);
 
 void rpe_command_bucket_reset(rpe_cmd_bucket_t* bucket);
 
@@ -146,5 +183,10 @@ void rpe_cmd_dispatch_cond_render(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_pline_bind(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_scissor_cmd(vkapi_driver_t* driver, void* data);
 void rpe_cmd_dispatch_viewport_cmd(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_bind_vertex_buffer(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_bind_index_buffer(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_begin_secondary_cmds(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_desc_bind(vkapi_driver_t* driver, void* data);
+void rpe_cmd_dispatch_end_secondary_cmds(vkapi_driver_t* driver, void* data);
 
 #endif

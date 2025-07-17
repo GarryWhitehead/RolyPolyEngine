@@ -22,10 +22,15 @@
 
 #include "commands.h"
 
+#include "engine.h"
+
 #include <assert.h>
 #include <string.h>
 #include <utility/arena.h>
+#include <utility/job_queue.h>
+#include <vulkan-api/commands.h>
 #include <vulkan-api/driver.h>
+#include <vulkan-api/pipeline_cache.h>
 #include <vulkan-api/shader.h>
 
 void rpe_cmd_dispatch_draw(vkapi_driver_t* driver, void* data)
@@ -43,13 +48,29 @@ void rpe_cmd_dispatch_index_draw(vkapi_driver_t* driver, void* data)
 void rpe_cmd_dispatch_draw_indirect_indexed(vkapi_driver_t* driver, void* data)
 {
     struct DrawIndirectIndexCommand* diic = (struct DrawIndirectIndexCommand*)data;
-    vkapi_driver_draw_indirect_indexed(
-        driver,
-        diic->cmd_handle,
-        diic->offset,
-        diic->count_handle,
-        diic->draw_count_offset,
-        diic->stride);
+    if (diic->id != UINT32_MAX)
+    {
+        vkapi_driver_draw_indirect_indexed_sc(
+            driver,
+            diic->cmd_handle,
+            diic->offset,
+            diic->count_handle,
+            diic->draw_count_offset,
+            diic->stride,
+            diic->max_draw_count,
+            diic->id);
+    }
+    else
+    {
+        vkapi_driver_draw_indirect_indexed(
+            driver,
+            diic->cmd_handle,
+            diic->offset,
+            diic->count_handle,
+            diic->draw_count_offset,
+            diic->stride,
+            diic->max_draw_count);
+    }
 }
 
 void rpe_cmd_dispatch_push_constant(vkapi_driver_t* driver, void* data)
@@ -73,32 +94,127 @@ void rpe_cmd_dispatch_cond_render(vkapi_driver_t* driver, void* data)
 void rpe_cmd_dispatch_pline_bind(vkapi_driver_t* driver, void* data)
 {
     struct PipelineBindCommand* cmd = (struct PipelineBindCommand*)data;
-    vkapi_driver_bind_gfx_pipeline(driver, cmd->bundle, false);
+    assert(cmd->bundle);
+    if (cmd->id != UINT32_MAX)
+    {
+        vkapi_driver_bind_gfx_pipeline_sc(driver, cmd->bundle, cmd->id);
+    }
+    else
+    {
+        vkapi_driver_bind_gfx_pipeline(driver, cmd->bundle);
+    }
+}
+
+void rpe_cmd_dispatch_desc_bind(vkapi_driver_t* driver, void* data)
+{
+    struct DescriptorSetBindCommand* cmd = (struct DescriptorSetBindCommand*)data;
+    assert(cmd->bundle);
+    if (cmd->id != UINT32_MAX)
+    {
+        // Force rebinding of descriptor sets when used with secondary buffers as
+        // its likely that the descriptor cache is being used across multiple threads
+        // and this can mess up the previous bound descriptor set state checks.
+        vkapi_driver_bind_descriptors_sc(driver, cmd->bundle, true, cmd->id);
+    }
+    else
+    {
+        vkapi_driver_bind_descriptors(driver, cmd->bundle, false);
+    }
 }
 
 void rpe_cmd_dispatch_scissor_cmd(vkapi_driver_t* driver, void* data)
 {
     struct ScissorCommand* cmd = (struct ScissorCommand*)data;
-    VkRect2D scissor = {
-        .extent.width = cmd->scissor.width,
-        .extent.height = cmd->scissor.height,
-        .offset.x = cmd->scissor.x,
-        .offset.y = cmd->scissor.y};
-    vkapi_driver_set_scissor(driver, scissor);
+    // If the renderable doesn't set the scissor/viewport, use the state from commands.
+    VkRect2D scissor = {0};
+    if (cmd->scissor.width > 0)
+    {
+        scissor.extent.width = cmd->scissor.width;
+        scissor.extent.height = cmd->scissor.height;
+        scissor.offset.x = cmd->scissor.x;
+        scissor.offset.y = cmd->scissor.y;
+    }
+    else
+    {
+        scissor = vkapi_commands_get_scissor_state(driver->commands);
+        assert(scissor.extent.width > 0);
+    }
+
+    if (cmd->id != UINT32_MAX)
+    {
+        vkapi_driver_set_scissor_sc(driver, scissor, cmd->id);
+    }
+    else
+    {
+        vkapi_driver_set_scissor(driver, scissor);
+    }
 }
 
 void rpe_cmd_dispatch_viewport_cmd(vkapi_driver_t* driver, void* data)
 {
     struct ViewportCommand* cmd = (struct ViewportCommand*)data;
-    VkViewport vp = {
-        .width = (float)cmd->vp.rect.width,
-        .height = (float)cmd->vp.rect.height,
-        .x = 0,
-        .y = 0,
-        .minDepth = cmd->vp.min_depth,
-        .maxDepth = cmd->vp.max_depth,
-    };
-    vkapi_driver_set_viewport(driver, vp);
+    VkViewport vp = {0};
+    if (cmd->vp.rect.width > 0)
+    {
+        vp.width = (float)cmd->vp.rect.width;
+        vp.height = (float)cmd->vp.rect.height;
+        vp.x = (float)cmd->vp.rect.x;
+        vp.y = (float)cmd->vp.rect.y;
+        vp.minDepth = cmd->vp.min_depth;
+        vp.maxDepth = cmd->vp.max_depth;
+    }
+    else
+    {
+        vp = vkapi_commands_get_viewport_state(driver->commands);
+        assert(vp.width > 0);
+    }
+
+    if (cmd->id != UINT32_MAX)
+    {
+        vkapi_driver_set_viewport_sc(driver, vp, cmd->id);
+    }
+    else
+    {
+        vkapi_driver_set_viewport(driver, vp);
+    }
+}
+
+void rpe_cmd_dispatch_bind_vertex_buffer(vkapi_driver_t* driver, void* data)
+{
+    struct BindVertexBufferCommand* cmd = (struct BindVertexBufferCommand*)data;
+    if (cmd->id != UINT32_MAX)
+    {
+        vkapi_driver_bind_vertex_buffer_sc(driver, cmd->handle, cmd->binding, cmd->id);
+    }
+    else
+    {
+        vkapi_driver_bind_vertex_buffer(driver, cmd->handle, cmd->binding);
+    }
+}
+
+void rpe_cmd_dispatch_bind_index_buffer(vkapi_driver_t* driver, void* data)
+{
+    struct BindIndexBufferCommand* cmd = (struct BindIndexBufferCommand*)data;
+    if (cmd->id != UINT32_MAX)
+    {
+        vkapi_driver_bind_index_buffer_sc(driver, cmd->handle, cmd->id);
+    }
+    else
+    {
+        vkapi_driver_bind_index_buffer(driver, cmd->handle);
+    }
+}
+
+void rpe_cmd_dispatch_begin_secondary_cmds(vkapi_driver_t* driver, void* data)
+{
+    struct SecondaryCmdBeginCommand* cmd = (struct SecondaryCmdBeginCommand*)data;
+    vkapi_commands_begin_sc(driver->context, driver->commands, cmd->id);
+}
+
+void rpe_cmd_dispatch_end_secondary_cmds(vkapi_driver_t* driver, void* data)
+{
+    struct SecondaryCmdEndCommand* cmd = (struct SecondaryCmdEndCommand*)data;
+    vkapi_commands_end_sc(driver->commands, cmd->id);
 }
 
 rpe_cmd_bucket_t* rpe_command_bucket_init(size_t size, arena_t* arena)
@@ -125,6 +241,7 @@ rpe_cmd_packet_t* rpe_command_bucket_add_command(
 
     packet->next = NULL;
     packet->dispatch_func = func;
+    packet->submit_threaded = false;
 
     return packet;
 }
@@ -155,19 +272,74 @@ void rpe_cmd_packet_submit(rpe_cmd_packet_t* pkt, vkapi_driver_t* driver)
     func(driver, cmd);
 }
 
-void rpe_command_bucket_submit(rpe_cmd_bucket_t* bucket, vkapi_driver_t* driver)
+struct PktSubmitData
+{
+    rpe_cmd_packet_t* pkt;
+    vkapi_driver_t* driver;
+};
+
+void _pkt_submit_runner(void* data)
+{
+    struct PktSubmitData* pkt_info = (struct PktSubmitData*)data;
+    rpe_cmd_packet_t* pkt = pkt_info->pkt;
+    do
+    {
+        rpe_cmd_packet_submit(pkt, pkt_info->driver);
+        pkt = pkt->next;
+    } while (pkt);
+}
+
+void _submit_bucket(rpe_cmd_packet_t** packets, rpe_engine_t* engine, size_t count)
+{
+    vkapi_driver_t* driver = engine->driver;
+    bool threaded_cmdbuffers = driver->settings.threaded_cmdbuffers;
+
+    struct PktSubmitData per_thread_bucket_data[VKAPI_COMMANDS_MAX_THREAD_COUNT];
+    job_t* parent = NULL;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        assert(i < VKAPI_COMMANDS_MAX_THREAD_COUNT);
+
+        struct PktSubmitData* data = &per_thread_bucket_data[i];
+        data->pkt = packets[i];
+        data->driver = engine->driver;
+
+        if (data->pkt->submit_threaded && threaded_cmdbuffers)
+        {
+            parent = !parent ? job_queue_create_parent_job(engine->job_queue) : parent;
+            job_t* job = job_queue_create_job(engine->job_queue, _pkt_submit_runner, data, parent);
+            job_queue_run_job(engine->job_queue, job);
+        }
+        else
+        {
+            _pkt_submit_runner(&per_thread_bucket_data[i]);
+        }
+    }
+
+    if (parent)
+    {
+        // Check all cmd buffer jobs have finished before exiting.
+        job_queue_run_and_wait(engine->job_queue, parent);
+    }
+}
+
+void rpe_command_bucket_submit(rpe_cmd_bucket_t* bucket, rpe_engine_t* engine)
 {
     assert(bucket);
 
-    for (size_t i = 0; i < bucket->curr_index; ++i)
+    const size_t bucket_count = bucket->curr_index;
+
+    uint32_t iters = bucket_count / VKAPI_COMMANDS_MAX_THREAD_COUNT;
+    uint32_t rem = bucket_count % VKAPI_COMMANDS_MAX_THREAD_COUNT;
+
+    rpe_cmd_packet_t** pkt_ptr = bucket->packets;
+    for (size_t i = 0; i < iters; ++i, pkt_ptr += VKAPI_COMMANDS_MAX_THREAD_COUNT)
     {
-        rpe_cmd_packet_t* pkt = bucket->packets[i];
-        do
-        {
-            rpe_cmd_packet_submit(pkt, driver);
-            pkt = pkt->next;
-        } while (pkt);
+        _submit_bucket(pkt_ptr, engine, VKAPI_COMMANDS_MAX_THREAD_COUNT);
     }
+    // Submit any remaining buckets.
+    _submit_bucket(pkt_ptr, engine, rem);
 }
 
 void rpe_command_bucket_reset(rpe_cmd_bucket_t* bucket)

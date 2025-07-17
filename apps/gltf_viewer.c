@@ -105,7 +105,8 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    rpe_settings_t settings = {.gbuffer_dims = 2048, .draw_shadows = false};
+    struct Settings settings = rpe_init_settings();
+    settings.draw_shadows = false;
 
     rpe_app_t app;
     int error = rpe_app_init("GLTF Viewer", win_width, win_height, &app, &settings, false);

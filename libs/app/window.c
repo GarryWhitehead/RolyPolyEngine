@@ -38,7 +38,7 @@ int app_window_init(
     uint32_t width,
     uint32_t height,
     app_window_t* new_win,
-    rpe_settings_t* settings,
+    struct Settings* settings,
     bool show_ui)
 {
     memset(new_win, 0, sizeof(app_window_t));
@@ -91,7 +91,8 @@ int app_window_init(
     assert(glfw_extensions);
 
     int error_code;
-    app->driver = vkapi_driver_init(glfw_extensions, count, &error_code);
+    // TODO: Pass in user defined settings.
+    app->driver = vkapi_driver_init(glfw_extensions, count, NULL, &error_code);
     if (error_code != VKAPI_SUCCESS)
     {
         return APP_ERROR_NO_DEVICE;

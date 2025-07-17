@@ -29,6 +29,7 @@
 #include "managers/transform_manager.h"
 #include "renderer.h"
 #include "rpe/shadow_manager.h"
+#include "rpe/settings.h"
 #include "scene.h"
 #include "shadow_manager.h"
 #include "skybox.h"
@@ -40,7 +41,7 @@
 #include <vulkan-api/driver.h>
 #include <vulkan-api/error_codes.h>
 
-rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings)
+rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, struct Settings* settings)
 {
     assert(driver);
     assert(settings);
@@ -50,11 +51,11 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     assert(instance);
 
     instance->driver = driver;
-    int err = arena_new(RPE_ENGINE_SCRATCH_ARENA_SIZE, &instance->scratch_arena);
+    int err = arena_new(settings->system.scratch_arena_size, &instance->scratch_arena);
     assert(err == ARENA_SUCCESS);
-    err = arena_new(RPE_ENGINE_PERM_ARENA_SIZE, &instance->perm_arena);
+    err = arena_new(settings->system.perm_arena_size, &instance->perm_arena);
     assert(err == ARENA_SUCCESS);
-    err = arena_new(RPE_ENGINE_FRAME_ARENA_SIZE, &instance->frame_arena);
+    err = arena_new(settings->system.frame_arena_size, &instance->frame_arena);
     assert(err == ARENA_SUCCESS);
 
     MAKE_DYN_ARRAY(vkapi_swapchain_t, &instance->perm_arena, 5, &instance->swapchains);
@@ -85,7 +86,7 @@ rpe_engine_t* rpe_engine_create(vkapi_driver_t* driver, rpe_settings_t* settings
     }
 
     // Start the job queue now, some managers may have a dependency on this.
-    instance->job_queue = job_queue_init(&instance->perm_arena, 10);
+    instance->job_queue = job_queue_init(&instance->perm_arena, 12);
     job_queue_adopt_thread(instance->job_queue);
 
     instance->obj_manager = rpe_obj_manager_init(&instance->perm_arena);
@@ -305,7 +306,7 @@ bool rpe_engine_destroy_renderable(rpe_engine_t* engine, rpe_renderable_t* rende
 
 /** Public functions **/
 
-void rpe_engine_update_settings(rpe_engine_t* engine, rpe_settings_t* settings)
+void rpe_engine_update_settings(rpe_engine_t* engine, struct Settings* settings)
 {
     engine->settings = *settings;
     for (size_t i = 0; i < engine->scenes.size; ++i)
@@ -325,7 +326,7 @@ void rpe_engine_set_current_scene(rpe_engine_t* engine, rpe_scene_t* scene)
     assert(engine);
     engine->curr_scene = scene;
     // Update the shadow manager with the draw data buffer now.
-    rpe_shadow_manager_update_draw_buffer(engine->shadow_manager, scene);
+    rpe_shadow_manager_update_draw_buffer(engine->shadow_manager, scene, engine);
 }
 
 rpe_scene_t* rpe_engine_get_current_scene(rpe_engine_t* engine)
@@ -377,7 +378,7 @@ job_queue_t* rpe_engine_get_job_queue(rpe_engine_t* engine)
     return engine->job_queue;
 }
 
-rpe_settings_t rpe_engine_get_settings(rpe_engine_t* engine)
+struct Settings rpe_engine_get_settings(rpe_engine_t* engine)
 {
     assert(engine);
     return engine->settings;

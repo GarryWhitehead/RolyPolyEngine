@@ -39,8 +39,6 @@ set(RPE_CMAKE_INCLUDE_DIRECTORY "${RPE_ROOT_DIRECTORY}/cmake")
 set(RPE_TEST_DIRECTORY "${CMAKE_BINARY_DIR}/Tests")
 set(RPE_BENCHMARK_DIRECTORY "${CMAKE_BINARY_DIR}/Benchmarks")
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize-recover=address")
-
 # find vulkan (hopefully!)
 find_package(Vulkan REQUIRED)
 

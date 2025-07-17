@@ -79,20 +79,29 @@ void execute_shadow_pass(
     struct ShadowPassData* d = (struct ShadowPassData*)data;
     rg_resource_info_t info = rg_res_get_render_pass_info(res, d->rt);
 
+    bool threaded_cmdbuffers = driver->settings.threaded_cmdbuffers;
     vkapi_cmdbuffer_t* cmd_buffer = vkapi_commands_get_cmdbuffer(driver->context, driver->commands);
-    vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
+    vkapi_driver_begin_rpass(driver, &info.data, &info.handle, true);
 
     // Bind the uber vertex/index buffers - only one bind call required as all draw calls offset
     // into this buffer.
-    // NOTE: The vertex data is currently uploaded in the colour pass so the shadow pass must be
-    // called after. If multi threaded rendering is added, this will need changing.
-    vkapi_driver_bind_vertex_buffer(driver, engine->vbuffer->vertex_buffer, 0);
-    vkapi_driver_bind_vertex_buffer(driver, engine->curr_scene->shadow_model_draw_data_handle, 1);
-    vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
+    if (!threaded_cmdbuffers)
+    {
+        vkapi_driver_bind_vertex_buffer(driver, engine->vbuffer->vertex_buffer, 0);
+        vkapi_driver_bind_vertex_buffer(
+            driver, engine->curr_scene->shadow_model_draw_data_handle, 1);
+        vkapi_driver_bind_index_buffer(driver, engine->vbuffer->index_buffer);
+    }
 
     rpe_scene_t* scene = d->scene;
     assert(scene);
-    rpe_render_queue_submit_one(scene->render_queue, driver, RPE_RENDER_QUEUE_DEPTH);
+    rpe_render_queue_submit_one(scene->render_queue, engine, RPE_RENDER_QUEUE_DEPTH);
+
+    if (threaded_cmdbuffers)
+    {
+        vkapi_commands_execute_range_sc(
+            driver->commands, scene->shadow_sc_indices[0], scene->shadow_sc_indices[1]);
+    }
 
     vkapi_driver_end_rpass(cmd_buffer->instance);
 }
@@ -174,8 +183,8 @@ void execute_cascade_debug_pass(
     shader_bundle_add_image_sampler(
         d->prog_bundle, driver, rg_res_get_tex_handle(res, d->light_colour), 1);
 
-    vkapi_driver_begin_rpass(driver, cmd_buffer->instance, &info.data, &info.handle);
-    vkapi_driver_bind_gfx_pipeline(driver, d->prog_bundle, false);
+    vkapi_driver_begin_rpass(driver, &info.data, &info.handle, false);
+    vkapi_driver_bind_gfx_pipeline(driver, d->prog_bundle);
     vkapi_driver_set_push_constant(
         driver,
         d->prog_bundle,

@@ -32,7 +32,6 @@
 #include <utility/maths.h>
 #include <vulkan-api/resource_cache.h>
 
-#define RPE_SCENE_MAX_STATIC_MODEL_COUNT 1000
 #define RPE_SCENE_MAX_BONE_COUNT 1000
 #define RPE_SCENE_CAMERA_UBO_BINDING 0
 #define RPE_SCENE_SKIN_SSBO_BINDING 0
@@ -66,6 +65,9 @@ typedef struct RenderableInstance
     rpe_transform_node_t* transform;
 };
 
+/**
+ A mirror of the layout used by the shaders.
+ */
 typedef struct SceneUbo
 {
     uint32_t model_count;
@@ -122,6 +124,10 @@ typedef struct Scene
     // Per-scene shadow info
     float cascade_offsets[RPE_SHADOW_MANAGER_MAX_CASCADE_COUNT];
     rpe_shadow_map shadow_map;
+
+    // Start and end indices for the colour and shadow pass secondary commands.
+    uint32_t colour_sc_indices[2];
+    uint32_t shadow_sc_indices[2];
 
 } rpe_scene_t;
 

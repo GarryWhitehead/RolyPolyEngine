@@ -142,8 +142,7 @@ job_t* _pop(job_queue_t* jq, thread_info_t* info)
         assert(idx > 0);
         job = &jq->job_cache[idx - 1];
     }
-
-    if (!job)
+    if (job)
     {
         atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
     }
@@ -177,8 +176,7 @@ job_t* _steal_from_queue(job_queue_t* jq, work_stealing_queue_t* queue)
         assert(idx > 0);
         job = &jq->job_cache[idx - 1];
     }
-
-    if (!job)
+    if (job)
     {
         atomic_fetch_sub_explicit(&jq->active_job_count, 1, memory_order_relaxed);
     }
@@ -222,7 +220,7 @@ void _thread_finish(thread_info_t* info, job_t* job)
         // We need to see the child run count from other threads, hence the acquire barrier. We
         // also want to publish the new count to other threads, so we also use a release
         // barrier.
-        atomic_int_fast16_t count =
+        atomic_int_fast32_t count =
             atomic_fetch_sub_explicit(&job->child_run_count, 1, memory_order_acq_rel) &
             JOB_QUEUE_JOB_COUNT_MASK;
         assert(count > 0);
@@ -303,6 +301,7 @@ job_queue_t* job_queue_init(arena_t* arena, uint32_t num_threads)
     jq->thread_count = num_threads;
     jq->active_job_count = 0;
     jq->adopted_thread_count = 0;
+    jq->job_count = 0;
     jq->exit_thread = false;
     jq->thread_map = HASH_SET_CREATE(uint32_t, thread_info_t*, arena);
     jq->arena = arena;
@@ -347,7 +346,7 @@ job_t* job_queue_create_job(job_queue_t* jq, job_func_t func, void* args, job_t*
     job->parent = UINT16_MAX;
     if (parent)
     {
-        atomic_uint_fast16_t count =
+        atomic_int_fast16_t count =
             atomic_fetch_add_explicit(&parent->child_run_count, 1, memory_order_relaxed);
         assert((count & JOB_QUEUE_JOB_COUNT_MASK) > 0);
         job->parent = parent->idx;

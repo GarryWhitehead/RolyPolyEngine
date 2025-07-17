@@ -26,20 +26,53 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct Settings
+struct SystemSettings
+{
+    /// The maximum number of models that will be drawn in a single scene draw. If the model count
+    /// exceeds this value, then the remaining objects will not be drawn. Increasing this value will
+    /// lead to higher GPU memory usage.
+    size_t max_static_model_draw_count;
+    size_t scratch_arena_size;
+    size_t frame_arena_size;
+    size_t perm_arena_size;
+};
+
+struct ShadowSettings
+{
+    uint32_t cascade_dims;
+    int cascade_count;
+    float split_lambda;
+    bool enable_debug_cascade;
+    uint32_t debug_cascade_idx;
+};
+
+struct Settings
 {
     uint32_t gbuffer_dims;
     bool draw_shadows;
 
-    struct ShadowSettings
-    {
-        uint32_t cascade_dims;
-        int cascade_count;
-        float split_lambda;
-        bool enable_debug_cascade;
-        uint32_t debug_cascade_idx;
-    } shadow;
+    struct ShadowSettings shadow;
+    struct SystemSettings system;
+};
 
-} rpe_settings_t;
+static inline struct Settings rpe_init_settings()
+{
+    struct Settings settings = {0};
+    settings.gbuffer_dims = 2048;
+    settings.draw_shadows = true;
+
+    struct ShadowSettings* shadow_settings = &settings.shadow;
+    shadow_settings->cascade_count = 4;
+    shadow_settings->split_lambda = 0.9f;
+    shadow_settings->cascade_dims = 2048;
+
+    struct SystemSettings* system_settings = &settings.system;
+    system_settings->max_static_model_draw_count = 10000;
+    system_settings->scratch_arena_size = 1 << 25;
+    system_settings->perm_arena_size = 1 << 30;
+    system_settings->frame_arena_size = 1 << 30;
+
+    return settings;
+}
 
 #endif

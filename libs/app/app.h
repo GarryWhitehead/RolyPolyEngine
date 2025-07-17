@@ -45,8 +45,8 @@
 
 typedef struct Engine rpe_engine_t;
 
-typedef void (*PreRenderFunc)(rpe_engine_t*, void*);
-typedef void (*PostRenderFunc)(rpe_engine_t*, void*);
+typedef void (*PreRenderFunc)(rpe_engine_t*, void*, double dt);
+typedef void (*PostRenderFunc)(rpe_engine_t*, void*, double dt);
 
 #ifndef NDEBUG
 typedef struct AppDebugRegistry
@@ -95,7 +95,7 @@ int rpe_app_init(
     uint32_t win_width,
     uint32_t win_height,
     rpe_app_t* new_app,
-    rpe_settings_t* settings,
+    struct Settings* settings,
     bool show_ui);
 
 /**
